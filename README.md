@@ -1,15 +1,25 @@
-# CPEN321_26W1_ProjectName
+# Fabricate (CPEN 321 — M1)
 
-_Keep this README up to date with the steps required to build and run the frontend and backend (including any scripts, config files, and environment variables). TAs ill follow these instructions._
+An Android app skeleton with a Node.js/TypeScript back-end. The app has three
+independent features:
+
+1. **Login + Server** — Google Sign-In, then displays the server/client IP
+   addresses, server/client local times, the app owner's name (from a back-end
+   API), and the signed-in user's name.
+2. **Live Updates** — a 16×16 pixel-art canvas that fills in live, streamed from
+   a course web-socket server and relayed through the back-end.
+3. **Timer** — a countdown timer that, on completion, fetches and displays a
+   trivia question (Open Trivia DB).
+
+_Keep this README up to date with the steps required to build and run the frontend and backend._
 
 ## Requirements
 
 Install the following before the frontend or backend setup steps:
 
-- [git](https://git-scm.com/install/)
+- [git](https://git-scm.com/)
 
-
---- 
+---
 
 ## Frontend Setup
 
@@ -17,110 +27,91 @@ Install the following before the frontend or backend setup steps:
 
 - [Android Studio](https://developer.android.com/studio) (latest version)
 - [Java 17](https://adoptium.net/temurin/releases/?version=17)
-- [Android SDK](https://developer.android.com/studio#command-tools) with API level 36+ (Android 16)
+- [Android SDK](https://developer.android.com/studio) with API level 36 (Android 16 / "Baklava")
 
 ### Setup
 
-1. **Open project**: Open the `frontend/` directory in Android Studio
-2. **Sync Gradle**: Android Studio will automatically prompt you to sync the project. Click "Sync Now". You can also manually run `cd frontend && ./gradlew build` to trigger the sync and download the necessary dependencies.
-3. **Configure Android SDK**: Ensure you have Android SDK 36 installed.
+1. **Open project**: Open the `frontend/` directory in Android Studio.
+2. **Sync Gradle**: Click "Sync Now" when prompted (or run `cd frontend && ./gradlew build`).
+3. **Configure Android SDK**: Ensure Android SDK API 36 is installed.
 4. **Set up emulator/device**:
-   - Create a new AVD (Android Virtual Device) by selecting Pixel 9 as the device and Android Baklava (API level 36) as the system image.
-   - Alternatively, connect a physical Android device running Android 16 (API level 36).
-5. **Setup app config**: Copy the example file, then fill in local values:
+   - Create an AVD with **Pixel 9** and the **Android Baklava (API 36)** system image, **or**
+   - Connect a physical Android device running API 36.
+5. **Set up app config**: copy the example file and fill in local values:
    ```bash
    cp frontend/local.properties.example frontend/local.properties
    ```
-   Set at least:
-   - `sdk.dir`: path to your Android SDK. Android Studio usually writes this the first time you open `frontend/`. On Mac it is often `sdk.dir=/Users/<username>/Library/Android/sdk`.
-   - `API_BASE_URL`: backend URL baked into the APK. Use `http://10.0.2.2:3000` for the emulator (`10.0.2.2` is the host machine). For a physical device on the same Wi-Fi, use `http://<your-lan-ip>:3000`.
-
+   Set:
+   - `sdk.dir`: path to your Android SDK (Android Studio usually writes this automatically).
+   - `API_BASE_URL`: the back-end URL baked into the app. Choose one:
+     - **Deployed back-end (recommended, already running):** `https://api.evannawfal.com`
+     - **Local back-end on the emulator:** `http://10.0.2.2:3000` (`10.0.2.2` is the host machine)
+     - **Local back-end on a physical device (same Wi-Fi):** `http://<your-lan-ip>:3000`
 
 ### Build and Run
 
-- **Debug build**: Click the green play button in the toolbar, to compile the code, package a debug APK, and install it on the connected device or running emulator. Alternatively, from the project root, run `./scripts/run-frontend.sh`.
-- **Release build**: Go to Build -> Generate Signed App Bundle or APK -> APK. Follow the on-screen instructions to create a key, and select the "release" build variant. You will then have to manually install the generated APK on your device or the running emulator.
-
-
-### Backend Configuration
-
-Ensure the backend server is running and update the base URL in the app configuration if needed.
+- **Debug build**: click the green ▶ button in Android Studio to build, install, and run on the emulator/device. (Or `./scripts/run-frontend.sh` from the project root.)
+- **Release build**: Build → Generate Signed App Bundle or APK → APK → select the **release** variant → install the generated APK.
 
 ---
+
 ## Backend Setup
 
-You can run the backend in one of two ways:
-* Locally via Node.js 
-* Via Docker Compose
-
-Both ways use the same `backend/.env` file (see below).
+You can run the back-end either locally via Node.js or via Docker Compose.
 
 ### Environment configuration
 
-From the project root:
+This M1 back-end requires **no environment variables** — it runs out of the box.
+The only optional setting is the port:
 
 ```bash
-cp backend/.env.example backend/.env
+cp backend/.env.example backend/.env   # optional
 ```
+- `PORT` (optional): defaults to `3000`.
 
-Set at least:
-- `JWT_SECRET`: a long random string used to sign auth tokens.
-- `MONGODB_URI`: only needed for local development (default in `.env.example` assumes MongoDB on `localhost:27017`). Ignored when running via Docker Compose.
-- `PORT` (optional): defaults to `3000` if unset.
-
+> Note: the `.env.example` also lists `MONGODB_URI`, `JWT_SECRET`, and
+> `GOOGLE_CLIENT_ID` from the project template. This M1 back-end does **not** use
+> a database, JWT, or a server-side OAuth client, so those are not required.
 
 ### Option 1: Run locally
 
-**Requirements:** 
-- [Node.js](https://nodejs.org/en/download/) 22+
-- [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) 10+
+**Requirements:** [Node.js](https://nodejs.org/en/download/) 22+, [npm](https://docs.npmjs.com/) 10+
 
-**Setup:** 
-1. Install dependencies:
-
-   ```bash
-   cd backend
-   npm install
-   ```
-
-2. **Development** (TypeScript with auto-reload):
-
-   ```bash
-   npm run dev
-   ```
-
-3. **Production build** (optional):
-
-   ```bash
-   npm run build
-   npm start
-   ```
+```bash
+cd backend
+npm install
+npm run dev          # development, auto-reload
+# or:
+npm run build && npm start   # production
+```
+The server listens on `http://localhost:3000`. Verify with `curl http://localhost:3000/health` → `{"status":"ok"}`.
 
 ### Option 2: Run with Docker Compose
 
-**Requirements:** 
-- [Docker](https://docs.docker.com/desktop/setup/install) and [Docker Compose](https://docs.docker.com/desktop/setup/install) v2.24+
-- [curl](https://curl.se/download.html)
+**Requirements:** [Docker + Docker Compose](https://docs.docker.com/desktop/) v2.24+, curl
 
-**Setup**
-1. **Start** (from the project root):
+```bash
+./scripts/run-backend.sh      # from the project root
+# or: docker compose up --build -d
+docker compose down           # to stop
+```
 
-   ```bash
-   ./scripts/run-backend.sh
-   ```
+---
 
-   Or run Compose directly:
+## Deployed Back-end (already live)
 
-   ```bash
-   docker compose up --build -d
-   ```
+For grading, the back-end is already deployed and running — you do **not** need to
+deploy it yourself:
 
-2. **Stop**:
+- **URL:** `https://api.evannawfal.com`
+- **Public IP:** `104.154.109.127`
+- Hosted on a Google Cloud Compute Engine VM, with [Caddy](https://caddyserver.com/) as a reverse proxy providing HTTPS (Let's Encrypt).
+- It will remain running from the submission deadline until grades are posted.
 
-   ```bash
-   docker compose down
-   ```
+The submitted release APK is already configured to use this URL, so it works on a
+fresh emulator with no additional setup.
 
-## Additional Setup
+## Google Sign-In
 
-_Please specify any other additional setup steps non-specific to either frontend nor backend_
+The Google OAuth app is **published to production**, so any Google account can sign
+in. No credentials or client IDs need to be configured in the app.
