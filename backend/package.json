@@ -4,6 +4,7 @@
   "private": true,
   "description": "Backend service for the CPEN 321 term project",
   "main": "dist/index.js",
+  "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.build.json",
@@ -20,6 +21,7 @@
   "dependencies": {
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "three": "^0.186.1",
     "ws": "^8.21.3"
   },
   "devDependencies": {
