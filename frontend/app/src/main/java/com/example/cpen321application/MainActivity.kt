@@ -47,6 +47,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.cpen321application.network.BackendApi
 import com.example.cpen321application.network.TriviaQuestion
+import com.example.cpen321application.screens.AvatarScreen
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -72,7 +73,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             CPEN321ApplicationTheme {
-                AppRoot()
+                AvatarScreen()
             }
         }
     }
