@@ -8,7 +8,7 @@ coverage/
 
 *.log
 .DS_Store
-
+*.glb
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
