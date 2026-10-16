@@ -7,6 +7,8 @@ export function createApp(): Express {
   // So req.ip reflects the real client when behind a reverse proxy.
   app.set('trust proxy', true);
 
+  app.use(express.json());
+
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });

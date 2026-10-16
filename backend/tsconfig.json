@@ -15,6 +15,7 @@
     "exactOptionalPropertyTypes": true,
 
     "esModuleInterop": true,
+    "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "declaration": false,
