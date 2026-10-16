@@ -6,9 +6,9 @@ Procedural generation of a simplified, smooth 3D human avatar. The avatar is gen
 
 ```text
 avatar/
-├── sdf.js              # Defines the avatar using signed distance fields
-├── meshGenerator.js    # Samples the SDF and generates a triangle mesh
-├── exportAvatar.js     # Exports the generated avatar as a GLB file
+├── sdf.ts              # Defines the avatar using signed distance fields
+├── meshGenerator.ts    # Samples the SDF and generates a triangle mesh
+├── exportAvatar.ts     # Exports the generated avatar as a GLB file
 └── README.md
 ```
 
@@ -16,18 +16,18 @@ avatar/
 
 The avatar generation pipeline consists of three stages:
 
-1. **Shape definition (`sdf.js`)**
+1. **Shape definition (`sdf.ts`)**
    - Defines body parts using signed distance functions, including ellipsoids, capsules, and rounded boxes.
    - Combines shapes using smooth minimum operations to create a continuous-looking surface.
    - Exposes parameters to customize the mannequin's dimensions.
 
-2. **Mesh generation (`meshGenerator.js`)**
+2. **Mesh generation (`meshGenerator.ts`)**
    - Samples the SDF over a 3D grid.
    - Uses marching tetrahedra to extract a triangle mesh from the zero-level surface.
    - Converts the generated vertices and triangles into a Three.js `BufferGeometry`.
    - Controls mesh detail through the grid resolution.
 
-3. **GLB export (`exportAvatar.js`)**
+3. **GLB export (`exportAvatar.ts`)**
    - Creates a Three.js mesh with a material.
    - Uses `GLTFExporter` to export the avatar in GLB format.
    - Writes the resulting model to a file for use in other 3D applications or downstream workflows.
@@ -41,7 +41,7 @@ The avatar generation pipeline consists of three stages:
 Install the dependency if it is not already installed:
 
 ```bash
-npm install three
+npm install -D @types/three                 
 ```
 
 The project must support ES modules for the `import` and `export` syntax used by these files.
@@ -57,11 +57,11 @@ The generator accepts parameters to control the mannequin's dimensions and mesh 
 | `chestWidth` | Chest width |
 | `waistWidth` | Waist width |
 | `hipWidth` | Hip width |
-| `resolution` | Spacing between SDF samples; smaller values generally produce more detailed meshes |
+| `resolution` | Spacing between SDF samples; smaller values generally produce more detailed meshes; hardcoded in backend to avoid user create expensive meshes |
 
-Example configuration in `exportAvatar.js`:
+Example configuration in `exportAvatar.ts`:
 
-```js
+```ts
 const options = {
   height: 1.85,
   shoulderWidth: 0.40,
@@ -79,7 +79,7 @@ Dimensions are expressed in **meters**.
 Run the export script from the project root:
 
 ```bash
-node src/avatar/exportAvatar.js
+node src/avatar/exportAvatar.ts
 ```
 
 The script generates a GLB file according to the output path configured in `exportAvatar.js`.

@@ -1,3 +1,5 @@
+import { AvatarParameters, Vec3 } from "./types.js";
+
 /**
  * Default ratios 
  */
@@ -13,7 +15,13 @@ const DEFAULTS = {
  * center = [x, y, z]
  * radii  = [rx, ry, rz]
  */
-export function sdEllipsoid(x, y, z, center, radii) {
+export function sdEllipsoid(
+  x: number,
+  y: number,
+  z: number,
+  center: Vec3,
+  radii: Vec3,
+): number {
   const qx = x - center[0];
   const qy = y - center[1];
   const qz = z - center[2];
@@ -36,11 +44,17 @@ export function sdEllipsoid(x, y, z, center, radii) {
  * halfSize = [sx, sy, sz]
  * radii  = [rx, ry, rz]
  */
-export function sdRoundedBox(x, y, z, center, halfSize, radius) {
+export function sdRoundedBox(
+  x: number,
+  y: number,
+  z: number,
+  center: Vec3,
+  halfSize: Vec3,
+  radius: number,
+): number {
   const qx = Math.abs(x - center[0]) - halfSize[0] + radius;
   const qy = Math.abs(y - center[1]) - halfSize[1] + radius;
   const qz = Math.abs(z - center[2]) - halfSize[2] + radius;
-
   return (
     Math.hypot(
       Math.max(qx, 0),
@@ -55,7 +69,14 @@ export function sdRoundedBox(x, y, z, center, halfSize, radius) {
 /**
  * Signed distance to a capsule around segment A to B.
  */
-export function sdCapsule(x, y, z, a, b, radius) {
+export function sdCapsule(
+  x: number,
+  y: number,
+  z: number,
+  a: Vec3,
+  b: Vec3,
+  radius: number,
+): number {
   const pax = x - a[0];
   const pay = y - a[1];
   const paz = z - a[2];
@@ -63,16 +84,13 @@ export function sdCapsule(x, y, z, a, b, radius) {
   const bax = b[0] - a[0];
   const bay = b[1] - a[1];
   const baz = b[2] - a[2];
-
   const denominator = bax * bax + bay * bay + baz * baz;
-
   const t = denominator > 0
     ? Math.max(
         0,
         Math.min(1, (pax * bax + pay * bay + paz * baz) / denominator)
       )
     : 0;
-
   return Math.hypot(
     pax - bax * t,
     pay - bay * t,
@@ -84,7 +102,11 @@ export function sdCapsule(x, y, z, a, b, radius) {
  * Smoothly combines two SDFs.
  * Smaller k = tighter blend.
  */
-export function smoothMin(a, b, k) {
+export function smoothMin(
+  a: number,
+  b: number,
+  k: number,
+): number {
   if (k <= 0) return Math.min(a, b);
   const h = Math.max(k - Math.abs(a - b), 0) / k;
   return Math.min(a, b) - (k * h * h) / 4;
@@ -102,7 +124,13 @@ const HEAD_PARAMS = {
 /**
  * Define head part using params
  */
-function defineHead(x, y, z, headY, headHeight) { 
+function defineHead(
+  x: number,
+  y: number,
+  z: number,
+  headY: number,
+  headHeight: number
+): number { 
   return sdEllipsoid(
     x, y, z,
     [0, headY, 0],
@@ -118,13 +146,20 @@ function defineHead(x, y, z, headY, headHeight) {
  * Parameters for defining neck
  */
 const NECK_PARAMS = {
-  radiusToWidth: 0.42
+  radiusToWidth: 0.42,
 }
 
 /**
  * Define neck part using params
  */
-function defineNeck(x, y, z, neckWidth, neckBottom, neckTop) { 
+function defineNeck(
+  x: number,
+  y: number,
+  z: number,
+  neckWidth: number,
+  neckBottom: number,
+  neckTop: number,
+): number { 
   const neckRadius = neckWidth * NECK_PARAMS.radiusToWidth;
   return sdCapsule(
     x, y, z,
@@ -146,7 +181,13 @@ const SHOULDER_PARAMS = {
 /**
  * Define shoulder part using params
  */
-function defineShoulder(x, y, z, shoulderY, shoulderWidth) { 
+function defineShoulder(
+  x: number,
+  y: number,
+  z: number,
+  shoulderY: number,
+  shoulderWidth: number,
+): number { 
   return sdEllipsoid(
     x, y, z,
     [0, shoulderY, 0],
@@ -170,7 +211,13 @@ const CHEST_PARAMS = {
 /**
  * Define chest part using params
  */
-function defineChest(x, y, z, chestY, chestWidth) {
+function defineChest(
+  x: number,
+  y: number,
+  z: number,
+  chestY: number,
+  chestWidth: number
+): number {
   return sdEllipsoid(
     x, y, z,
     [0, chestY, 0],
@@ -194,7 +241,14 @@ const WAIST_PARAMS = {
 /**
  * Define head waist using params
  */
-function defineWaist(x, y, z, waistY, waistWidth, h, depth) {
+function defineWaist(
+  x: number,
+  y: number,
+  z: number,
+  waistY: number,
+  waistWidth: number,
+  h: number,
+  depth: number) {
   return sdEllipsoid(
     x, y, z,
     [0, waistY, 0],
@@ -223,7 +277,15 @@ const ARMS_PARAMS = {
 /**
  * Define arm parts using params
  */
-function defineArms(x, y, z, p, shoulderY, h, blend) {
+function defineArms(
+  x: number,
+  y: number,
+  z: number,
+  p: AvatarParameters,
+  shoulderY: number,
+  h: number,
+  blend: number,
+): number {
   const armLength = p.armLengthRatio * h;
   const upperLength = armLength * ARMS_PARAMS.upperLengthToArmLength;
   const forearmLength = armLength * (1.0 - ARMS_PARAMS.upperLengthToArmLength);
@@ -240,22 +302,22 @@ function defineArms(x, y, z, p, shoulderY, h, blend) {
       p.shoulderWidth * ARMS_PARAMS.shoulderXToShoulderWidth + upperLength * Math.sin(ARMS_PARAMS.armToBodyAngleRad)
     );
     const wristX = elbowX + side * forearmLength *  Math.sin(ARMS_PARAMS.forearmToBodyAngleRad);
-    const shoulder = [shoulderX, shoulderY * ARMS_PARAMS.shoulderJoinY, 0];
+    const shoulder = [shoulderX, shoulderY * ARMS_PARAMS.shoulderJoinY, 0] as Vec3;
     const elbow = [
       elbowX,
       shoulder[1] - upperLength * Math.cos(ARMS_PARAMS.armToBodyAngleRad) * 0.95,
       0,
-    ];
+    ] as Vec3;
     const wrist = [
       wristX,
       elbow[1] - forearmLength * Math.cos(ARMS_PARAMS.forearmToBodyAngleRad) * 0.95,
       0,
-    ];
+    ] as Vec3;
     const handEnd = [
       wristX,
       wrist[1] - handLength,
       0,
-    ];
+    ] as Vec3;
 
     const upperArm = sdCapsule(
       x, y, z, shoulder, elbow, upperRadius
@@ -296,7 +358,15 @@ const LEGS_PARAMS = {
 /**
  * Define leg parts using params
  */
-function defineLegs(x, y, z, p, waistY, h, blend) {
+function defineLegs(
+  x: number,
+  y: number,
+  z: number,
+  p: AvatarParameters,
+  waistY: number,
+  h: number,
+  blend: number,
+): number {
   const legLength = p.legLengthRatio * h ;
   const upperLength = legLength * LEGS_PARAMS.upperLengthToLegLength;
   const lowerLength = legLength - upperLength;
@@ -304,23 +374,22 @@ function defineLegs(x, y, z, p, waistY, h, blend) {
   const lowerRadius = legLength * LEGS_PARAMS.lowerRadiusToLegLength;
 
   let legs = Infinity;
-
   for (const side of [-1, 1]) {
     const hipX = side * p.hipWidth * LEGS_PARAMS.hipStart;
     const kneeX = hipX + side * Math.sin(LEGS_PARAMS.upperLegToVerticleRad) * upperLength;
     const ankleX = kneeX + side * Math.sin(LEGS_PARAMS.lowerLegToVerticleRad) * lowerLength;
 
-    const hip = [hipX, waistY - h * WAIST_PARAMS.yToHeight * 0.85, 0];
+    const hip = [hipX, waistY - h * WAIST_PARAMS.yToHeight * 0.85, 0] as Vec3;
     const knee = [
       kneeX,
       hip[1] - upperLength * Math.cos(LEGS_PARAMS.upperLegToVerticleRad) * 0.70,
       0,
-    ];
+    ] as Vec3;
     const ankle = [
       ankleX,
       knee[1] - lowerLength * Math.cos(LEGS_PARAMS.lowerLegToVerticleRad) * 0.70,
       0,
-    ];
+    ] as Vec3;
     const thigh = sdCapsule(
       x, y, z, hip, knee, upperRadius
     );
@@ -347,8 +416,13 @@ function defineLegs(x, y, z, p, waistY, h, blend) {
 /**
  * Signed distance to the core avatar.
  */
-export function avatarSDF(x, y, z, options = {}) {
-  const p = { ...DEFAULTS, ...options };
+export function avatarSDF(
+  x: number,
+  y: number,
+  z: number,
+  options = {}
+): number {
+  const p = { ...DEFAULTS, ...options } as AvatarParameters;
   const h = p.height;
 
   const headY = h * 0.925;
