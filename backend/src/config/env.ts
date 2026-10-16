@@ -22,4 +22,5 @@ export const env = {
   port,
   googleClientId: getEnvVar('GOOGLE_CLIENT_ID'),
   jwtAccessSecret: getEnvVar('JWT_SECRET'),
+  mongodbUri: getEnvVar('MONGODB_URI'),
 } as const;

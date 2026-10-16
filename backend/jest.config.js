@@ -1,7 +1,8 @@
 import { createDefaultEsmPreset } from 'ts-jest';
 
 export default {
-  ...createDefaultEsmPreset(),
+  // Source maps keep coverage line numbers pointing at the .ts source (tsconfig disables them for builds).
+  ...createDefaultEsmPreset({ tsconfig: { sourceMap: true } }),
   testEnvironment: 'node',
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   setupFiles: ['<rootDir>/tests/setupEnv.ts'],
