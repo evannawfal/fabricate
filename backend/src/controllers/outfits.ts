@@ -9,8 +9,13 @@ const INVALID_ID = { error: 'Invalid outfit id' };
 const NOT_FOUND = { error: 'Outfit not found' };
 const ITEMS_NOT_OWNED = { error: 'All items must be clothing items in your closet' };
 
-async function ownsAllItems(userId: string, itemIds: string[]): Promise<boolean> {
-  const count = await ClothingItem.countDocuments({ _id: { $in: itemIds }, owner: userId });
+// Items must be in the user's closet. Archived items are only allowed if the outfit already had them.
+async function ownsAllItems(userId: string, itemIds: string[], existingItemIds: string[] = []): Promise<boolean> {
+  const count = await ClothingItem.countDocuments({
+    _id: { $in: itemIds },
+    owner: userId,
+    $or: [{ isArchived: false }, { _id: { $in: existingItemIds } }],
+  });
   return count === itemIds.length;
 }
 
@@ -81,7 +86,12 @@ export async function updateOutfit(req: AuthedRequest, res: Response) {
     return res.status(400).json({ error: update.error });
   }
   const userId = getUserId(req);
-  if (update.value.items !== undefined && !(await ownsAllItems(userId, update.value.items))) {
+  const existing = await Outfit.findOne({ _id: id, owner: userId });
+  if (!existing) {
+    return res.status(404).json(NOT_FOUND);
+  }
+  const existingItemIds = existing.items.map((itemId) => itemId.toString());
+  if (update.value.items !== undefined && !(await ownsAllItems(userId, update.value.items, existingItemIds))) {
     return res.status(400).json(ITEMS_NOT_OWNED);
   }
   const outfit = await Outfit.findOneAndUpdate(

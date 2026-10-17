@@ -24,11 +24,14 @@ const clothingItemSchema = new Schema(
     isClean: { type: Boolean, default: true },
     // Storage key of the item's photo (not a URL); download URLs are generated when needed.
     imageKey: { type: String, required: true },
+    // Removed items are archived, not deleted, so past outfits that used them still show them.
+    isArchived: { type: Boolean, default: false },
+    archivedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
 
-clothingItemSchema.index({ owner: 1, category: 1 });
+clothingItemSchema.index({ owner: 1, isArchived: 1, category: 1 });
 
 export type ClothingItemDocument = HydratedDocument<InferSchemaType<typeof clothingItemSchema>>;
 
@@ -42,6 +45,7 @@ export interface ClothingItemResponse {
   style: string;
   tags: string[];
   isClean: boolean;
+  isArchived: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,6 +60,7 @@ export function toClothingItemResponse(item: ClothingItemDocument): ClothingItem
     style: item.style,
     tags: [...item.tags],
     isClean: item.isClean,
+    isArchived: item.isArchived,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };

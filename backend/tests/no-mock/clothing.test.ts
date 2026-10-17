@@ -2,7 +2,6 @@ import request from 'supertest';
 
 import { createApp } from '../../src/app.js';
 import { ClothingItem } from '../../src/models/clothingItem.js';
-import { Outfit } from '../../src/models/outfit.js';
 import {
   clearTestDatabase,
   DATABASE_SETUP_TIMEOUT_MS,
@@ -59,8 +58,23 @@ describe('Unmocked: GET /clothing', () => {
     expect(response.status).toBe(200);
     expect(response.body.items.map((item: { name: string }) => item.name)).toEqual(['New jeans', 'Old shirt']);
     expect(Object.keys(response.body.items[0]).sort()).toEqual(
-      ['category', 'color', 'createdAt', 'id', 'isClean', 'name', 'style', 'tags', 'updatedAt'].sort()
+      ['category', 'color', 'createdAt', 'id', 'isArchived', 'isClean', 'name', 'style', 'tags', 'updatedAt'].sort()
     );
+  });
+
+  // Input: signed-in user with one active and one archived item
+  // Expected status code: 200
+  // Expected behavior: archived items are not part of the closet
+  // Expected output: only the active item
+  test('Leaves out archived items', async () => {
+    const user = await createUser();
+    await createClothingItem(user.id, { name: 'Current shirt' });
+    await createClothingItem(user.id, { name: 'Old shirt', isArchived: true });
+
+    const response = await request(app).get('/clothing').set('Authorization', authHeader(user.id));
+
+    expect(response.status).toBe(200);
+    expect(response.body.items.map((item: { name: string }) => item.name)).toEqual(['Current shirt']);
   });
 
   // Input: ?category=top
@@ -143,7 +157,22 @@ describe('Unmocked: GET /clothing/:id', () => {
       style: 'casual',
       tags: ['winter'],
       isClean: true,
+      isArchived: false,
     });
+  });
+
+  // Input: id of one of the user's archived items (e.g. opened from a past outfit)
+  // Expected status code: 200
+  // Expected behavior: nothing is changed
+  // Expected output: the item's details, marked as archived
+  test('Archived item', async () => {
+    const user = await createUser();
+    const item = await createClothingItem(user.id, { isArchived: true });
+
+    const response = await request(app).get(`/clothing/${item.id}`).set('Authorization', authHeader(user.id));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ id: item.id, isArchived: true });
   });
 
   // Input: id of another user's item
@@ -321,6 +350,25 @@ describe('Unmocked: PATCH /clothing/:id', () => {
     expect(response.body).toHaveProperty('error');
   });
 
+  // Input: id of one of the user's archived items
+  // Expected status code: 409
+  // Expected behavior: archived items can't be edited; item is unchanged
+  // Expected output: { error: "Clothing item is archived and can no longer be edited" }
+  test('Archived item', async () => {
+    const user = await createUser();
+    const item = await createClothingItem(user.id, { isArchived: true });
+
+    const response = await request(app)
+      .patch(`/clothing/${item.id}`)
+      .set('Authorization', authHeader(user.id))
+      .send({ name: 'Renamed' });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: 'Clothing item is archived and can no longer be edited' });
+    const saved = await ClothingItem.findById(item.id);
+    expect(saved?.name).toBe('Blue shirt');
+  });
+
   // Input: id of another user's item
   // Expected status code: 404
   // Expected behavior: the other user's item is unchanged
@@ -370,7 +418,7 @@ describe('Unmocked: PATCH /clothing/:id', () => {
 describe('Unmocked: DELETE /clothing/:id', () => {
   // Input: id of one of the user's items that is used in an outfit
   // Expected status code: 204
-  // Expected behavior: item is deleted and removed from the outfit; the outfit is kept
+  // Expected behavior: item is archived, not deleted: it leaves the closet but the outfit still shows it
   // Expected output: empty body
   test('Own item used in an outfit', async () => {
     const user = await createUser();
@@ -382,9 +430,30 @@ describe('Unmocked: DELETE /clothing/:id', () => {
 
     expect(response.status).toBe(204);
     expect(response.text).toBe('');
-    expect(await ClothingItem.findById(shirt.id)).toBeNull();
-    const savedOutfit = await Outfit.findById(outfit.id);
-    expect(savedOutfit?.items.map((id) => id.toString())).toEqual([jeans.id]);
+    const saved = await ClothingItem.findById(shirt.id);
+    expect(saved?.isArchived).toBe(true);
+    expect(saved?.archivedAt).toBeInstanceOf(Date);
+    const closet = await request(app).get('/clothing').set('Authorization', authHeader(user.id));
+    expect(closet.body.items.map((item: { name: string }) => item.name)).toEqual(['Jeans']);
+    const savedOutfit = await request(app).get(`/outfits/${outfit.id}`).set('Authorization', authHeader(user.id));
+    expect(savedOutfit.body.items.map((item: { name: string; isArchived: boolean }) => [item.name, item.isArchived])).toEqual([
+      ['Blue shirt', true],
+      ['Jeans', false],
+    ]);
+  });
+
+  // Input: id of an item that is already archived
+  // Expected status code: 404
+  // Expected behavior: nothing is changed
+  // Expected output: { error: "Clothing item not found" }
+  test('Already archived item', async () => {
+    const user = await createUser();
+    const item = await createClothingItem(user.id, { isArchived: true });
+
+    const response = await request(app).delete(`/clothing/${item.id}`).set('Authorization', authHeader(user.id));
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'Clothing item not found' });
   });
 
   // Input: id of another user's item

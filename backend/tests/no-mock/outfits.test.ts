@@ -122,6 +122,24 @@ describe('Unmocked: POST /outfits', () => {
     expect(await Outfit.countDocuments()).toBe(0);
   });
 
+  // Input: one of the user's archived items
+  // Expected status code: 400
+  // Expected behavior: archived items can't be used in new outfits; no outfit is saved
+  // Expected output: { error: "All items must be clothing items in your closet" }
+  test('Includes an archived item', async () => {
+    const { user, shirt } = await userWithCloset();
+    const oldJacket = await createClothingItem(user.id, { name: 'Old jacket', isArchived: true });
+
+    const response = await request(app)
+      .post('/outfits')
+      .set('Authorization', authHeader(user.id))
+      .send({ name: 'Look', items: [shirt.id, oldJacket.id] });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'All items must be clothing items in your closet' });
+    expect(await Outfit.countDocuments()).toBe(0);
+  });
+
   // Input: an item id that doesn't exist
   // Expected status code: 400
   // Expected behavior: no outfit is saved
@@ -296,6 +314,46 @@ describe('Unmocked: PATCH /outfits/:id', () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ error: 'All items must be clothing items in your closet' });
+    const saved = await Outfit.findById(outfit.id);
+    expect(saved?.items.map((id) => id.toString())).toEqual([shirt.id]);
+  });
+
+  // Input: new item list for an outfit that contains an item archived since it was saved
+  // Expected status code: 200
+  // Expected behavior: the outfit can keep its archived item
+  // Expected output: the updated outfit, still including the archived item
+  test('Keeps an archived item it already had', async () => {
+    const { user, shirt, jeans } = await userWithCloset();
+    const outfit = await createOutfit(user.id, [shirt.id]);
+    await ClothingItem.updateOne({ _id: shirt.id }, { isArchived: true });
+
+    const response = await request(app)
+      .patch(`/outfits/${outfit.id}`)
+      .set('Authorization', authHeader(user.id))
+      .send({ items: [shirt.id, jeans.id] });
+
+    expect(response.status).toBe(200);
+    expect(response.body.items.map((item: { name: string; isArchived: boolean }) => [item.name, item.isArchived])).toEqual([
+      ['Shirt', true],
+      ['Jeans', false],
+    ]);
+  });
+
+  // Input: item list that adds an archived item the outfit didn't have
+  // Expected status code: 400
+  // Expected behavior: outfit is unchanged
+  // Expected output: { error: "All items must be clothing items in your closet" }
+  test('Adds a different archived item', async () => {
+    const { user, shirt } = await userWithCloset();
+    const oldJacket = await createClothingItem(user.id, { name: 'Old jacket', isArchived: true });
+    const outfit = await createOutfit(user.id, [shirt.id]);
+
+    const response = await request(app)
+      .patch(`/outfits/${outfit.id}`)
+      .set('Authorization', authHeader(user.id))
+      .send({ items: [shirt.id, oldJacket.id] });
+
+    expect(response.status).toBe(400);
     const saved = await Outfit.findById(outfit.id);
     expect(saved?.items.map((id) => id.toString())).toEqual([shirt.id]);
   });

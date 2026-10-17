@@ -31,6 +31,7 @@ export interface ClothingItemOverrides {
   style?: string;
   tags?: string[];
   isClean?: boolean;
+  isArchived?: boolean;
 }
 
 export async function createClothingItem(ownerId: string, overrides: ClothingItemOverrides = {}) {
