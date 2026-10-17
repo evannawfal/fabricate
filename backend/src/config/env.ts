@@ -28,14 +28,11 @@ export const env = {
   googleClientId: getEnvVar('GOOGLE_CLIENT_ID'),
   jwtAccessSecret: getEnvVar('JWT_SECRET'),
   mongodbUri: getEnvVar('MONGODB_URI'),
-  // File storage is optional so the server can run without it; features that store files
-  // report it as unavailable. AWS credentials are read by the AWS SDK from AWS_ACCESS_KEY_ID
-  // and AWS_SECRET_ACCESS_KEY.
+  // File storage (Azure Blob Storage) is optional so the server can run without it;
+  // features that store files report it as unavailable.
   storage: {
-    bucket: getOptionalEnvVar('S3_BUCKET'),
-    region: getOptionalEnvVar('AWS_REGION'),
-    // Only for S3-compatible services other than AWS (e.g. Google Cloud Storage, MinIO).
-    endpoint: getOptionalEnvVar('S3_ENDPOINT'),
-    forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true',
+    // Must include the account key (needed to sign download URLs).
+    connectionString: getOptionalEnvVar('AZURE_STORAGE_CONNECTION_STRING'),
+    container: getOptionalEnvVar('AZURE_STORAGE_CONTAINER'),
   },
 } as const;

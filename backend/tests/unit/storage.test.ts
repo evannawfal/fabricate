@@ -1,11 +1,11 @@
 import { jest } from '@jest/globals';
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { BlobClient, BlockBlobClient, ContainerClient } from '@azure/storage-blob';
 import type { Response } from 'express';
 
 import { errorHandler } from '../../src/middleware/errorHandler.js';
 import { getAvatarModelUrl, saveAvatarModel } from '../../src/services/avatarStorage.js';
 import {
-  createS3FileStorage,
+  createBlobFileStorage,
   getFileStorage,
   isFileStorageConfigured,
   StorageNotConfiguredError,
@@ -13,16 +13,38 @@ import {
 } from '../../src/services/storage.js';
 import { avatarModelKey, clothingImageKey, CONTENT_TYPES } from '../../src/services/storageKeys.js';
 
-const CONFIG = { bucket: 'test-bucket', region: 'us-west-2' };
 const USER_ID = '0123456789abcdef01234567';
+// Fake account: signing URLs works offline, and every network call below is intercepted.
+const CONFIG = {
+  connectionString:
+    'DefaultEndpointsProtocol=https;AccountName=testaccount;AccountKey=dGVzdC1hY2NvdW50LWtleQ==;EndpointSuffix=core.windows.net',
+  container: 'files',
+};
 
-// Static fake credentials: signing URLs works offline and nothing is sent to AWS.
-function createClient(): S3Client {
-  return new S3Client({ region: CONFIG.region, credentials: { accessKeyId: 'test-key', secretAccessKey: 'test-secret' } });
+function createStorage(): FileStorage {
+  return createBlobFileStorage(CONFIG);
 }
 
-function mockSend(client: S3Client) {
-  return jest.spyOn(client, 'send').mockResolvedValue({} as never);
+// Records which blob each call was made on, without contacting Azure.
+function mockBlobCalls() {
+  const uploads: { blob: string; data: unknown; options: unknown }[] = [];
+  const deletes: string[] = [];
+  const createContainer = jest
+    .spyOn(ContainerClient.prototype, 'createIfNotExists')
+    .mockResolvedValue({ succeeded: true } as never);
+  const upload = jest.spyOn(BlockBlobClient.prototype, 'uploadData').mockImplementation(async function (
+    this: BlockBlobClient,
+    data: unknown,
+    options: unknown
+  ) {
+    uploads.push({ blob: this.name, data, options });
+    return {} as never;
+  } as never);
+  jest.spyOn(BlobClient.prototype, 'deleteIfExists').mockImplementation(async function (this: BlobClient) {
+    deletes.push(this.name);
+    return { succeeded: true } as never;
+  } as never);
+  return { uploads, deletes, createContainer, upload };
 }
 
 function fakeStorage(): FileStorage & { uploadFile: jest.Mock; getDownloadUrl: jest.Mock } {
@@ -33,139 +55,139 @@ function fakeStorage(): FileStorage & { uploadFile: jest.Mock; getDownloadUrl: j
   } as unknown as FileStorage & { uploadFile: jest.Mock; getDownloadUrl: jest.Mock };
 }
 
-function restoreEnv(name: string, value: string | undefined): void {
-  if (value === undefined) {
-    delete process.env[name];
-  } else {
-    process.env[name] = value;
-  }
-}
-
 afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('S3 file storage', () => {
-  // Mocked behavior: the S3 client accepts the request
+describe('Azure Blob file storage', () => {
+  // Mocked behavior: Azure accepts the requests
   // Input: key, bytes and content type
-  // Expected behavior: one PutObject request for the configured bucket with the given data
-  test('uploadFile sends the file to the bucket', async () => {
-    const client = createClient();
-    const send = mockSend(client);
-    const storage = createS3FileStorage(CONFIG, client);
+  // Expected behavior: the container is created if needed, then the file is uploaded with its content type
+  test('uploadFile uploads the file to the container', async () => {
+    const calls = mockBlobCalls();
     const bytes = new Uint8Array([1, 2, 3]);
 
-    await storage.uploadFile('avatars/u/model.glb', bytes, CONTENT_TYPES.glb);
+    await createStorage().uploadFile('avatars/u/model.glb', bytes, CONTENT_TYPES.glb);
 
-    expect(send).toHaveBeenCalledTimes(1);
-    const command = send.mock.calls[0]?.[0];
-    expect(command).toBeInstanceOf(PutObjectCommand);
-    expect((command as PutObjectCommand).input).toEqual({
-      Bucket: 'test-bucket',
-      Key: 'avatars/u/model.glb',
-      Body: bytes,
-      ContentType: 'model/gltf-binary',
-    });
+    expect(calls.createContainer).toHaveBeenCalledTimes(1);
+    expect(calls.uploads).toEqual([
+      { blob: 'avatars/u/model.glb', data: bytes, options: { blobHTTPHeaders: { blobContentType: 'model/gltf-binary' } } },
+    ]);
   });
 
-  // Mocked behavior: the S3 client accepts the request
+  // Mocked behavior: Azure accepts the requests
+  // Input: two uploads through the same storage
+  // Expected behavior: the container check only happens once
+  test('Container is only checked once', async () => {
+    const calls = mockBlobCalls();
+    const storage = createStorage();
+
+    await storage.uploadFile('clothing/u/a.jpg', new Uint8Array([1]), CONTENT_TYPES.jpg);
+    await storage.uploadFile('clothing/u/b.jpg', new Uint8Array([2]), CONTENT_TYPES.jpg);
+
+    expect(calls.createContainer).toHaveBeenCalledTimes(1);
+    expect(calls.uploads.map((upload) => upload.blob)).toEqual(['clothing/u/a.jpg', 'clothing/u/b.jpg']);
+  });
+
+  // Mocked behavior: creating the container fails once, then succeeds
+  // Input: two uploads
+  // Expected behavior: the first upload reports the error; the second retries and succeeds
+  test('Container creation is retried after a failure', async () => {
+    const calls = mockBlobCalls();
+    calls.createContainer.mockRejectedValueOnce(new Error('Network down') as never);
+    const storage = createStorage();
+
+    await expect(storage.uploadFile('clothing/u/a.jpg', new Uint8Array([1]), CONTENT_TYPES.jpg)).rejects.toThrow('Network down');
+    await storage.uploadFile('clothing/u/a.jpg', new Uint8Array([1]), CONTENT_TYPES.jpg);
+
+    expect(calls.createContainer).toHaveBeenCalledTimes(2);
+    expect(calls.uploads).toHaveLength(1);
+  });
+
+  // Mocked behavior: Azure accepts the requests
   // Input: an ArrayBuffer (what GLTFExporter produces)
   // Expected behavior: the bytes are uploaded unchanged
   test('uploadFile accepts an ArrayBuffer', async () => {
-    const client = createClient();
-    const send = mockSend(client);
-    const storage = createS3FileStorage(CONFIG, client);
+    const calls = mockBlobCalls();
 
-    await storage.uploadFile('avatars/u/model.glb', new Uint8Array([9, 8]).buffer, CONTENT_TYPES.glb);
+    await createStorage().uploadFile('avatars/u/model.glb', new Uint8Array([9, 8]).buffer, CONTENT_TYPES.glb);
 
-    const body = (send.mock.calls[0]?.[0] as PutObjectCommand).input.Body as Uint8Array;
-    expect(Array.from(body)).toEqual([9, 8]);
+    expect(Array.from(calls.uploads[0]?.data as Uint8Array)).toEqual([9, 8]);
   });
 
-  // Mocked behavior: the S3 client rejects the upload
+  // Mocked behavior: Azure rejects the upload
   // Input: key and bytes
   // Expected behavior: the error is passed on to the caller
   test('uploadFile reports storage errors', async () => {
-    const client = createClient();
-    jest.spyOn(client, 'send').mockRejectedValue(new Error('AccessDenied') as never);
-    const storage = createS3FileStorage(CONFIG, client);
+    const calls = mockBlobCalls();
+    calls.upload.mockRejectedValue(new Error('AuthorizationFailure') as never);
 
-    await expect(storage.uploadFile('clothing/u/a.jpg', new Uint8Array([1]), CONTENT_TYPES.jpg)).rejects.toThrow('AccessDenied');
+    await expect(createStorage().uploadFile('clothing/u/a.jpg', new Uint8Array([1]), CONTENT_TYPES.jpg)).rejects.toThrow(
+      'AuthorizationFailure'
+    );
   });
 
-  // Mocked behavior: the S3 client accepts the request
+  // Mocked behavior: Azure accepts the request
   // Input: key
-  // Expected behavior: one DeleteObject request for that key
+  // Expected behavior: that blob is deleted (no error if it was already gone)
   test('deleteFile removes the file', async () => {
-    const client = createClient();
-    const send = mockSend(client);
-    const storage = createS3FileStorage(CONFIG, client);
+    const calls = mockBlobCalls();
 
-    await storage.deleteFile('clothing/u/a.jpg');
+    await createStorage().deleteFile('clothing/u/a.jpg');
 
-    const command = send.mock.calls[0]?.[0];
-    expect(command).toBeInstanceOf(DeleteObjectCommand);
-    expect((command as DeleteObjectCommand).input).toEqual({ Bucket: 'test-bucket', Key: 'clothing/u/a.jpg' });
+    expect(calls.deletes).toEqual(['clothing/u/a.jpg']);
   });
 
   // Input: key, default expiry
-  // Expected behavior: a signed, private-bucket URL that expires after one hour
+  // Expected behavior: a read-only signed URL for that blob that expires after one hour
   test('getDownloadUrl returns a signed URL', async () => {
-    const storage = createS3FileStorage(CONFIG, createClient());
+    const before = Date.now();
 
-    const url = new URL(await storage.getDownloadUrl('avatars/u/model.glb'));
+    const url = new URL(await createStorage().getDownloadUrl('avatars/u/model.glb'));
 
-    expect(url.hostname).toBe('test-bucket.s3.us-west-2.amazonaws.com');
-    expect(url.pathname).toBe('/avatars/u/model.glb');
-    expect(url.searchParams.get('X-Amz-Expires')).toBe('3600');
-    expect(url.searchParams.get('X-Amz-Signature')).toMatch(/^[a-f0-9]{64}$/);
+    expect(url.hostname).toBe('testaccount.blob.core.windows.net');
+    expect(url.pathname).toBe('/files/avatars/u/model.glb');
+    expect(url.searchParams.get('sp')).toBe('r');
+    expect(url.searchParams.get('sig')).toBeTruthy();
+    const expiresAt = Date.parse(url.searchParams.get('se') ?? '');
+    expect(expiresAt - before).toBeGreaterThan(3590 * 1000);
+    expect(expiresAt - before).toBeLessThan(3610 * 1000);
   });
 
-  // Input: S3-compatible endpoint (e.g. MinIO or Google Cloud Storage) with path-style URLs, custom expiry
-  // Expected behavior: the URL points at that endpoint and uses the requested expiry
-  test('getDownloadUrl works with S3-compatible endpoints', async () => {
-    // Credentials come from the environment, as they do on the server.
-    const saved = { id: process.env.AWS_ACCESS_KEY_ID, secret: process.env.AWS_SECRET_ACCESS_KEY };
-    process.env.AWS_ACCESS_KEY_ID = 'test-key';
-    process.env.AWS_SECRET_ACCESS_KEY = 'test-secret';
-    try {
-      const storage = createS3FileStorage({ ...CONFIG, endpoint: 'http://localhost:9000', forcePathStyle: true });
+  // Input: key, custom expiry of 5 minutes
+  // Expected behavior: the URL expires after 5 minutes
+  test('getDownloadUrl uses the requested expiry', async () => {
+    const before = Date.now();
 
-      const url = new URL(await storage.getDownloadUrl('clothing/u/a.jpg', 300));
+    const url = new URL(await createStorage().getDownloadUrl('clothing/u/a.jpg', 300));
 
-      expect(url.origin).toBe('http://localhost:9000');
-      expect(url.pathname).toBe('/test-bucket/clothing/u/a.jpg');
-      expect(url.searchParams.get('X-Amz-Expires')).toBe('300');
-    } finally {
-      restoreEnv('AWS_ACCESS_KEY_ID', saved.id);
-      restoreEnv('AWS_SECRET_ACCESS_KEY', saved.secret);
-    }
+    const expiresAt = Date.parse(url.searchParams.get('se') ?? '');
+    expect(expiresAt - before).toBeGreaterThan(290 * 1000);
+    expect(expiresAt - before).toBeLessThan(310 * 1000);
   });
 
   // Input: expiry of 0 seconds, more than 7 days, or not a whole number
   // Expected behavior: rejected before any URL is signed
   test.each([0, 7 * 24 * 60 * 60 + 1, 1.5])('getDownloadUrl rejects expiry %p', async (expiresIn) => {
-    const storage = createS3FileStorage(CONFIG, createClient());
-
-    await expect(storage.getDownloadUrl('avatars/u/model.glb', expiresIn)).rejects.toThrow(RangeError);
+    await expect(createStorage().getDownloadUrl('avatars/u/model.glb', expiresIn)).rejects.toThrow(RangeError);
   });
 
   // Input: empty, absolute, or path-traversal keys
   // Expected behavior: rejected without contacting storage
   test.each(['', '/avatars/x.glb', 'avatars/../secrets', 'avatars//x.glb'])('rejects invalid key %p', async (key) => {
-    const client = createClient();
-    const send = mockSend(client);
-    const storage = createS3FileStorage(CONFIG, client);
+    const calls = mockBlobCalls();
+    const storage = createStorage();
 
     await expect(storage.uploadFile(key, new Uint8Array([1]), CONTENT_TYPES.glb)).rejects.toThrow('Invalid storage key');
     await expect(storage.deleteFile(key)).rejects.toThrow('Invalid storage key');
     await expect(storage.getDownloadUrl(key)).rejects.toThrow('Invalid storage key');
-    expect(send).not.toHaveBeenCalled();
+    expect(calls.uploads).toHaveLength(0);
+    expect(calls.deletes).toHaveLength(0);
   });
 });
 
 describe('App-wide file storage configuration', () => {
-  // Input: no S3_BUCKET / AWS_REGION configured (as in tests and fresh clones)
+  // Input: no AZURE_STORAGE_CONNECTION_STRING / AZURE_STORAGE_CONTAINER configured (as in tests and fresh clones)
   // Expected behavior: storage reports itself as not configured instead of failing at startup
   test('Not configured', () => {
     expect(isFileStorageConfigured()).toBe(false);

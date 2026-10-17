@@ -70,7 +70,7 @@ cp backend/.env.example backend/.env
 - `JWT_SECRET` (required): any long random string, e.g. the output of `openssl rand -base64 48`.
 - `MONGODB_URI` (required): the MongoDB connection string. Docker Compose sets this automatically.
 - `PORT` (optional): defaults to `3000`.
-- `S3_BUCKET`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (needed for photos and avatars): see [File storage](#file-storage).
+- `AZURE_STORAGE_CONNECTION_STRING`, `AZURE_STORAGE_CONTAINER` (needed for photos and avatars): see [File storage](#file-storage).
 
 ### Database
 
@@ -89,14 +89,17 @@ the back-end, so no separate database server needs to be set up.
 
 ### File storage
 
-Clothing photos and avatar models are stored in a **private Amazon S3 bucket**. The app never
-gets direct bucket access; the back-end hands it short-lived signed download links.
+Clothing photos and avatar models are stored in a **private Azure Blob Storage container**. The
+app never gets direct storage access; the back-end hands it short-lived signed (SAS) download links.
 
-- `S3_BUCKET` and `AWS_REGION`: the bucket's name and region.
-- `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`: credentials of an IAM user allowed to read,
-  write and delete objects in that bucket.
-- `S3_ENDPOINT` and `S3_FORCE_PATH_STYLE=true` (optional): only for S3-compatible services other
-  than AWS, such as Google Cloud Storage's S3 interoperability API.
+- `AZURE_STORAGE_CONNECTION_STRING`: the storage account's connection string (Azure portal →
+  storage account → *Access keys*). It must include the account key, which is used to sign links.
+- `AZURE_STORAGE_CONTAINER`: the container name, e.g. `fabricate-files`. It is created
+  automatically (private) on the first upload if it doesn't exist.
+
+To try it locally without an Azure account, run the official emulator,
+`docker run -p 10000:10000 mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0`,
+and set `AZURE_STORAGE_CONNECTION_STRING=UseDevelopmentStorage=true`.
 
 File storage is optional for running the server: without it, everything else works and features
 that store files respond with `503 File storage is not available`. Tests never use real storage.
