@@ -1,7 +1,7 @@
 import http from 'node:http';
 import WebSocket, { WebSocketServer } from 'ws';
-import { createApp } from './app';
-import { env } from './config/env';
+import { createApp } from './app.js';
+import { env } from './config/env.js';
 
 // The fixed course-provided pixel stream (Button 2).
 const COURSE_WS_URL = 'wss://8.229.22.124';

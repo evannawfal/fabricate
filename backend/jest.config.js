@@ -1,7 +1,14 @@
-module.exports = {
-  preset: 'ts-jest',
+import { createDefaultEsmPreset } from 'ts-jest';
+
+export default {
+  ...createDefaultEsmPreset(),
   testEnvironment: 'node',
   roots: ['<rootDir>/src', '<rootDir>/tests'],
+  setupFiles: ['<rootDir>/tests/setupEnv.ts'],
+  // Source files import each other with '.js' extensions (ESM); map them back to the .ts files.
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
   collectCoverageFrom: ['src/**/*.ts'],
   collectCoverage: true,
   coverageDirectory: 'coverage',
