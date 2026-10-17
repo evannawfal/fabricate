@@ -70,6 +70,7 @@ cp backend/.env.example backend/.env
 - `JWT_SECRET` (required): any long random string, e.g. the output of `openssl rand -base64 48`.
 - `MONGODB_URI` (required): the MongoDB connection string. Docker Compose sets this automatically.
 - `PORT` (optional): defaults to `3000`.
+- `AZURE_STORAGE_CONNECTION_STRING`, `AZURE_STORAGE_CONTAINER` (needed for photos and avatars): see [File storage](#file-storage).
 
 ### Database
 
@@ -85,6 +86,23 @@ the back-end, so no separate database server needs to be set up.
   - Without Docker on Windows/Linux: install [MongoDB Community Server](https://www.mongodb.com/try/download/community)
 - **Tests** (`npm test`) start their own temporary in-memory MongoDB, so no database setup is
   needed. The first run downloads a MongoDB binary, which requires an internet connection.
+
+### File storage
+
+Clothing photos and avatar models are stored in a **private Azure Blob Storage container**. The
+app never gets direct storage access; the back-end hands it short-lived signed (SAS) download links.
+
+- `AZURE_STORAGE_CONNECTION_STRING`: the storage account's connection string (Azure portal →
+  storage account → *Access keys*). It must include the account key, which is used to sign links.
+- `AZURE_STORAGE_CONTAINER`: the container name, e.g. `fabricate-files`. It is created
+  automatically (private) on the first upload if it doesn't exist.
+
+To try it locally without an Azure account, run the official emulator,
+`docker run -p 10000:10000 mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0`,
+and set `AZURE_STORAGE_CONNECTION_STRING=UseDevelopmentStorage=true`.
+
+File storage is optional for running the server: without it, everything else works and features
+that store files respond with `503 File storage is not available`. Tests never use real storage.
 
 ### Option 1: Run locally
 

@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import { StorageNotConfiguredError } from '../services/storage.js';
 
 interface HttpError {
   status: number;
@@ -16,6 +17,9 @@ function isClientError(err: unknown): err is HttpError {
 
 // Last middleware: turns errors into JSON responses instead of Express's default HTML page.
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
+  if (err instanceof StorageNotConfiguredError) {
+    return res.status(503).json({ error: 'File storage is not available' });
+  }
   // e.g. malformed or too-large JSON bodies rejected by express.json()
   if (isClientError(err)) {
     const message = err.expose === true && err.message ? err.message : 'Bad request';
