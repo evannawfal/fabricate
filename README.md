@@ -61,21 +61,34 @@ You can run the back-end either locally via Node.js or via Docker Compose.
 
 ### Environment configuration
 
-This M1 back-end requires **no environment variables** — it runs out of the box.
-The only optional setting is the port:
+Copy the example file and fill in the values:
 
 ```bash
-cp backend/.env.example backend/.env   # optional
+cp backend/.env.example backend/.env
 ```
+- `GOOGLE_CLIENT_ID` (required): the OAuth client ID used to verify Google Sign-In tokens.
+- `JWT_SECRET` (required): any long random string, e.g. the output of `openssl rand -base64 48`.
+- `MONGODB_URI` (required): the MongoDB connection string. Docker Compose sets this automatically.
 - `PORT` (optional): defaults to `3000`.
 
-> Note: the `.env.example` also lists `MONGODB_URI`, `JWT_SECRET`, and
-> `GOOGLE_CLIENT_ID` from the project template. This M1 back-end does **not** use
-> a database, JWT, or a server-side OAuth client, so those are not required.
+### Database
+
+The back-end stores users, clothing items and outfits in **MongoDB** (accessed with
+[Mongoose](https://mongoosejs.com/)). MongoDB fits the app's document-shaped data
+(clothing items with tags, outfits referencing items) and runs as a container next to
+the back-end, so no separate database server needs to be set up.
+
+- **Docker Compose** (Option 2) starts MongoDB automatically.
+- **Running locally** (Option 1) needs a MongoDB 7 server, with `MONGODB_URI=mongodb://localhost:27017/cpen321`:
+  - With Docker: `docker run -d -p 27017:27017 mongo:7`
+  - Without Docker on macOS: `brew tap mongodb/brew && brew install mongodb-community@7.0 && brew services start mongodb-community@7.0`
+  - Without Docker on Windows/Linux: install [MongoDB Community Server](https://www.mongodb.com/try/download/community)
+- **Tests** (`npm test`) start their own temporary in-memory MongoDB, so no database setup is
+  needed. The first run downloads a MongoDB binary, which requires an internet connection.
 
 ### Option 1: Run locally
 
-**Requirements:** [Node.js](https://nodejs.org/en/download/) 22+, [npm](https://docs.npmjs.com/) 10+
+**Requirements:** [Node.js](https://nodejs.org/en/download/) 22+, [npm](https://docs.npmjs.com/) 10+, a MongoDB server (see above)
 
 ```bash
 cd backend
