@@ -4,3 +4,6 @@ process.env.GOOGLE_CLIENT_ID ??= 'test-google-client-id.apps.googleusercontent.c
 process.env.JWT_SECRET ??= 'test-jwt-secret';
 // Tests connect to their own in-memory database (tests/helpers/database.ts), not this URI.
 process.env.MONGODB_URI ??= 'mongodb://127.0.0.1:27017/fabricate-test-unused';
+// Tests never use real file storage, even if backend/.env configures it.
+process.env.AZURE_STORAGE_CONNECTION_STRING = '';
+process.env.AZURE_STORAGE_CONTAINER = '';

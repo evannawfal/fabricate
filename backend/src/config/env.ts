@@ -8,6 +8,11 @@ function getEnvVar(name: string): string {
   return value;
 }
 
+function getOptionalEnvVar(name: string): string | undefined {
+  const value = process.env[name];
+  return value === undefined || value === '' ? undefined : value;
+}
+
 const rawPort = process.env.PORT;
 const port =
   rawPort === undefined || rawPort === ''
@@ -23,4 +28,11 @@ export const env = {
   googleClientId: getEnvVar('GOOGLE_CLIENT_ID'),
   jwtAccessSecret: getEnvVar('JWT_SECRET'),
   mongodbUri: getEnvVar('MONGODB_URI'),
+  // File storage (Azure Blob Storage) is optional so the server can run without it;
+  // features that store files report it as unavailable.
+  storage: {
+    // Must include the account key (needed to sign download URLs).
+    connectionString: getOptionalEnvVar('AZURE_STORAGE_CONNECTION_STRING'),
+    container: getOptionalEnvVar('AZURE_STORAGE_CONTAINER'),
+  },
 } as const;
