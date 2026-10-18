@@ -1,6 +1,7 @@
 import type { Response } from 'express';
 import { getUserId, type AuthedRequest } from '../middleware/middleware.js';
-import { ClothingItem, type ClothingItemDocument } from '../models/clothingItem.js';
+import { ClothingItem, type ClothingItemResponse } from '../models/clothingItem.js';
+import { toClothingItemResponsesWithImages } from '../services/clothingImages.js';
 import { Outfit, toOutfitResponse, type OutfitDocument, type OutfitResponse } from '../models/outfit.js';
 import { isObjectId } from '../validation/common.js';
 import { validateOutfitInput, validateOutfitUpdate } from '../validation/outfit.js';
@@ -23,11 +24,12 @@ async function ownsAllItems(userId: string, itemIds: string[], existingItemIds: 
 async function toOutfitResponses(userId: string, outfits: OutfitDocument[]): Promise<OutfitResponse[]> {
   const itemIds = outfits.flatMap((outfit) => outfit.items);
   const items = await ClothingItem.find({ _id: { $in: itemIds }, owner: userId });
-  const itemsById = new Map(items.map((item) => [item._id.toString(), item]));
+  const itemResponses = await toClothingItemResponsesWithImages(items);
+  const itemsById = new Map(itemResponses.map((item) => [item.id, item]));
   return outfits.map((outfit) => {
     const outfitItems = outfit.items
       .map((itemId) => itemsById.get(itemId.toString()))
-      .filter((item): item is ClothingItemDocument => item !== undefined);
+      .filter((item): item is ClothingItemResponse => item !== undefined);
     return toOutfitResponse(outfit, outfitItems);
   });
 }

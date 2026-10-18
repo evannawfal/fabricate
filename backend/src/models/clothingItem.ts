@@ -46,12 +46,14 @@ export interface ClothingItemResponse {
   tags: string[];
   isClean: boolean;
   isArchived: boolean;
+  // Short-lived download link for the item's photo, or null when it can't be provided.
+  imageUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
 // Single place that decides what the app sees for a clothing item.
-export function toClothingItemResponse(item: ClothingItemDocument): ClothingItemResponse {
+export function toClothingItemResponse(item: ClothingItemDocument, imageUrl: string | null): ClothingItemResponse {
   return {
     id: item._id.toString(),
     name: item.name,
@@ -61,6 +63,7 @@ export function toClothingItemResponse(item: ClothingItemDocument): ClothingItem
     tags: [...item.tags],
     isClean: item.isClean,
     isArchived: item.isArchived,
+    imageUrl,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
