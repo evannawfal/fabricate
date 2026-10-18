@@ -168,7 +168,12 @@ export function createClothingClassifier(client: Anthropic): ClothingClassifier 
 let defaultClassifier: ClothingClassifier | undefined;
 
 export function isClassifierConfigured(): boolean {
-  return env.anthropicApiKey !== undefined;
+  return defaultClassifier !== undefined || env.anthropicApiKey !== undefined;
+}
+
+// Replaces the app-wide classifier (e.g. with a stand-in in tests); undefined goes back to the env-configured one.
+export function setClothingClassifier(classifier: ClothingClassifier | undefined): void {
+  defaultClassifier = classifier;
 }
 
 // The app-wide classifier, configured from ANTHROPIC_API_KEY.

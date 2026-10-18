@@ -16,6 +16,106 @@ beforeAll(startTestDatabase, DATABASE_SETUP_TIMEOUT_MS);
 afterEach(clearTestDatabase);
 afterAll(stopTestDatabase);
 
+const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+
+// Interface POST /clothing
+// Photo classification and file storage aren't configured in these tests, so everything here is
+// checked before either external service would be used. The full upload flow is in tests/mock.
+describe('Unmocked: POST /clothing', () => {
+  // Input: no Authorization header
+  // Expected status code: 401
+  // Expected behavior: request is rejected; nothing is saved
+  // Expected output: { error: "Missing token" }
+  test('Missing token', async () => {
+    const response = await request(app).post('/clothing').attach('photo', JPEG, { filename: 'shirt.jpg', contentType: 'image/jpeg' });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Missing token' });
+  });
+
+  // Input: request without a photo
+  // Expected status code: 400
+  // Expected behavior: nothing is saved
+  // Expected output: error explaining the "photo" form field
+  test('Missing photo', async () => {
+    const user = await createUser();
+
+    const response = await request(app).post('/clothing').set('Authorization', authHeader(user.id)).send({ name: 'Shirt' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/Missing photo/);
+    expect(await ClothingItem.countDocuments()).toBe(0);
+  });
+
+  // Input: photo sent under the wrong form field name
+  // Expected status code: 400
+  // Expected behavior: nothing is saved
+  // Expected output: error naming the unexpected field
+  test('Wrong form field', async () => {
+    const user = await createUser();
+
+    const response = await request(app)
+      .post('/clothing')
+      .set('Authorization', authHeader(user.id))
+      .attach('image', JPEG, { filename: 'shirt.jpg', contentType: 'image/jpeg' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/Invalid upload.*image/);
+    expect(await ClothingItem.countDocuments()).toBe(0);
+  });
+
+  // Input: a GIF (unsupported image type)
+  // Expected status code: 400
+  // Expected behavior: nothing is saved
+  // Expected output: error listing the supported types
+  test('Unsupported image type', async () => {
+    const user = await createUser();
+
+    const response = await request(app)
+      .post('/clothing')
+      .set('Authorization', authHeader(user.id))
+      .attach('photo', Buffer.from('GIF89a'), { filename: 'shirt.gif', contentType: 'image/gif' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/Unsupported image type/);
+    expect(await ClothingItem.countDocuments()).toBe(0);
+  });
+
+  // Input: a photo larger than 5 MB
+  // Expected status code: 413
+  // Expected behavior: nothing is saved
+  // Expected output: { error: "The photo must be at most 5 MB" }
+  test('Photo too large', async () => {
+    const user = await createUser();
+
+    const response = await request(app)
+      .post('/clothing')
+      .set('Authorization', authHeader(user.id))
+      .attach('photo', Buffer.alloc(5 * 1024 * 1024 + 1), { filename: 'huge.jpg', contentType: 'image/jpeg' });
+
+    expect(response.status).toBe(413);
+    expect(response.body).toEqual({ error: 'The photo must be at most 5 MB' });
+    expect(await ClothingItem.countDocuments()).toBe(0);
+  });
+
+  // Input: a valid JPEG while photo classification isn't configured
+  // Expected status code: 503
+  // Expected behavior: nothing is saved
+  // Expected output: { error: "Photo classification is not available right now" }
+  test('Classification not configured', async () => {
+    const user = await createUser();
+
+    const response = await request(app)
+      .post('/clothing')
+      .set('Authorization', authHeader(user.id))
+      .attach('photo', JPEG, { filename: 'shirt.jpg', contentType: 'image/jpeg' });
+
+    expect(response.status).toBe(503);
+    expect(response.body).toEqual({ error: 'Photo classification is not available right now' });
+    expect(await ClothingItem.countDocuments()).toBe(0);
+  });
+});
+
 // Interface GET /clothing
 describe('Unmocked: GET /clothing', () => {
   // Input: no Authorization header
@@ -58,8 +158,10 @@ describe('Unmocked: GET /clothing', () => {
     expect(response.status).toBe(200);
     expect(response.body.items.map((item: { name: string }) => item.name)).toEqual(['New jeans', 'Old shirt']);
     expect(Object.keys(response.body.items[0]).sort()).toEqual(
-      ['category', 'color', 'createdAt', 'id', 'isArchived', 'isClean', 'name', 'style', 'tags', 'updatedAt'].sort()
+      ['category', 'color', 'createdAt', 'id', 'imageUrl', 'isArchived', 'isClean', 'name', 'style', 'tags', 'updatedAt'].sort()
     );
+    // File storage isn't configured in these tests, so there's no photo link
+    expect(response.body.items[0].imageUrl).toBeNull();
   });
 
   // Input: signed-in user with one active and one archived item
