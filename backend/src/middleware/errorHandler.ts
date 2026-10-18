@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import { ClassifierNotConfiguredError, ClassifierUnavailableError } from '../services/classifier.js';
 import { StorageNotConfiguredError } from '../services/storage.js';
 
 interface HttpError {
@@ -19,6 +20,12 @@ function isClientError(err: unknown): err is HttpError {
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
   if (err instanceof StorageNotConfiguredError) {
     return res.status(503).json({ error: 'File storage is not available' });
+  }
+  if (err instanceof ClassifierNotConfiguredError || err instanceof ClassifierUnavailableError) {
+    if (err instanceof ClassifierUnavailableError) {
+      console.error('Photo classification failed:', err.cause ?? err.message);
+    }
+    return res.status(503).json({ error: 'Photo classification is not available right now' });
   }
   // e.g. malformed or too-large JSON bodies rejected by express.json()
   if (isClientError(err)) {

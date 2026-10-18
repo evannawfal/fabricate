@@ -71,6 +71,7 @@ cp backend/.env.example backend/.env
 - `MONGODB_URI` (required): the MongoDB connection string. Docker Compose sets this automatically.
 - `PORT` (optional): defaults to `3000`.
 - `AZURE_STORAGE_CONNECTION_STRING`, `AZURE_STORAGE_CONTAINER` (needed for photos and avatars): see [File storage](#file-storage).
+- `ANTHROPIC_API_KEY` (needed to classify clothing photos): see [Photo classification](#photo-classification).
 
 ### Database
 
@@ -103,6 +104,19 @@ and set `AZURE_STORAGE_CONNECTION_STRING=UseDevelopmentStorage=true`.
 
 File storage is optional for running the server: without it, everything else works and features
 that store files respond with `503 File storage is not available`. Tests never use real storage.
+
+### Photo classification
+
+Uploaded clothing photos are classified (name, category, colour, style) by **Claude Sonnet 5.5**
+through the [Claude API](https://platform.claude.com/docs) (an external AI vision API). It was chosen
+for reliable results on tricky items (dresses vs. tops, outerwear) at a cost of well under a cent
+per photo; the account has a monthly spend limit.
+
+- `ANTHROPIC_API_KEY`: an API key from the [Anthropic Console](https://platform.claude.com/).
+
+Classification is optional for running the server: without a key, everything else works and
+features that classify photos respond with `503 Photo classification is not available right now`.
+Tests never call the real API.
 
 ### Option 1: Run locally
 
