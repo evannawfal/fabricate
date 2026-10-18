@@ -136,11 +136,34 @@ deploy it yourself:
 
 - **URL:** `https://api.evannawfal.com`
 - **Public IP:** `104.154.109.127`
-- Hosted on a Google Cloud Compute Engine VM, with [Caddy](https://caddyserver.com/) as a reverse proxy providing HTTPS (Let's Encrypt).
+- Hosted on a Google Cloud Compute Engine VM (Ubuntu 24.04), with [Caddy](https://caddyserver.com/) as a reverse proxy providing HTTPS (Let's Encrypt).
 - It will remain running from the submission deadline until grades are posted.
 
-The submitted release APK is already configured to use this URL, so it works on a
-fresh emulator with no additional setup.
+The submitted release APK is configured to use this URL (`API_BASE_URL` in
+`frontend/local.properties`), so it works on a fresh emulator with no additional setup.
+
+### How the deployed back-end runs
+
+The VM is too small for Docker, so it runs the same code directly:
+
+- The back-end runs from a clone of this repository under [pm2](https://pm2.keymetrics.io/)
+  (process name `backend`), which restarts it automatically, including after reboots.
+- MongoDB 8 runs as a system service on the VM and only accepts local connections.
+- Configuration lives in `backend/.env` on the server (not in the repository).
+- MongoDB 8 refuses to start on Linux kernels 6.19 through 7.0.13
+  ([MongoDB release notes](https://www.mongodb.com/docs/upcoming/release-notes/8.0)), so the VM
+  boots a 6.17 kernel until a fixed kernel (7.0.14 or later) is available.
+
+To redeploy the latest `main` on the VM:
+
+```bash
+cd ~/fabricate && git pull --ff-only
+cd backend && MONGOMS_DISABLE_POSTINSTALL=1 npm ci && npm run build && npm prune --omit=dev
+pm2 restart backend --update-env
+curl https://api.evannawfal.com/health   # → {"status":"ok"}
+```
+
+`npm run build` prints nothing for a few minutes on the VM; let it finish.
 
 ## Google Sign-In
 
