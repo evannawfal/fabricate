@@ -154,13 +154,32 @@ The VM is too small for Docker, so it runs the same code directly:
   ([MongoDB release notes](https://www.mongodb.com/docs/upcoming/release-notes/8.0)), so the VM
   boots a 6.17 kernel until a fixed kernel (7.0.14 or later) is available.
 
-To redeploy the latest `main` on the VM:
+### Automatic tests and deploys
+
+[`.github/workflows/backend.yml`](.github/workflows/backend.yml) runs on GitHub Actions:
+
+- **Every pull request and push to `main`:** builds the back-end and runs all back-end tests
+  (the **Backend tests** check). `main` is protected: a pull request can only be merged once this
+  check passes.
+- **After a merge to `main` whose tests pass:** connects to the VM over SSH and runs
+  [`backend/scripts/deploy-server.sh`](backend/scripts/deploy-server.sh), which installs, builds,
+  restarts the back-end only if the build succeeded, waits for `/health`, and runs the live
+  Upload Clothing check when available. A failed deploy turns the workflow red.
+
+The deploy uses a dedicated SSH key that the VM only allows to pull `main` and run the deploy
+script. One-time setup on the VM, in `~/.ssh/authorized_keys` (one line):
+
+```
+restrict,command="cd ~/fabricate && git fetch -q origin main && git checkout -q main && git merge --ff-only -q origin/main && exec bash backend/scripts/deploy-server.sh" ssh-ed25519 AAAA... github-actions-deploy
+```
+
+and the repository secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` (the private key) and
+`DEPLOY_KNOWN_HOSTS` (the VM's host key, from `ssh-keyscan`).
+
+To redeploy by hand instead:
 
 ```bash
-cd ~/fabricate && git pull --ff-only
-cd backend && MONGOMS_DISABLE_POSTINSTALL=1 npm ci && npm run build && npm prune --omit=dev
-pm2 restart backend --update-env
-curl https://api.evannawfal.com/health   # → {"status":"ok"}
+cd ~/fabricate && git pull --ff-only && bash backend/scripts/deploy-server.sh
 ```
 
 `npm run build` prints nothing for a few minutes on the VM; let it finish.
