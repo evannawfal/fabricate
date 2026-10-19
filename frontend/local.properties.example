@@ -1,10 +1,11 @@
+# Copy this file to local.properties (it is gitignored) and set sdk.dir.
+
 # Path to your Android SDK. Android Studio usually writes this for you.
 sdk.dir=/path/to/Android/sdk
 
-# Backend base URL baked into the APK at build time.
-API_BASE_URL=http://10.0.2.2:3000
+# Back-end base URL baked into the APK at build time. Use the deployed server,
+# or http://10.0.2.2:3000 for a back-end running on your machine (emulator only).
+API_BASE_URL=https://api.evannawfal.com
 
-# Google OAuth client ID.
-GOOGLE_CLIENT_ID=
-
-# Other API keys, secrets, and configurations
+# Google OAuth Web client ID (the back-end's client ID). It is not a secret.
+GOOGLE_CLIENT_ID=361509686629-13v3sohhm7q2j8m41qke17p5ibisqon8.apps.googleusercontent.com
