@@ -35,4 +35,6 @@ export const env = {
     connectionString: getOptionalEnvVar('AZURE_STORAGE_CONNECTION_STRING'),
     container: getOptionalEnvVar('AZURE_STORAGE_CONTAINER'),
   },
+  // Clothing photo classification (Claude API) is optional in the same way.
+  anthropicApiKey: getOptionalEnvVar('ANTHROPIC_API_KEY'),
 } as const;
