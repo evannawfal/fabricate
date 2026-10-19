@@ -3,6 +3,7 @@ import request from 'supertest';
 
 import { createApp } from '../../src/app.js';
 import { ClothingItem } from '../../src/models/clothingItem.js';
+import { setFileStorage, type FileStorage } from '../../src/services/storage.js';
 import {
   clearTestDatabase,
   DATABASE_SETUP_TIMEOUT_MS,
@@ -27,6 +28,7 @@ beforeEach(() => {
   jest.spyOn(console, 'error').mockImplementation(() => undefined);
 });
 afterEach(async () => {
+  setFileStorage(undefined);
   jest.restoreAllMocks();
   await clearTestDatabase();
 });
@@ -34,6 +36,27 @@ afterAll(stopTestDatabase);
 
 // Interface GET /clothing
 describe('Mocked: GET /clothing', () => {
+  // Mocked behavior: file storage (Azure Blob Storage) can't create a download link
+  // Input: signed-in user with one item
+  // Expected status code: 200
+  // Expected behavior: the closet still loads; the item just has no photo link
+  // Expected output: the item with imageUrl null
+  test('Closet loads without photo links when storage fails', async () => {
+    const getDownloadUrl = jest.fn(async (_key: string): Promise<string> => {
+      throw new Error('Forced signing error');
+    });
+    setFileStorage({ getDownloadUrl } as unknown as FileStorage);
+    const user = await createUser();
+    await createClothingItem(user.id);
+
+    const response = await request(app).get('/clothing').set('Authorization', authHeader(user.id));
+
+    expect(response.status).toBe(200);
+    expect(response.body.items).toHaveLength(1);
+    expect(response.body.items[0].imageUrl).toBeNull();
+    expect(getDownloadUrl).toHaveBeenCalledTimes(1);
+  });
+
   // Mocked behavior: ClothingItem.find throws a database error
   // Input: signed-in user with one item
   // Expected status code: 500
