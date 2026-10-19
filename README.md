@@ -37,12 +37,13 @@ Install the following before the frontend or backend setup steps:
 4. **Set up emulator/device**:
    - Create an AVD with **Pixel 9** and the **Android Baklava (API 36)** system image, **or**
    - Connect a physical Android device running API 36.
-5. **Set up app config**: copy the example file and fill in local values:
+5. **Set up app config**: copy the example file:
    ```bash
    cp frontend/local.properties.example frontend/local.properties
    ```
-   Set:
+   It already has the right values for the deployed back-end. Check:
    - `sdk.dir`: path to your Android SDK (Android Studio usually writes this automatically).
+   - `GOOGLE_CLIENT_ID`: the back-end's Google OAuth Web client ID (already filled in; it is not a secret).
    - `API_BASE_URL`: the back-end URL baked into the app. Choose one:
      - **Deployed back-end (recommended, already running):** `https://api.evannawfal.com`
      - **Local back-end on the emulator:** `http://10.0.2.2:3000` (`10.0.2.2` is the host machine)
@@ -51,7 +52,9 @@ Install the following before the frontend or backend setup steps:
 ### Build and Run
 
 - **Debug build**: click the green ▶ button in Android Studio to build, install, and run on the emulator/device. (Or `./scripts/run-frontend.sh` from the project root.)
-- **Release build**: Build → Generate Signed App Bundle or APK → APK → select the **release** variant → install the generated APK.
+- **Release build**: `cd frontend && ./gradlew :app:assembleRelease`, then install `frontend/app/build/outputs/apk/release/app-release.apk` (e.g. `adb install` or drag it onto the emulator).
+
+Debug and release builds are both signed with the team's shared debug key, `frontend/app/fabricate-debug.keystore` (password `android`). Its SHA-1 is registered for Google Sign-In in our Google Cloud project, so sign-in works no matter who builds the app. It only identifies our builds; it is not a production secret.
 
 ---
 

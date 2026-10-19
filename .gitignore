@@ -40,6 +40,8 @@ render.experimental.xml
 # Keystore files
 *.jks
 *.keystore
+# Shared debug key that signs every build, so Google Sign-In works for the whole team (see frontend/app/build.gradle.kts)
+!frontend/app/fabricate-debug.keystore
 
 # Google Services (e.g. APIs or Firebase)
 google-services.json
