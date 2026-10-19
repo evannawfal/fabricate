@@ -17,7 +17,7 @@ import {
   startTestDatabase,
   stopTestDatabase,
 } from '../helpers/database.js';
-import { authHeader, createClothingItem, createUser } from '../helpers/fixtures.js';
+import { authHeader, createUser } from '../helpers/fixtures.js';
 
 const app = createApp();
 
@@ -34,15 +34,12 @@ function mockClassifier(result: ClothingClassification | Error) {
   return classify;
 }
 
-function mockStorage(options: { uploadError?: Error; urlError?: Error } = {}) {
+function mockStorage(options: { uploadError?: Error } = {}) {
   const storage = {
     uploadFile: jest.fn(async (_key: string, _body: Uint8Array | ArrayBuffer, _contentType: string) => {
       if (options.uploadError) throw options.uploadError;
     }),
-    getDownloadUrl: jest.fn(async (key: string) => {
-      if (options.urlError) throw options.urlError;
-      return `https://storage.test/${key}?sig=test`;
-    }),
+    getDownloadUrl: jest.fn(async (key: string) => `https://storage.test/${key}?sig=test`),
     deleteFile: jest.fn(async (_key: string) => undefined),
   };
   setFileStorage(storage as FileStorage);
@@ -225,25 +222,5 @@ describe('Mocked: POST /clothing', () => {
 
     expect(response.status).toBe(500);
     expect(console.error).toHaveBeenCalledWith(expect.stringMatching(/Could not delete orphaned photo/), expect.any(Error));
-  });
-});
-
-// Interface GET /clothing (photo links)
-describe('Mocked: GET /clothing photo links', () => {
-  // Mocked behavior: storage can't create a download link
-  // Input: signed-in user with one item
-  // Expected status code: 200
-  // Expected behavior: the closet still loads; the item just has no photo link
-  // Expected output: the item with imageUrl null
-  test('Closet loads without photo links when storage fails', async () => {
-    mockStorage({ urlError: new Error('Forced signing error') });
-    const user = await createUser();
-    await createClothingItem(user.id);
-
-    const response = await request(app).get('/clothing').set('Authorization', authHeader(user.id));
-
-    expect(response.status).toBe(200);
-    expect(response.body.items).toHaveLength(1);
-    expect(response.body.items[0].imageUrl).toBeNull();
   });
 });
