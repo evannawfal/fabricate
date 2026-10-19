@@ -6,22 +6,22 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import com.example.cpen321application.R
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption.Builder
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 
-class GoogleAuthClient(private val context: Context) {
+class GoogleAuthClient {
 
-  private val credentialManager = CredentialManager.create(context)
+  suspend fun getGoogleIdToken(activityContext: Context): String {
+    val credentialManager = CredentialManager.create(activityContext)
 
-  suspend fun getGoogleIdToken(): String {
-    val googleOption = GetSignInWithGoogleOption
-      .Builder(context.getString(R.string.google_web_client_id))
+    val googleOption = Builder(activityContext.getString(R.string.google_web_client_id))
       .build()
 
     val request = GetCredentialRequest.Builder()
       .addCredentialOption(googleOption)
       .build()
 
-    val credential = credentialManager.getCredential(context, request).credential
+    val credential = credentialManager.getCredential(activityContext, request).credential
 
     if (credential is CustomCredential &&
       credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL

@@ -16,6 +16,7 @@ agp = "8.13.2"
 kotlin = "2.1.21"
 credentials = "1.5.0"
 googleid = "1.1.1"
+lifecycleViewmodelCompose = "2.9.0"
 
 # Android SDK levels (mirrored in app/build.gradle.kts)
 compileSdk = "35"
@@ -58,6 +59,7 @@ play-services-auth = { group = "com.google.android.gms", name = "play-services-a
 androidx-credentials = { module = "androidx.credentials:credentials", version.ref = "credentials" }
 androidx-credentials-play-services = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "credentials" }
 googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleid" }
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

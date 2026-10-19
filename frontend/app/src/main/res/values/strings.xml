@@ -4,4 +4,6 @@
     <string name="login_subtitle">Sign in to get started</string>
     <string name="login_google_button">Sign in with Google</string>
     <string name="google_web_client_id">361509686629-13v3sohhm7q2j8m41qke17p5ibisqon8.apps.googleusercontent.com</string>
+    <string name="login_error_no_account">No Google account found on this device</string>
+    <string name="login_error_generic">Sign-in failed. Please try again.</string>
 </resources>

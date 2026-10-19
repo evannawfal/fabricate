@@ -58,12 +58,15 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlinx.coroutines.delay
 import android.util.Log
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cpen321application.auth.GoogleAuthClient
 import com.example.cpen321application.screens.LoginScreen
+import com.example.cpen321application.viewmodel.LoginViewModel
 import kotlinx.coroutines.launch
 
 /** The three feature areas plus the home menu. */
@@ -82,19 +85,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             CPEN321ApplicationTheme {
                 // temp show the login screen
+                val loginViewModel: LoginViewModel = viewModel()
+                val uiState by loginViewModel.uiState.collectAsState()
                 val context = LocalContext.current
-                val scope = rememberCoroutineScope()
-                val authClient = remember { GoogleAuthClient(context) }
 
-                LoginScreen(onSignInClick = {
-                    scope.launch {
-                        try {
-                            Log.d("Auth", "Got ID token")
-                        } catch (e: GetCredentialException) {
-                            Log.e("Auth", "Sign-in failed", e)
-                        }
-                    }
-                })
+                Log.d("Auth", "State: $uiState")
+
+                LoginScreen(
+                    uiState = uiState,
+                    onSignInClick = { loginViewModel.signIn(context) },
+                )
 //                AvatarScreen()
             }
         }
