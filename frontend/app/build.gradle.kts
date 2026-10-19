@@ -81,6 +81,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.okhttp)
     implementation(libs.play.services.auth)
+    implementation(libs.coil.compose)
     implementation("io.github.sceneview:sceneview:2.3.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation(libs.junit)
