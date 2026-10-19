@@ -2,79 +2,214 @@
 
 ## 1. Change History
 
-| **Change Date**   | **Modified Sections** | **Rationale** |
-| ----------------- | --------------------- | ------------- |
-| _Nothing to show_ |
+| **Change Date** | **Modified Sections** | **Rationale** |
+| --------------- | --------------------- | ------------- |
+| 2026-10-18 | 2, 3, 4 | First version for CP1. Section 2 documents the back-end tests of all interfaces of the Clothing component (`/clothing`), how to run them, the GitHub Actions configuration and the coverage reports. Section 4 gives the end-to-end test design for the Upload Clothing Item use case. Section 3 is left for CP2, since the non-functional requirements are not finalized yet. |
 
 ---
 
 ## 2. Back-end Test Specification: APIs
 
+For CP1 the back-end tests are documented for all interfaces of the **Clothing** component: `POST /clothing`, `GET /clothing`, `GET /clothing/:id`, `PATCH /clothing/:id` and `DELETE /clothing/:id`. The other interfaces that already have tests are listed in the same table and will be documented in detail for CP2.
+
 ### 2.1. Locations of Back-end Tests and Instructions to Run Them
 
 #### 2.1.1. Tests
 
-| **Interface**                 | **Describe Group Location, No Mocks**                | **Describe Group Location, With Mocks**            | **Mocked Components**              |
-| ----------------------------- | ---------------------------------------------------- | -------------------------------------------------- | ---------------------------------- |
-| **POST /user/login**          | [`tests/no-mock/authenticationLogin.test.js#L1`](#) | [`tests/mock/authenticationLogin.test.js#L1`](#) | Google Authentication API, User DB |
-| **POST /study-groups/create** | ...                                                  | ...                                                | Study Group DB                     |
-| ...                           | ...                                                  | ...                                                | ...                                |
-| ...                           | ...                                                  | ...                                                | ...                                |
+| **Interface** | **Describe Group Location, No Mocks** | **Describe Group Location, With Mocks** | **Mocked Components** |
+| ------------- | ------------------------------------- | --------------------------------------- | --------------------- |
+| **POST /clothing** | [`backend/tests/no-mock/clothing.test.ts#L24`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/clothing.test.ts#L24) | [`backend/tests/mock/clothingUpload.test.ts#L72`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/mock/clothingUpload.test.ts#L72) | Clothing classifier (Claude API), Azure Blob Storage, Clothing DB |
+| **GET /clothing** | [`backend/tests/no-mock/clothing.test.ts#L120`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/clothing.test.ts#L120) | [`backend/tests/mock/clothingUpload.test.ts#L232`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/mock/clothingUpload.test.ts#L232)<br>[`backend/tests/mock/clothing.test.ts#L36`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/mock/clothing.test.ts#L36) | Azure Blob Storage (photo links), Clothing DB |
+| **GET /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L242`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/clothing.test.ts#L242) | [`backend/tests/mock/clothing.test.ts#L57`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/mock/clothing.test.ts#L57) | Clothing DB |
+| **PATCH /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L334`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/clothing.test.ts#L334) | [`backend/tests/mock/clothing.test.ts#L78`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/mock/clothing.test.ts#L78) | Clothing DB |
+| **DELETE /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L520`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/clothing.test.ts#L520) | [`backend/tests/mock/clothing.test.ts#L126`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/mock/clothing.test.ts#L126) | Clothing DB |
+| POST /auth/google | [`backend/tests/no-mock/auth.test.ts#L20`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/auth.test.ts#L20) | [`backend/tests/mock/auth.test.ts#L47`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/mock/auth.test.ts#L47) | Google Authentication API, User DB |
+| POST /outfits | [`backend/tests/no-mock/outfits.test.ts#L29`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/outfits.test.ts#L29) | Planned for CP2 | Outfit DB |
+| GET /outfits | [`backend/tests/no-mock/outfits.test.ts#L172`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/outfits.test.ts#L172) | Planned for CP2 | Outfit DB |
+| GET /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L217`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/outfits.test.ts#L217) | Planned for CP2 | Outfit DB |
+| PATCH /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L279`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/outfits.test.ts#L279) | Planned for CP2 | Outfit DB |
+| DELETE /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L434`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/outfits.test.ts#L434) | Planned for CP2 | Outfit DB |
+| GET /health | [`backend/tests/no-mock/health.test.ts#L6`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/health.test.ts#L6) | None needed (no external components) | None |
 
-#### 2.1.2. Commit Hash Where Tests Run
+How the external components are mocked:
 
-`[Insert Commit SHA here]`
+- **Clothing classifier (Claude API)** and **Azure Blob Storage**: the tests replace them with Jest stand-ins through `setClothingClassifier()` and `setFileStorage()`, so they can return a classification, throw an "unavailable" or "not clothing" error, or fail an upload. [`backend/tests/setupEnv.ts`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/setupEnv.ts) clears their credentials, so the tests never call the real services.
+- **Clothing DB / User DB** (MongoDB): the tests without mocks use a real in-memory MongoDB server ([`backend/tests/helpers/database.ts`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/helpers/database.ts)). The mocked tests use `jest.spyOn()` on Mongoose model methods (`ClothingItem.create`, `find`, `findOne`, `findOneAndUpdate`, `exists`) to make them throw a database error.
+- **Google Authentication API**: `jest.spyOn(OAuth2Client.prototype, 'verifyIdToken')` returns a chosen Google profile.
 
-#### 2.1.3. Explanation on How to Run the Tests
+#### 2.1.2. Test Cases of the Clothing Component
 
-1. **Clone the Repository**:
+Each test in the code is annotated with its input, expected status code, expected behavior and expected output (and the mock's behavior for mocked tests). All requests use a valid signed-in user unless the input says otherwise. The table below summarizes them.
 
-   - Open your terminal and run:
-     ```
-     git clone https://github.com/example/your-project.git
-     ```
+**POST /clothing** (multipart form with a `photo` file)
 
-2. **...**
+| **Group** | **Test** | **Input** | **Status** | **Expected behavior and output** |
+| --------- | -------- | --------- | ---------- | -------------------------------- |
+| Unmocked | Missing token | No Authorization header | 401 | Nothing is saved; `{ error: "Missing token" }` |
+| Unmocked | Missing photo | No file | 400 | Nothing is saved; error explaining the `photo` field |
+| Unmocked | Wrong form field | Photo sent as `image` | 400 | Nothing is saved; error naming the field |
+| Unmocked | Unsupported image type | GIF | 400 | Nothing is saved; error listing JPEG, PNG and WebP |
+| Unmocked | Photo too large | 5 MB + 1 byte | 413 | Nothing is saved; `{ error: "The photo must be at most 5 MB" }` |
+| Unmocked | Classification not configured | Valid JPEG, no API key | 503 | Nothing is saved; `{ error: "Photo classification is not available right now" }` |
+| Mocked | Uploads, classifies and saves the item | Classifier returns a denim jacket, storage accepts | 201 | Photo is stored under `clothing/<userId>/`, item is saved with the classified fields; response has the item and a photo link |
+| Mocked | Uploaded item appears in the closet | PNG photo, then `GET /clothing` | 201, 200 | Photo keeps the PNG type; the closet lists the new item with a photo link |
+| Mocked | Photo is not clothing | Classifier rejects the photo | 422 | Photo is not stored, nothing is saved; `{ error: "The photo does not show a clothing item" }` |
+| Mocked | Classifier unavailable | Classifier is rate limited or down | 503 | Photo is not stored, nothing is saved |
+| Mocked | Storage not configured | No storage settings | 503 | Classifier is not called (no API cost), nothing is saved |
+| Mocked | Storage upload fails | Storage throws | 500 | Nothing is saved; `{ error: "Internal server error" }` |
+| Mocked | Database error removes the stored photo | `ClothingItem.create` throws | 500 | The stored photo is deleted so no orphaned file is left |
+| Mocked | Clean-up failure is logged, not reported | `ClothingItem.create` and `deleteFile` both throw | 500 | The database error is reported; the clean-up failure is only logged |
+
+**GET /clothing** (`?category=` and `?clean=` filters)
+
+| **Group** | **Test** | **Input** | **Status** | **Expected behavior and output** |
+| --------- | -------- | --------- | ---------- | -------------------------------- |
+| Unmocked | Missing token | No Authorization header | 401 | `{ error: "Missing token" }` |
+| Unmocked | Empty closet | User with no items | 200 | `{ items: [] }` |
+| Unmocked | Returns only own items, newest first | Two own items, one from another user | 200 | Only the user's items, newest first, without internal fields |
+| Unmocked | Leaves out archived items | One active, one archived item | 200 | Only the active item |
+| Unmocked | Filters by category | `?category=top` | 200 | Only tops |
+| Unmocked | Filters by clean status | `?clean=false` | 200 | Only items that are not clean |
+| Unmocked | Invalid category filter | `?category=hats` | 400 | Error listing the valid categories |
+| Unmocked | Invalid clean filter | `?clean=maybe` | 400 | `{ error: "clean must be true or false" }` |
+| Mocked | Closet loads without photo links when storage fails | Storage can't sign a download link | 200 | The closet still loads; the item has `imageUrl: null` |
+| Mocked | Database error | `ClothingItem.find` throws | 500 | The error is handled and logged; `{ error: "Internal server error" }` |
+
+**GET /clothing/:id**
+
+| **Group** | **Test** | **Input** | **Status** | **Expected behavior and output** |
+| --------- | -------- | --------- | ---------- | -------------------------------- |
+| Unmocked | Own item | Id of the user's item | 200 | The item's details |
+| Unmocked | Archived item | Id of the user's archived item | 200 | The item, marked as archived |
+| Unmocked | Another user's item | Id of another user's item | 404 | The item is not revealed; `{ error: "Clothing item not found" }` |
+| Unmocked | Unknown item | Valid id that doesn't exist | 404 | `{ error: "Clothing item not found" }` |
+| Unmocked | Invalid id | `not-an-id` | 400 | `{ error: "Invalid clothing item id" }` |
+| Unmocked | Missing token | No Authorization header | 401 | `{ error: "Missing token" }` |
+| Mocked | Database error | `ClothingItem.findOne` throws | 500 | The error is handled and logged; `{ error: "Internal server error" }` |
+
+**PATCH /clothing/:id** (JSON body with any of `name`, `category`, `color`, `style`, `tags`, `isClean`)
+
+| **Group** | **Test** | **Input** | **Status** | **Expected behavior and output** |
+| --------- | -------- | --------- | ---------- | -------------------------------- |
+| Unmocked | Valid update | New name, category, tags (with spaces and a duplicate), clean status | 200 | Item is updated; tags are trimmed and de-duplicated |
+| Unmocked | Partial update of color and style | New color and style only | 200 | Only those fields change |
+| Unmocked | Empty body | `{}` | 400 | Item unchanged; error asking for at least one field |
+| Unmocked | Unknown field | `{ owner: <other user> }` | 400 | Item unchanged; `{ error: "Unknown field: owner" }` |
+| Unmocked | Invalid value (10 cases) | Invalid value for each field, or a non-object body | 400 | Item unchanged; error describing the field |
+| Unmocked | Malformed JSON | `{"name": ` | 400 | JSON error |
+| Unmocked | Archived item | Id of an archived item | 409 | Item unchanged; `{ error: "Clothing item is archived and can no longer be edited" }` |
+| Unmocked | Another user's item | Id of another user's item | 404 | The other user's item is unchanged |
+| Unmocked | Invalid id | `123` | 400 | `{ error: "Invalid clothing item id" }` |
+| Unmocked | Missing token | No Authorization header | 401 | `{ error: "Missing token" }` |
+| Mocked | Database error while saving | `ClothingItem.findOneAndUpdate` throws | 500 | Item unchanged; `{ error: "Internal server error" }` |
+| Mocked | Database error while checking for an archived item | Archived item; `ClothingItem.exists` throws | 500 | Item unchanged; `{ error: "Internal server error" }` |
+
+**DELETE /clothing/:id** (archives the item: it leaves the closet, but past outfits still show it)
+
+| **Group** | **Test** | **Input** | **Status** | **Expected behavior and output** |
+| --------- | -------- | --------- | ---------- | -------------------------------- |
+| Unmocked | Own item used in an outfit | Id of the user's item that is in an outfit | 204 | Item is archived; it leaves the closet but the outfit still shows it; empty body |
+| Unmocked | Already archived item | Id of an archived item | 404 | Nothing changes; `{ error: "Clothing item not found" }` |
+| Unmocked | Another user's item | Id of another user's item | 404 | The other user's item is not archived |
+| Unmocked | Invalid id | `not-an-id` | 400 | `{ error: "Invalid clothing item id" }` |
+| Unmocked | Missing token | No Authorization header | 401 | `{ error: "Missing token" }` |
+| Mocked | Database error | `ClothingItem.findOneAndUpdate` throws | 500 | Item is not archived; `{ error: "Internal server error" }` |
+
+#### 2.1.3. Commit Hash Where Tests Run
+
+`c0a23ba5380dc7ad94a070a54e5b7514e08995dd`
+
+#### 2.1.4. Explanation on How to Run the Tests
+
+The tests need **Node.js 22** and npm 10. They do not need a `.env` file, a MongoDB installation or any API keys: they start an in-memory MongoDB server and never call the Claude API, Azure Blob Storage or Google. The first run downloads a MongoDB binary, so it needs an internet connection.
+
+1. **Clone the repository**:
+
+   ```
+   git clone https://github.com/evannawfal/fabricate.git
+   cd fabricate
+   git checkout c0a23ba5380dc7ad94a070a54e5b7514e08995dd
+   ```
+
+2. **Install the back-end dependencies**:
+
+   ```
+   cd backend
+   npm ci
+   ```
+
+3. **Run the interface tests** with the course script from the repository root (Linux, macOS or WSL). It runs the mocked tests, the tests without mocks, and both combined, each with a coverage report (saved in `backend/coverage/mock`, `backend/coverage/no-mock` and `backend/coverage/interface`):
+
+   ```
+   ./scripts/run-backend-interface-tests.sh
+   ```
+
+   Or run each set directly from `backend/` (this also works in Windows PowerShell):
+
+   ```
+   npm test -- tests/no-mock/      # without mocks
+   npm test -- tests/mock/         # with mocks
+   npm test -- tests/mock/ tests/no-mock/   # both combined
+   npm test                        # every back-end test, including the unit tests in tests/unit
+   ```
+
+   Coverage is always collected for every file in `backend/src` (`collectCoverageFrom` in [`backend/jest.config.js`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/jest.config.js)) and printed as a per-file table.
 
 ### 2.2. GitHub Actions Configuration Location
 
-`~/.github/workflows/backend-tests.yml`
+`.github/workflows/backend.yml`
+
+The **Backend tests** job runs on every pull request and every push to `main`. It installs the dependencies, type-checks and builds the back-end, then runs `npm test`, which runs every test in `backend/tests` (mock, no-mock and unit). The coverage report is uploaded as the `backend-coverage` artifact of each run. The job is a required check before a pull request can be merged into `main`.
 
 ### 2.3. Jest Coverage Report Screenshots With Mocks
 
-_(Placeholder for Jest coverage screenshot with mocks enabled)_
+`npm test -- tests/mock/` (19 tests, all passing):
+
+![Jest coverage with mocks](images/coverage-mock.png)
+
+The mocked tests focus on error handling (failing classifier, storage and database calls) and on the parts that depend on the external services, so their coverage is low on its own.
 
 ### 2.4. Jest Coverage Report Screenshots Without Mocks
 
-_(Placeholder for Jest coverage screenshot without mocks)_
+`npm test -- tests/no-mock/` (93 tests, all passing):
+
+![Jest coverage without mocks](images/coverage-no-mock.png)
+
+Without mocks, `controllers/clothing.ts` misses lines 34-50: the part of `POST /clothing` after a photo is accepted, which needs the classifier and file storage (covered by the mocked tests).
+
+### 2.5. Jest Coverage Report Screenshots With and Without Mocks Combined
+
+`npm test -- tests/mock/ tests/no-mock/` (112 tests, all passing):
+
+![Jest coverage with and without mocks combined](images/coverage-interface.png)
+
+**Clothing component:** every file of the Clothing component has 100% statement, branch, function and line coverage when both sets run: `routes/clothing.ts`, `controllers/clothing.ts`, `validation/clothing.ts`, `models/clothingItem.ts` and `services/clothingImages.ts`.
+
+**Why the rest of the back-end is below 100%:**
+
+| **File (uncovered lines)** | **Reason** |
+| -------------------------- | ---------- |
+| `src/index.ts` (8-61) | The server entry point: it connects to the production MongoDB and calls `app.listen()`. The tests build the same Express app with `createApp()` from `src/app.ts` and an in-memory database instead, so this file only runs when the server is started. |
+| `src/avatar/*`, `services/avatarStorage.ts`, `services/storageKeys.ts` (19) | Avatar generation and avatar file storage for the Customize Avatar feature. No API endpoint uses them yet (avatar endpoints are in progress), so API tests can't reach them. They will be covered by the avatar interface tests. |
+| `services/classifier.ts` (82-171, 186), `services/storage.ts` (31-73, 97) | The adapters that call the real Claude API and Azure Blob Storage SDKs. The interface tests replace them with stand-ins so they never use paid external services. The adapters are tested with mocked SDK clients in `backend/tests/unit` (`npm test`: classifier.ts 98% and storage.ts 97% of statements). The only lines left are the ones that create the real SDK client from the production credentials. |
+| `config/env.ts` (6, 23) | Start-up checks that stop the server when a required environment variable is missing or `PORT` is invalid. They run once when the module loads, before any request. |
+| `controllers/outfits.ts` (40, 105), `middleware/middleware.ts` (39), `middleware/errorHandler.ts` (branches on 36, 40) | Outfits component (documented for CP2) and defensive checks. Tests for the missing outfit cases will be added with the Outfits component, and unreachable checks will be removed. |
 
 ---
 
 ## 3. Tests of Non-Functional Requirements
 
+The non-functional requirements are not finalized in `Requirements_and_Design.md` yet. Their automated tests will be in `backend/tests/nfr/` and will be documented here for CP2.
+
 ### 3.1. Test Locations in Git
 
-| **Non-Functional Requirement**  | **Location in Git**                              |
-| ------------------------------- | ------------------------------------------------ |
-| **Performance (Response Time)** | [`backend/tests/nfr/response_time.test.js`](#) |
-| **Chat Data Security**          | [`backend/tests/nfr/chat_security.test.js`](#) |
+| **Non-Functional Requirement** | **Location in Git** |
+| ------------------------------ | ------------------- |
+| _To be added for CP2_ | `backend/tests/nfr/` |
 
 ### 3.2. Test Verification and Logs
 
-- **Performance (Response Time)**
-
-  - **Verification:** This test suite simulates multiple concurrent API calls using Jest along with a load-testing utility to mimic real-world user behavior. The focus is on key endpoints such as user login and study group search to ensure that each call completes within the target response time of 2 seconds under normal load. The test logs capture metrics such as average response time, maximum response time, and error rates. These logs are then analyzed to identify any performance bottlenecks, ensuring the system can handle expected traffic without degradation in user experience.
-  - **Log Output**
-    ```
-    [Placeholder for response time test logs]
-    ```
-
-- **Chat Data Security**
-  - **Verification:** ...
-  - **Log Output**
-    ```
-    [Placeholder for chat security test logs]
-    ```
+_To be added for CP2._
 
 ---
 
@@ -82,40 +217,48 @@ _(Placeholder for Jest coverage screenshot without mocks)_
 
 ### 4.1. Location in Git of Front-end Test Suite:
 
-`frontend/src/androidTest/java/com/studygroupfinder/`
+`frontend/app/src/androidTest/java/com/example/cpen321application/e2e/`
+
+The Upload Clothing Item test will be `UploadClothingTest.kt` in this folder. The Closet screen it runs on is still being built, so the test is designed here and will be implemented for CP2. The button labels and messages below are the ones the Closet screen must show; if the screen changes them, this section will be updated to match.
+
+Like every feature test, it starts with the user already signed in on the app's main screen. It does not assume an empty closet: it compares the number of items before and after the upload. Before it runs, the test copies two photos from its test assets into the emulator's photo library so that they show up in the photo picker: `shirt.jpg` (a T-shirt) and `mug.jpg` (a coffee mug, not clothing). The test talks to the real deployed back-end; nothing is mocked.
 
 ### 4.2. Tests
 
-- **Use Case: Login**
+- **Use Case: Upload Clothing Item**
 
-  - **Expected Behaviors:**
-    | **Scenario Steps** | **Test Case Steps** |
-    | ------------------ | ------------------- |
-    | 1. The user opens "Add Todo Items" screen. | Open "Add Todo Items" screen. |
-    | 2. The app shows an input text field and an "Add" button. The add button is disabled. | Check that the text field is present on screen.<br>Check that the button labelled "Add" is present on screen.<br>Check that the "Add" button is disabled. |
-    | 3a. The user inputs an ill-formatted string. | Input "_^_^^OQ#$" in the text field. |
-    | 3a1. The app displays an error message prompting the user for the expected format. | Check that a dialog is opened with the text: "Please use only alphanumeric characters ". |
-    | 3. The user inputs a new item for the list and the add button becomes enabled. | Input "buy milk" in the text field.<br>Check that the button labelled "add" is enabled. |
-    | 4. The user presses the "Add" button. | Click the button labelled "add ". |
-    | 5. The screen refreshes and the new item is at the bottom of the todo list. | Check that a text box with the text "buy milk" is present on screen.<br>Input "buy chocolate" in the text field.<br>Click the button labelled "add".<br>Check that two text boxes are present on the screen with "buy milk" on top and "buy chocolate" at the bottom. |
-    | 5a. The list exceeds the maximum todo-list size. | Repeat steps 3 to 5 ten times.<br>Check that a dialog is opened with the text: "You have too many items, try completing one first". |
+  **Main success scenario**
+  1. The user opens the Closet screen and taps "Add clothing".
+  2. The app asks whether to take a photo with the camera or choose one from the gallery.
+  3. The user takes or chooses a photo of a clothing item.
+  4. The app uploads the photo and shows a loading indicator while the item is classified.
+  5. The app shows the new item at the top of the closet with its photo, name and category.
 
-  - **Test Logs:**
-    ```
-    [Placeholder for Espresso test execution logs]
-    ```
-
-- **Use Case: ...**
+  **Failure scenarios**
+  - 3a. The user closes the camera or gallery without choosing a photo.
+    - 3a1. The app returns to the Closet screen and the closet is unchanged.
+  - 4a. The photo does not show a clothing item.
+    - 4a1. The app shows the message "This photo doesn't show a clothing item. Try another photo." and the closet is unchanged.
+  - 4b. The photo can't be uploaded or classified (no network, or the server is unavailable).
+    - 4b1. The app shows the message "Couldn't add the item. Please try again." with a "Try again" button.
+    - 4b2. The user taps "Try again" and the app repeats step 4.
 
   - **Expected Behaviors:**
 
     | **Scenario Steps** | **Test Case Steps** |
     | ------------------ | ------------------- |
-    | ...                | ...                 |
+    | 1. The user opens the Closet screen and taps "Add clothing". | Click the "Closet" item in the navigation bar.<br>Count the closet item cards on screen (nodes tagged `closet_item`) and store the count as N.<br>Click the button labelled "Add clothing". |
+    | 2. The app asks whether to take a photo with the camera or choose one from the gallery. | Check that the options "Take photo" and "Choose from gallery" are present on screen. |
+    | 3a. The user closes the camera or gallery without choosing a photo. | Click "Choose from gallery".<br>With UI Automator, wait for the system photo picker to open, then press the Back button. |
+    | 3a1. The app returns to the Closet screen and the closet is unchanged. | Check that the button labelled "Add clothing" is present on screen.<br>Check that there are still N closet item cards. |
+    | 4a. The photo does not show a clothing item. | Click "Add clothing", then "Choose from gallery".<br>With UI Automator, select `mug.jpg` in the photo picker. |
+    | 4a1. The app shows the message "This photo doesn't show a clothing item. Try another photo." and the closet is unchanged. | Wait up to 30 seconds for the text "This photo doesn't show a clothing item. Try another photo." to be present on screen.<br>Dismiss the message and check that there are still N closet item cards. |
+    | 3. The user takes or chooses a photo of a clothing item. | Click "Add clothing", then "Choose from gallery".<br>With UI Automator, select `shirt.jpg` in the photo picker. |
+    | 4. The app uploads the photo and shows a loading indicator while the item is classified. | Check that the loading indicator (node tagged `upload_progress`) is displayed. |
+    | 5. The app shows the new item at the top of the closet with its photo, name and category. | Wait up to 30 seconds for the loading indicator to disappear.<br>Check that there are N + 1 closet item cards.<br>Check that the first card shows the category "Top", a non-empty name, and a photo (node tagged `closet_item_image`). |
+    | 4b. The photo can't be uploaded or classified. | Not automated: it needs the back-end to fail on purpose, and the front-end tests use the real back-end with no mocking. The back-end side of this failure is covered by the mocked `POST /clothing` tests ("Classifier unavailable", "Storage upload fails"). |
 
   - **Test Logs:**
     ```
-    [Placeholder for Espresso test execution logs]
+    To be added when UploadClothingTest.kt is implemented (CP2).
     ```
-
-- **...**
