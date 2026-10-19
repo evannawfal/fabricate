@@ -57,6 +57,14 @@ import java.util.Calendar
 import java.util.Locale
 import kotlin.math.abs
 import kotlinx.coroutines.delay
+import android.util.Log
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.credentials.exceptions.GetCredentialException
+import com.example.cpen321application.auth.GoogleAuthClient
+import com.example.cpen321application.screens.LoginScreen
+import kotlinx.coroutines.launch
 
 /** The three feature areas plus the home menu. */
 enum class Screen { Home, ServerInfo, LiveUpdates, Timer }
@@ -73,7 +81,21 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             CPEN321ApplicationTheme {
-                AvatarScreen()
+                // temp show the login screen
+                val context = LocalContext.current
+                val scope = rememberCoroutineScope()
+                val authClient = remember { GoogleAuthClient(context) }
+
+                LoginScreen(onSignInClick = {
+                    scope.launch {
+                        try {
+                            Log.d("Auth", "Got ID token")
+                        } catch (e: GetCredentialException) {
+                            Log.e("Auth", "Sign-in failed", e)
+                        }
+                    }
+                })
+//                AvatarScreen()
             }
         }
     }
