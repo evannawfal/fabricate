@@ -18,26 +18,26 @@ For CP1 the back-end tests are documented for all interfaces of the **Clothing**
 
 | **Interface** | **Describe Group Location, No Mocks** | **Describe Group Location, With Mocks** | **Mocked Components** |
 | ------------- | ------------------------------------- | --------------------------------------- | --------------------- |
-| **POST /clothing** | [`backend/tests/no-mock/clothing.test.ts#L24`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/clothing.test.ts#L24) | [`backend/tests/mock/clothingUpload.test.ts#L72`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/mock/clothingUpload.test.ts#L72) | Clothing classifier (Claude API), Azure Blob Storage, Clothing DB |
-| **GET /clothing** | [`backend/tests/no-mock/clothing.test.ts#L120`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/clothing.test.ts#L120) | [`backend/tests/mock/clothingUpload.test.ts#L232`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/mock/clothingUpload.test.ts#L232)<br>[`backend/tests/mock/clothing.test.ts#L36`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/mock/clothing.test.ts#L36) | Azure Blob Storage (photo links), Clothing DB |
-| **GET /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L242`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/clothing.test.ts#L242) | [`backend/tests/mock/clothing.test.ts#L57`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/mock/clothing.test.ts#L57) | Clothing DB |
-| **PATCH /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L334`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/clothing.test.ts#L334) | [`backend/tests/mock/clothing.test.ts#L78`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/mock/clothing.test.ts#L78) | Clothing DB |
-| **DELETE /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L520`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/clothing.test.ts#L520) | [`backend/tests/mock/clothing.test.ts#L126`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/mock/clothing.test.ts#L126) | Clothing DB |
-| POST /auth/google | [`backend/tests/no-mock/auth.test.ts#L20`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/auth.test.ts#L20) | [`backend/tests/mock/auth.test.ts#L47`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/mock/auth.test.ts#L47) | Google Authentication API, User DB |
-| POST /outfits | [`backend/tests/no-mock/outfits.test.ts#L29`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/outfits.test.ts#L29) | Planned for CP2 | Outfit DB |
-| GET /outfits | [`backend/tests/no-mock/outfits.test.ts#L172`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/outfits.test.ts#L172) | Planned for CP2 | Outfit DB |
-| GET /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L217`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/outfits.test.ts#L217) | Planned for CP2 | Outfit DB |
-| PATCH /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L279`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/outfits.test.ts#L279) | Planned for CP2 | Outfit DB |
-| DELETE /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L434`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/outfits.test.ts#L434) | Planned for CP2 | Outfit DB |
-| GET /health | [`backend/tests/no-mock/health.test.ts#L6`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/no-mock/health.test.ts#L6) | None needed (no external components) | None |
+| **POST /clothing** | [`backend/tests/no-mock/clothing.test.ts#L24`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/clothing.test.ts#L24) | [`backend/tests/mock/clothingUpload.test.ts#L69`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/mock/clothingUpload.test.ts#L69) | Clothing classifier (Claude API), Azure Blob Storage, Clothing DB |
+| **GET /clothing** | [`backend/tests/no-mock/clothing.test.ts#L120`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/clothing.test.ts#L120) | [`backend/tests/mock/clothing.test.ts#L38`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/mock/clothing.test.ts#L38) | Azure Blob Storage (photo links), Clothing DB |
+| **GET /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L242`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/clothing.test.ts#L242) | [`backend/tests/mock/clothing.test.ts#L80`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/mock/clothing.test.ts#L80) | Clothing DB |
+| **PATCH /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L334`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/clothing.test.ts#L334) | [`backend/tests/mock/clothing.test.ts#L101`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/mock/clothing.test.ts#L101) | Clothing DB |
+| **DELETE /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L520`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/clothing.test.ts#L520) | [`backend/tests/mock/clothing.test.ts#L149`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/mock/clothing.test.ts#L149) | Clothing DB |
+| POST /auth/google | [`backend/tests/no-mock/auth.test.ts#L20`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/auth.test.ts#L20) | [`backend/tests/mock/auth.test.ts#L47`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/mock/auth.test.ts#L47) | Google Authentication API, User DB |
+| POST /outfits | [`backend/tests/no-mock/outfits.test.ts#L29`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L29) | Planned for CP2 | Outfit DB |
+| GET /outfits | [`backend/tests/no-mock/outfits.test.ts#L172`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L172) | Planned for CP2 | Outfit DB |
+| GET /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L217`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L217) | Planned for CP2 | Outfit DB |
+| PATCH /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L279`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L279) | Planned for CP2 | Outfit DB |
+| DELETE /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L434`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L434) | Planned for CP2 | Outfit DB |
+| GET /health | [`backend/tests/no-mock/health.test.ts#L6`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/health.test.ts#L6) | None needed (no external components) | None |
 
 How the external components are mocked:
 
-- **Clothing classifier (Claude API)** and **Azure Blob Storage**: the tests replace them with Jest stand-ins through `setClothingClassifier()` and `setFileStorage()`, so they can return a classification, throw an "unavailable" or "not clothing" error, or fail an upload. [`backend/tests/setupEnv.ts`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/setupEnv.ts) clears their credentials, so the tests never call the real services.
-- **Clothing DB / User DB** (MongoDB): the tests without mocks use a real in-memory MongoDB server ([`backend/tests/helpers/database.ts`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/tests/helpers/database.ts)). The mocked tests use `jest.spyOn()` on Mongoose model methods (`ClothingItem.create`, `find`, `findOne`, `findOneAndUpdate`, `exists`) to make them throw a database error.
+- **Clothing classifier (Claude API)** and **Azure Blob Storage**: the tests replace them with Jest stand-ins through `setClothingClassifier()` and `setFileStorage()`, so they can return a classification, throw an "unavailable" or "not clothing" error, or fail an upload. [`backend/tests/setupEnv.ts`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/setupEnv.ts) clears their credentials, so the tests never call the real services.
+- **Clothing DB / User DB** (MongoDB): the tests without mocks use a real in-memory MongoDB server ([`backend/tests/helpers/database.ts`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/helpers/database.ts)). The mocked tests use `jest.spyOn()` on Mongoose model methods (`ClothingItem.create`, `find`, `findOne`, `findOneAndUpdate`, `exists`) to make them throw a database error.
 - **Google Authentication API**: `jest.spyOn(OAuth2Client.prototype, 'verifyIdToken')` returns a chosen Google profile.
 
-#### 2.1.2. Test Cases of the Clothing Component
+**Test cases of the Clothing component**
 
 Each test in the code is annotated with its input, expected status code, expected behavior and expected output (and the mock's behavior for mocked tests). All requests use a valid signed-in user unless the input says otherwise. The table below summarizes them.
 
@@ -115,11 +115,11 @@ Each test in the code is annotated with its input, expected status code, expecte
 | Unmocked | Missing token | No Authorization header | 401 | `{ error: "Missing token" }` |
 | Mocked | Database error | `ClothingItem.findOneAndUpdate` throws | 500 | Item is not archived; `{ error: "Internal server error" }` |
 
-#### 2.1.3. Commit Hash Where Tests Run
+#### 2.1.2. Commit Hash Where Tests Run
 
-`c0a23ba5380dc7ad94a070a54e5b7514e08995dd`
+`10f8b8a44372602cbf048c6a18e843c9c0c1ab0b`
 
-#### 2.1.4. Explanation on How to Run the Tests
+#### 2.1.3. Explanation on How to Run the Tests
 
 The tests need **Node.js 22** and npm 10. They do not need a `.env` file, a MongoDB installation or any API keys: they start an in-memory MongoDB server and never call the Claude API, Azure Blob Storage or Google. The first run downloads a MongoDB binary, so it needs an internet connection.
 
@@ -128,7 +128,7 @@ The tests need **Node.js 22** and npm 10. They do not need a `.env` file, a Mong
    ```
    git clone https://github.com/evannawfal/fabricate.git
    cd fabricate
-   git checkout c0a23ba5380dc7ad94a070a54e5b7514e08995dd
+   git checkout 10f8b8a44372602cbf048c6a18e843c9c0c1ab0b
    ```
 
 2. **Install the back-end dependencies**:
@@ -153,7 +153,7 @@ The tests need **Node.js 22** and npm 10. They do not need a `.env` file, a Mong
    npm test                        # every back-end test, including the unit tests in tests/unit
    ```
 
-   Coverage is always collected for every file in `backend/src` (`collectCoverageFrom` in [`backend/jest.config.js`](https://github.com/evannawfal/fabricate/blob/c0a23ba5380dc7ad94a070a54e5b7514e08995dd/backend/jest.config.js)) and printed as a per-file table.
+   Coverage is always collected for every file in `backend/src` (`collectCoverageFrom` in [`backend/jest.config.js`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/jest.config.js)) and printed as a per-file table.
 
 ### 2.2. GitHub Actions Configuration Location
 
@@ -219,20 +219,22 @@ _To be added for CP2._
 
 `frontend/app/src/androidTest/java/com/example/cpen321application/e2e/`
 
-The Upload Clothing Item test will be `UploadClothingTest.kt` in this folder. The Closet screen it runs on is still being built, so the test is designed here and will be implemented for CP2. The button labels and messages below are the ones the Closet screen must show; if the screen changes them, this section will be updated to match.
+The Upload Clothing Item test will be `UploadClothingTest.kt` in this folder. It is designed here and will be implemented for CP2, once photo upload is added to the Closet screen.
 
-Like every feature test, it starts with the user already signed in on the app's main screen. It does not assume an empty closet: it compares the number of items before and after the upload. Before it runs, the test copies two photos from its test assets into the emulator's photo library so that they show up in the photo picker: `shirt.jpg` (a T-shirt) and `mug.jpg` (a coffee mug, not clothing). The test talks to the real deployed back-end; nothing is mocked.
+The test runs on the Closet screen as it is built: the app opens on the "Closet" tab of the bottom navigation bar, which shows the title "My Closet", a row of category filters ("All", "Tops", "Bottoms", ...) and a two-column grid of item cards, each with the item's photo and name. Tapping a card opens the item's details ("Type", "Colour", "Style", "Status", "Tags") with a "Back" button. The "Add clothing" button, the photo source choice, the loading indicator and the messages in the table below are part of the upload work that is still in progress; they must use the labels below, or this section will be updated to match. The test finds item cards, their photos and the loading indicator by the test tags `closet_item`, `closet_item_image` and `upload_progress`, which will be added to those elements.
+
+Like every feature test, it starts with the user already signed in on the app's main screen. It does not assume an empty closet: it compares the number of items before and after the upload (when the closet is empty, the screen shows "Your closet is empty" and the count is 0). Before it runs, the test copies two photos from its test assets into the emulator's photo library so that they show up in the photo picker: `shirt.jpg` (a T-shirt) and `mug.jpg` (a coffee mug, not clothing). The test talks to the real deployed back-end; nothing is mocked.
 
 ### 4.2. Tests
 
 - **Use Case: Upload Clothing Item**
 
   **Main success scenario**
-  1. The user opens the Closet screen and taps "Add clothing".
+  1. The user opens the Closet tab and taps "Add clothing".
   2. The app asks whether to take a photo with the camera or choose one from the gallery.
   3. The user takes or chooses a photo of a clothing item.
   4. The app uploads the photo and shows a loading indicator while the item is classified.
-  5. The app shows the new item at the top of the closet with its photo, name and category.
+  5. The app shows the new item at the top of the closet with its photo and name; its details show the category, colour and style the app detected.
 
   **Failure scenarios**
   - 3a. The user closes the camera or gallery without choosing a photo.
@@ -247,15 +249,15 @@ Like every feature test, it starts with the user already signed in on the app's 
 
     | **Scenario Steps** | **Test Case Steps** |
     | ------------------ | ------------------- |
-    | 1. The user opens the Closet screen and taps "Add clothing". | Click the "Closet" item in the navigation bar.<br>Count the closet item cards on screen (nodes tagged `closet_item`) and store the count as N.<br>Click the button labelled "Add clothing". |
+    | 1. The user opens the Closet tab and taps "Add clothing". | Click "Closet" in the bottom navigation bar.<br>Check that the text "My Closet" is present on screen.<br>Count the item cards on screen (nodes tagged `closet_item`) and store the count as N.<br>Click the button labelled "Add clothing". |
     | 2. The app asks whether to take a photo with the camera or choose one from the gallery. | Check that the options "Take photo" and "Choose from gallery" are present on screen. |
     | 3a. The user closes the camera or gallery without choosing a photo. | Click "Choose from gallery".<br>With UI Automator, wait for the system photo picker to open, then press the Back button. |
-    | 3a1. The app returns to the Closet screen and the closet is unchanged. | Check that the button labelled "Add clothing" is present on screen.<br>Check that there are still N closet item cards. |
+    | 3a1. The app returns to the Closet screen and the closet is unchanged. | Check that the text "My Closet" and the button labelled "Add clothing" are present on screen.<br>Check that there are still N item cards. |
     | 4a. The photo does not show a clothing item. | Click "Add clothing", then "Choose from gallery".<br>With UI Automator, select `mug.jpg` in the photo picker. |
-    | 4a1. The app shows the message "This photo doesn't show a clothing item. Try another photo." and the closet is unchanged. | Wait up to 30 seconds for the text "This photo doesn't show a clothing item. Try another photo." to be present on screen.<br>Dismiss the message and check that there are still N closet item cards. |
+    | 4a1. The app shows the message "This photo doesn't show a clothing item. Try another photo." and the closet is unchanged. | Wait up to 30 seconds for the text "This photo doesn't show a clothing item. Try another photo." to be present on screen.<br>Dismiss the message and check that there are still N item cards. |
     | 3. The user takes or chooses a photo of a clothing item. | Click "Add clothing", then "Choose from gallery".<br>With UI Automator, select `shirt.jpg` in the photo picker. |
     | 4. The app uploads the photo and shows a loading indicator while the item is classified. | Check that the loading indicator (node tagged `upload_progress`) is displayed. |
-    | 5. The app shows the new item at the top of the closet with its photo, name and category. | Wait up to 30 seconds for the loading indicator to disappear.<br>Check that there are N + 1 closet item cards.<br>Check that the first card shows the category "Top", a non-empty name, and a photo (node tagged `closet_item_image`). |
+    | 5. The app shows the new item at the top of the closet with its photo and name; its details show the category, colour and style the app detected. | Wait up to 30 seconds for the loading indicator to disappear.<br>Check that there are N + 1 item cards.<br>Check that the first card has a non-empty name and a photo (node tagged `closet_item_image`).<br>Click the first card.<br>Check that the "Type" detail shows "Tops" and that the "Colour" and "Style" details are not empty.<br>Click "Back" and check that the text "My Closet" is present on screen. |
     | 4b. The photo can't be uploaded or classified. | Not automated: it needs the back-end to fail on purpose, and the front-end tests use the real back-end with no mocking. The back-end side of this failure is covered by the mocked `POST /clothing` tests ("Classifier unavailable", "Storage upload fails"). |
 
   - **Test Logs:**
