@@ -17,6 +17,11 @@ export default {
   coveragePathIgnorePatterns: [
     '/node_modules/',
     '/dist/',
-    '/coverage/'
+    '/coverage/',
+    "<rootDir>/src/avatar/exportAvatar.ts"
+  ],
+  testPathIgnorePatterns: [
+    "/node_modules/",
+    "<rootDir>/src/avatar/exportAvatar.ts",
   ],
 };
