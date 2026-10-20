@@ -33,10 +33,8 @@ datastorePreferences = "1.1.7"
 credentials = "1.5.0"
 googleid = "1.1.1"
 
-# Networking + auth (added for M1: OkHttp is pure-JVM; play-services-auth 21.x
-# compiles against SDK 35, so neither forces a compileSdk bump)
+# Networking (OkHttp is pure-JVM, so it does not force a compileSdk bump)
 okhttp = "4.12.0"
-playServicesAuth = "21.2.0"
 
 # Image loading for clothing photos
 coil = "2.7.0"
@@ -62,7 +60,6 @@ androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
-play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
