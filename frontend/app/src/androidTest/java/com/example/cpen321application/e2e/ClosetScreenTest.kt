@@ -6,9 +6,11 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.cpen321application.fakes.FakeClothingRepository
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
 import com.example.cpen321application.screens.ClosetScreen
+import com.example.cpen321application.viewmodel.ClosetViewModel
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,16 +26,21 @@ class ClosetScreenTest {
         ClothingItem("3", "White Sneakers", ClothingCategory.Shoes, "white", "casual"),
     )
 
+    private fun showCloset(closet: List<ClothingItem> = items) {
+        val viewModel = ClosetViewModel(FakeClothingRepository(closet))
+        composeRule.setContent { ClosetScreen(viewModel) }
+    }
+
     @Test
     fun rendersItemsFromList() {
-        composeRule.setContent { ClosetScreen(initialItems = items) }
+        showCloset()
 
         items.forEach { composeRule.onNodeWithText(it.name).assertIsDisplayed() }
     }
 
     @Test
     fun categoryFilterShowsOnlyThatCategory() {
-        composeRule.setContent { ClosetScreen(initialItems = items) }
+        showCloset()
 
         composeRule.onNodeWithText("Bottoms").performClick()
         composeRule.onNodeWithText("Black Jeans").assertIsDisplayed()
@@ -48,7 +55,7 @@ class ClosetScreenTest {
 
     @Test
     fun tappingItemOpensDetailsAndBackReturns() {
-        composeRule.setContent { ClosetScreen(initialItems = items) }
+        showCloset()
 
         composeRule.onNodeWithText("Grey Hoodie").performClick()
         composeRule.onNodeWithText("Tops").assertIsDisplayed()
@@ -61,7 +68,7 @@ class ClosetScreenTest {
 
     @Test
     fun deletingItemRemovesItFromCloset() {
-        composeRule.setContent { ClosetScreen(initialItems = items) }
+        showCloset()
 
         composeRule.onNodeWithText("White Sneakers").performClick()
         composeRule.onNodeWithText("Delete item").performClick()
@@ -73,7 +80,7 @@ class ClosetScreenTest {
 
     @Test
     fun emptyClosetShowsEmptyState() {
-        composeRule.setContent { ClosetScreen(initialItems = emptyList()) }
+        showCloset(emptyList())
 
         composeRule.onNodeWithText("Your closet is empty").assertIsDisplayed()
     }

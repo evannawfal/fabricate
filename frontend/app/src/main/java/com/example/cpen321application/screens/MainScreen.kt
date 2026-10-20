@@ -24,8 +24,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cpen321application.R
+import com.example.cpen321application.data.InMemoryClothingRepository
+import com.example.cpen321application.data.MockCloset
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
+import com.example.cpen321application.viewmodel.ClosetViewModel
 
 /** Top-level tabs reachable from the bottom navigation bar. */
 enum class Tab(@StringRes val labelRes: Int, val icon: ImageVector) {
@@ -44,6 +48,12 @@ fun MainScreen(
 ) {
   var tab by rememberSaveable { mutableStateOf(Tab.Closet) }
   var confirmingSignOut by rememberSaveable { mutableStateOf(false) }
+  // Created here, above the tabs, so the closet keeps its state while another tab is open.
+  // It shows the mock closet until the app can sign in; once sign-in (#2) stores the
+  // back-end's access token, use BackendClothingRepository(tokenProvider = { <that token> }).
+  val closetViewModel: ClosetViewModel = viewModel {
+    ClosetViewModel(InMemoryClothingRepository(MockCloset.items))
+  }
 
   // Back from another tab returns to the Closet tab before leaving the app.
   BackHandler(enabled = tab != Tab.Closet) { tab = Tab.Closet }
@@ -71,7 +81,7 @@ fun MainScreen(
   ) { innerPadding ->
     val contentModifier = Modifier.padding(innerPadding)
     when (tab) {
-      Tab.Closet -> ClosetScreen(contentModifier)
+      Tab.Closet -> ClosetScreen(closetViewModel, contentModifier)
       Tab.Avatar -> AvatarRoute(contentModifier)
     }
   }
