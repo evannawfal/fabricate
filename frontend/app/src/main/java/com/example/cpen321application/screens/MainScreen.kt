@@ -2,7 +2,6 @@ package com.example.cpen321application.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -73,7 +72,7 @@ fun MainScreen(
     val contentModifier = Modifier.padding(innerPadding)
     when (tab) {
       Tab.Closet -> ClosetScreen(contentModifier)
-      Tab.Avatar -> Box(contentModifier) { AvatarScreen() }
+      Tab.Avatar -> AvatarRoute(contentModifier)
     }
   }
 
