@@ -1,24 +1,10 @@
 import * as THREE from "three";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
-import { writeFile, mkdir } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { Buffer } from "node:buffer";
-
+import { AvatarInput } from "./types.js";
 import { generateAvatarGeometry } from "./meshGenerator.js";
 
-// Define the supported avatar parameters.
-interface AvatarOptions {
-  height?: number;
-  shoulderWidth?: number;
-  chestWidth?: number;
-  waistWidth?: number;
-  hipWidth?: number;
-  resolution?: number;
-  [key: string]: unknown;
-}
-
-// Add a FileReader polyfill for Node.js.
+// GLTFExporter's binary output uses the browser's FileReader, which Node.js doesn't have.
 if (typeof globalThis.FileReader === "undefined") {
   class NodeFileReader {
     result: string | ArrayBuffer | null = null;
@@ -66,32 +52,31 @@ if (typeof globalThis.FileReader === "undefined") {
     NodeFileReader as unknown as typeof FileReader;
 }
 
-const currentDir = dirname(fileURLToPath(import.meta.url));
+const AVATAR_CONSTS = {
+  color: 0xb8b5ae,
+  roughness: 0.85,
+  metalness: 0,
+}
 
 export async function exportAvatar(
-  options: AvatarOptions = {},
-  outputPath: string = resolve(currentDir, "avatar.glb")
-): Promise<void> {
-  // 1. Generate the mesh.
+  options: AvatarInput,
+): Promise<Uint8Array> {
+  // Generate the mesh
   const geometry = generateAvatarGeometry(options);
 
-  // 2. Give it a neutral material for visual inspection.
-  const material = new THREE.MeshStandardMaterial({
-    color: 0xb8b5ae,
-    roughness: 0.85,
-    metalness: 0,
-  });
+  // Give it a neutral material for visual inspection
+  const material = new THREE.MeshStandardMaterial(AVATAR_CONSTS);
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = "AvatarCore";
 
-  // 3. Create a scene containing the mesh.
+  // Create a scene containing the mesh
   const scene = new THREE.Scene();
   scene.name = "ProceduralAvatar";
   scene.add(mesh);
 
   try {
-    // 4. Export the scene as binary glTF (.glb).
+    // Export the scene as binary glTF (.glb)
     const exporter = new GLTFExporter();
 
     const glb = await exporter.parseAsync(scene, {
@@ -99,36 +84,14 @@ export async function exportAvatar(
       onlyVisible: true,
     });
 
-    // 5. Save the resulting binary file.
-    await mkdir(dirname(outputPath), { recursive: true });
-    await writeFile(outputPath, Buffer.from(glb as ArrayBuffer));
+    if (!(glb instanceof ArrayBuffer)) {
+      throw new Error("Expected binary GLB output");
+    }
+    return new Uint8Array(glb);
 
-    console.log(`GLB exported: ${outputPath}`);
-    console.log(
-      `File size: ${((glb as ArrayBuffer).byteLength / 1024).toFixed(1)} KB`
-    );
   } finally {
-    // Release geometry resources even if export fails.
+    // Release geometry resources even if export fails
     geometry.dispose();
     material.dispose();
   }
-}
-
-// Allow this file to be run directly.
-const isMainModule =
-  process.argv[1] &&
-  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-
-if (isMainModule) {
-  exportAvatar({
-    height: 1.85,
-    shoulderWidth: 0.40,
-    chestWidth: 0.35,
-    waistWidth: 0.30,
-    hipWidth: 0.32,
-    resolution: 0.015,
-  }).catch((error: unknown) => {
-    console.error("Failed to export avatar:", error);
-    process.exitCode = 1;
-  });
 }

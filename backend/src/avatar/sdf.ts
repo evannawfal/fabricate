@@ -8,6 +8,7 @@ const DEFAULTS = {
   neckWidth: 0.12,
   armLengthRatio: 0.30,
   legLengthRatio: 0.46,
+  resolution: 0.015,
 };
 
 /**

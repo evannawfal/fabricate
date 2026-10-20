@@ -41,8 +41,8 @@ class MainScreenTest {
         showMainScreen()
 
         composeRule.onNodeWithText("Avatar").performClick()
-        // The test app bundles no avatar model.
-        composeRule.onNodeWithText("Your avatar isn't available yet.").assertIsDisplayed()
+        // A fresh test install has no saved avatar yet.
+        composeRule.onNodeWithText("Update avatar").assertIsDisplayed()
 
         pressBack()
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()
