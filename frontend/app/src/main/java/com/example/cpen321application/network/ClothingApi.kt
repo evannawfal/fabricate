@@ -32,7 +32,6 @@ class BackendClothingRepository(
     override suspend fun listItems(): List<ClothingItem> {
         val body = send(Request.Builder().url(clothingUrl).get())
         val items = parse { JSONObject(body).getJSONArray("items") }
-        // Items in a category this version of the app doesn't know are left out.
         return (0 until items.length()).mapNotNull { parse { parseClothingItem(items.getJSONObject(it)) } }
     }
 
@@ -58,20 +57,21 @@ class BackendClothingRepository(
         send(Request.Builder().url("$clothingUrl/$id").delete())
     }
 
-    // Sends the request with the user's token and returns the response body,
-    // turning every kind of failure into a message for the user.
     private suspend fun send(request: Request.Builder): String = withContext(Dispatchers.IO) {
         val token = tokenProvider() ?: throw ClothingRepositoryException(NOT_SIGNED_IN)
         try {
             client.newCall(request.header("Authorization", "Bearer $token").build()).execute().use { response ->
                 val body = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
-                    throw ClothingRepositoryException(errorMessageFor(response.code, serverError(body)))
+                    throw ClothingRepositoryException(
+                        errorMessageFor(response.code, serverError(body)),
+                        canRetry = response.code >= 500,
+                    )
                 }
                 body
             }
         } catch (e: IOException) {
-            throw ClothingRepositoryException(NETWORK_ERROR, e)
+            throw ClothingRepositoryException(NETWORK_ERROR, e, canRetry = true)
         }
     }
 
@@ -89,8 +89,6 @@ class BackendClothingRepository(
         val JPEG = "image/jpeg".toMediaType()
         val JSON = "application/json".toMediaType()
 
-        // Uploads wait for the back-end to classify the photo, which retries a slow
-        // classifier for up to about 90 seconds before giving up.
         val defaultClient: OkHttpClient = OkHttpClient.Builder()
             .readTimeout(2, TimeUnit.MINUTES)
             .build()
@@ -100,21 +98,20 @@ class BackendClothingRepository(
 internal const val NOT_SIGNED_IN = "Sign in to see your closet."
 internal const val NETWORK_ERROR = "Couldn't reach the server. Check your connection and try again."
 internal const val UNEXPECTED_RESPONSE = "Something went wrong on our end. Try again."
+internal const val NOT_CLOTHING = "This photo doesn't show a clothing item. Try another photo."
 
 /** A message for the user explaining a failed `/clothing` request. */
 internal fun errorMessageFor(status: Int, serverError: String?): String = when (status) {
-    // The back-end's validation messages (e.g. "color must not be empty") are written for people.
     400 -> serverError ?: "That request wasn't valid."
     401 -> "Your session has expired. Sign in again."
     404 -> "This item is no longer in your closet."
     409 -> "This item was removed and can no longer be edited."
-    413 -> "That photo is too large. Try a smaller one."
-    422 -> "That photo doesn't look like a clothing item. Try a clear photo of a single item."
+    413 -> "This photo is too large. Try another photo."
+    422 -> NOT_CLOTHING
     503 -> "Adding clothing isn't available right now. Try again later."
     else -> "Something went wrong (error $status). Try again."
 }
 
-// The back-end reports errors as {"error": "..."}.
 private fun serverError(body: String): String? =
     try {
         JSONObject(body).optString("error").ifBlank { null }
@@ -122,7 +119,6 @@ private fun serverError(body: String): String? =
         null
     }
 
-/** The app's item for one entry of a `/clothing` response, or null if its category is unknown. */
 internal fun parseClothingItem(json: JSONObject): ClothingItem? {
     val category = ClothingCategory.fromApiValue(json.getString("category")) ?: return null
     val tags = json.optJSONArray("tags")

@@ -15,6 +15,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -44,13 +45,15 @@ class ClothingApiTest {
     private fun respond(status: Int, body: String = "") =
         server.enqueue(MockResponse().setResponseCode(status).setBody(body))
 
-    private fun assertFailsWith(message: String, block: suspend () -> Unit) {
+    private fun assertFailsWith(message: String, block: suspend () -> Unit): ClothingRepositoryException {
         try {
             runBlocking { block() }
-            fail("Expected ClothingRepositoryException")
         } catch (e: ClothingRepositoryException) {
             assertEquals(message, e.message)
+            return e
         }
+        fail("Expected ClothingRepositoryException")
+        throw AssertionError()
     }
 
     @Before
@@ -112,6 +115,21 @@ class ClothingApiTest {
 
         respond(503, """{"error":"Photo classification is not available right now"}""")
         assertFailsWith(errorMessageFor(503, null)) { repository.uploadPhoto(byteArrayOf(1)) }
+    }
+
+    @Test
+    fun uploadPhoto_onlyServerAndConnectionProblemsCanBeRetried() {
+        respond(422, """{"error":"The photo does not show a clothing item"}""")
+        val notClothing = assertFailsWith("This photo doesn't show a clothing item. Try another photo.") {
+            repository.uploadPhoto(byteArrayOf(1))
+        }
+        assertFalse(notClothing.canRetry)
+
+        respond(503)
+        assertTrue(assertFailsWith(errorMessageFor(503, null)) { repository.uploadPhoto(byteArrayOf(1)) }.canRetry)
+
+        server.shutdown()
+        assertTrue(assertFailsWith(NETWORK_ERROR) { repository.uploadPhoto(byteArrayOf(1)) }.canRetry)
     }
 
     @Test

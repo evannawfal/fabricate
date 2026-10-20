@@ -16,25 +16,14 @@ import java.io.IOException
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-// Longest side of an uploaded photo. The classifier scales larger images down to about
-// this size anyway, so sending more detail only makes the upload slower.
 internal const val MAX_PHOTO_SIDE = 1568
 private const val JPEG_QUALITY = 85
 
-/**
- * Where the camera saves a new photo: one reused file in the app's cache, shared with
- * the camera app through the FileProvider declared in AndroidManifest.xml.
- */
 fun cameraPhotoUri(context: Context): Uri {
     val dir = File(context.cacheDir, "camera").apply { mkdirs() }
     return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", File(dir, "photo.jpg"))
 }
 
-/**
- * Reads the photo at [uri] and re-encodes it as a JPEG no larger than [MAX_PHOTO_SIDE],
- * which every gallery format (e.g. HEIC) can be turned into and keeps uploads small.
- * Throws [IOException] if the photo can't be read.
- */
 suspend fun readPhotoForUpload(context: Context, uri: Uri): ByteArray = withContext(Dispatchers.IO) {
     val bitmap = decodeScaled(context.contentResolver, uri)
     ByteArrayOutputStream().use { out ->
@@ -44,7 +33,6 @@ suspend fun readPhotoForUpload(context: Context, uri: Uri): ByteArray = withCont
     }
 }
 
-/** [width] x [height] scaled down to fit within [maxSide], keeping the aspect ratio. */
 internal fun scaledSize(width: Int, height: Int, maxSide: Int): Pair<Int, Int> {
     val longest = max(width, height)
     if (longest <= maxSide) return width to height
@@ -54,7 +42,7 @@ internal fun scaledSize(width: Int, height: Int, maxSide: Int): Pair<Int, Int> {
 
 private fun decodeScaled(resolver: ContentResolver, uri: Uri): Bitmap =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-        // ImageDecoder also turns camera photos the right way up.
+        // This also turns camera photos the right way up.
         ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, uri)) { decoder, info, _ ->
             val (width, height) = scaledSize(info.size.width, info.size.height, MAX_PHOTO_SIDE)
             decoder.setTargetSize(width, height)

@@ -14,8 +14,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.IOException
 
-/** A failed action, shown to the user in a dialog. */
-data class ClosetError(val title: String, val message: String)
+data class ClosetError(val message: String, val title: String? = null, val canRetry: Boolean = false)
 
 data class ClosetUiState(
     val items: List<ClothingItem> = emptyList(),
@@ -23,7 +22,6 @@ data class ClosetUiState(
     val loadError: String? = null,
     val selectedCategory: ClothingCategory? = null,
     val openItemId: String? = null,
-    // The item that was just uploaded, so its details can point out the detected values.
     val newItemId: String? = null,
     val isUploading: Boolean = false,
     val editingItemId: String? = null,
@@ -35,13 +33,11 @@ data class ClosetUiState(
     val editingItem: ClothingItem? get() = items.firstOrNull { it.id == editingItemId }
 }
 
-/**
- * State of the Closet screen. It lives above the bottom navigation, so the closet
- * isn't reloaded (or its filter reset) when the user switches tabs.
- */
 class ClosetViewModel(private val repository: ClothingRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(ClosetUiState())
     val uiState: StateFlow<ClosetUiState> = _uiState.asStateFlow()
+
+    private var failedPhoto: ByteArray? = null
 
     init {
         loadItems()
@@ -65,30 +61,42 @@ class ClosetViewModel(private val repository: ClothingRepository) : ViewModel() 
 
     fun closeItem() = _uiState.update { it.copy(openItemId = null, newItemId = null) }
 
-    /**
-     * Uploads the photo returned by [readPhoto] and opens the new item's details.
-     * If anything fails, an error is shown and nothing is added.
-     */
     fun addPhoto(readPhoto: suspend () -> ByteArray) {
         if (_uiState.value.isUploading) return
-        _uiState.update { it.copy(isUploading = true) }
+        _uiState.update { it.copy(isUploading = true, error = null) }
         viewModelScope.launch {
-            val error = try {
-                val item = repository.uploadPhoto(readPhoto())
-                _uiState.update {
-                    it.copy(items = listOf(item) + it.items, openItemId = item.id, newItemId = item.id)
-                }
-                null
-            } catch (e: ClothingRepositoryException) {
-                e.message
+            try {
+                upload(readPhoto())
             } catch (e: IOException) {
-                "Couldn't read that photo. Try another one."
-            }
-            _uiState.update {
-                it.copy(isUploading = false, error = error?.let { message -> ClosetError(ADD_FAILED, message) })
+                finishUpload(ClosetError("Couldn't read that photo. Try another photo."))
             }
         }
     }
+
+    fun retryUpload() {
+        val photo = failedPhoto ?: return
+        if (_uiState.value.isUploading) return
+        _uiState.update { it.copy(isUploading = true, error = null) }
+        viewModelScope.launch { upload(photo) }
+    }
+
+    private suspend fun upload(photo: ByteArray) {
+        try {
+            val item = repository.uploadPhoto(photo)
+            failedPhoto = null
+            _uiState.update {
+                it.copy(items = listOf(item) + it.items, newItemId = item.id, selectedCategory = null)
+            }
+            finishUpload(null)
+        } catch (e: ClothingRepositoryException) {
+            failedPhoto = photo.takeIf { e.canRetry }
+            finishUpload(
+                if (e.canRetry) ClosetError(UPLOAD_FAILED, canRetry = true) else ClosetError(e.message),
+            )
+        }
+    }
+
+    private fun finishUpload(error: ClosetError?) = _uiState.update { it.copy(isUploading = false, error = error) }
 
     fun startEditing(id: String) = _uiState.update { it.copy(editingItemId = id, editError = null) }
 
@@ -121,16 +129,19 @@ class ClosetViewModel(private val repository: ClothingRepository) : ViewModel() 
                     state.copy(items = state.items.filterNot { it.id == id }, openItemId = null, newItemId = null)
                 }
             } catch (e: ClothingRepositoryException) {
-                _uiState.update { it.copy(error = ClosetError("Couldn't delete item", e.message)) }
+                _uiState.update { it.copy(error = ClosetError(e.message, title = "Couldn't delete item")) }
             }
         }
     }
 
     fun showError(error: ClosetError) = _uiState.update { it.copy(error = error) }
 
-    fun dismissError() = _uiState.update { it.copy(error = null) }
+    fun dismissError() {
+        failedPhoto = null
+        _uiState.update { it.copy(error = null) }
+    }
 
     private companion object {
-        const val ADD_FAILED = "Couldn't add item"
+        const val UPLOAD_FAILED = "Couldn't add the item. Please try again."
     }
 }

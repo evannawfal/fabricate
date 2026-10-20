@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -67,6 +68,10 @@ import com.example.cpen321application.model.filterByCategory
 import com.example.cpen321application.viewmodel.ClosetError
 import com.example.cpen321application.viewmodel.ClosetUiState
 import com.example.cpen321application.viewmodel.ClosetViewModel
+
+// Test tags used by the Upload Clothing end-to-end test (documentation/Testing.md, section 4).
+const val CLOSET_ITEM_TAG = "closet_item"
+const val CLOSET_ITEM_IMAGE_TAG = "closet_item_image"
 
 /**
  * The user's closet: a category filter over a grid of their clothing items.
@@ -81,7 +86,7 @@ fun ClosetScreen(viewModel: ClosetViewModel, modifier: Modifier = Modifier) {
     val photoPicker = rememberPhotoPicker(
         onPhoto = { uri -> viewModel.addPhoto { readPhotoForUpload(context, uri) } },
         onCameraUnavailable = {
-            viewModel.showError(ClosetError("Couldn't open the camera", "No camera app is available."))
+            viewModel.showError(ClosetError("No camera app is available.", title = "Couldn't open the camera"))
         },
     )
 
@@ -106,12 +111,13 @@ fun ClosetScreen(viewModel: ClosetViewModel, modifier: Modifier = Modifier) {
             )
             ExtendedFloatingActionButton(
                 onClick = { choosingPhotoSource = true },
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text("Add") },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp),
-            )
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null)
+                Text("Add clothing", modifier = Modifier.padding(start = 12.dp))
+            }
         }
     }
 
@@ -149,9 +155,20 @@ private fun ClosetDialogs(state: ClosetUiState, viewModel: ClosetViewModel) {
     state.error?.let { error ->
         AlertDialog(
             onDismissRequest = viewModel::dismissError,
-            title = { Text(error.title) },
+            title = error.title?.let { title -> { Text(title) } },
             text = { Text(error.message) },
-            confirmButton = { TextButton(onClick = viewModel::dismissError) { Text("OK") } },
+            confirmButton = {
+                if (error.canRetry) {
+                    TextButton(onClick = viewModel::retryUpload) { Text("Try again") }
+                } else {
+                    TextButton(onClick = viewModel::dismissError) { Text("OK") }
+                }
+            },
+            dismissButton = if (error.canRetry) {
+                { TextButton(onClick = viewModel::dismissError) { Text("Cancel") } }
+            } else {
+                null
+            },
         )
     }
 }
@@ -187,7 +204,7 @@ private fun ClosetGrid(
             )
             items.isEmpty() -> EmptyCloset(
                 title = "Your closet is empty",
-                message = "Tap Add to photograph your first item.",
+                message = "Tap Add clothing to photograph your first item.",
             )
             visibleItems.isEmpty() -> EmptyCloset(
                 title = "No ${state.selectedCategory?.label?.lowercase()} yet",
@@ -233,6 +250,7 @@ private fun CategoryFilter(
 private fun ClothingItemCard(item: ClothingItem, onClick: () -> Unit) {
     Column(
         modifier = Modifier
+            .testTag(CLOSET_ITEM_TAG)
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
     ) {
@@ -270,7 +288,9 @@ private fun ClothingThumbnail(item: ClothingItem, modifier: Modifier = Modifier)
                 model = item.imageUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.matchParentSize(),
+                modifier = Modifier
+                    .matchParentSize()
+                    .testTag(CLOSET_ITEM_IMAGE_TAG),
             )
         }
     }

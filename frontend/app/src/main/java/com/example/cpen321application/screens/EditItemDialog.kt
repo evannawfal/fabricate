@@ -27,7 +27,6 @@ import com.example.cpen321application.data.ClothingItemChanges
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
 
-// Longest values the back-end accepts (CLOTHING_LIMITS in its clothingItem model).
 private const val NAME_MAX_LENGTH = 100
 private const val COLOR_MAX_LENGTH = 50
 private const val STYLE_MAX_LENGTH = 50

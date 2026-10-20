@@ -6,9 +6,14 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.provider.MediaStore
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -25,11 +30,14 @@ import com.example.cpen321application.data.ClothingRepositoryException
 import com.example.cpen321application.fakes.FakeClothingRepository
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
+import com.example.cpen321application.screens.CLOSET_ITEM_TAG
 import com.example.cpen321application.screens.ClosetScreen
+import com.example.cpen321application.screens.UPLOAD_PROGRESS_TAG
 import com.example.cpen321application.viewmodel.ClosetViewModel
 import kotlinx.coroutines.CompletableDeferred
 import org.hamcrest.Matchers.anyOf
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
@@ -39,8 +47,9 @@ import java.io.File
 import java.io.OutputStream
 
 /**
- * Adding clothing from a photo (#23). The camera and the photo picker are replaced
- * with stubs that return a test photo, and the back-end with [FakeClothingRepository].
+ * Adding clothing from a photo, following the Upload Clothing Item scenarios in
+ * documentation/Testing.md. The camera and the photo picker are replaced with stubs that
+ * return a test photo, and the back-end with [FakeClothingRepository].
  */
 @RunWith(AndroidJUnit4::class)
 class AddClothingTest {
@@ -49,13 +58,14 @@ class AddClothingTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val hoodie = ClothingItem("1", "Grey Hoodie", ClothingCategory.Top, "grey", "casual")
-    private val detectedCoat = ClothingItem("2", "Navy Wool Coat", ClothingCategory.Outerwear, "navy", "formal")
+    private val jeans = ClothingItem("2", "Black Jeans", ClothingCategory.Bottom, "black", "casual")
+    private val detectedCoat = ClothingItem("3", "Navy Wool Coat", ClothingCategory.Outerwear, "navy", "formal")
     private lateinit var repository: FakeClothingRepository
 
     @Before
     fun setUp() {
         Intents.init()
-        repository = FakeClothingRepository(listOf(hoodie))
+        repository = FakeClothingRepository(listOf(hoodie, jeans))
     }
 
     @After
@@ -75,12 +85,12 @@ class AddClothingTest {
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
     }
 
-    private fun stubGallery() {
+    private fun stubGallery(resultCode: Int = Activity.RESULT_OK) {
         val photo = File(context.cacheDir, "test-gallery-photo.png")
         photo.outputStream().use(::writeTestPhoto)
-        val result = Instrumentation.ActivityResult(Activity.RESULT_OK, Intent().setData(Uri.fromFile(photo)))
+        val data = Intent().setData(Uri.fromFile(photo)).takeIf { resultCode == Activity.RESULT_OK }
         intending(anyOf(hasAction(MediaStore.ACTION_PICK_IMAGES), hasAction(Intent.ACTION_OPEN_DOCUMENT)))
-            .respondWith(result)
+            .respondWith(Instrumentation.ActivityResult(resultCode, data))
     }
 
     // Writes the test photo where the app asked the camera to save it.
@@ -93,8 +103,9 @@ class AddClothingTest {
     }
 
     private fun addFrom(option: String) {
-        // The button's label is only in the unmerged tree; clicking it clicks the button.
-        composeRule.onNodeWithText("Add", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("Add clothing").performClick()
+        composeRule.onNodeWithText("Take photo").assertIsDisplayed()
+        composeRule.onNodeWithText("Choose from gallery").assertIsDisplayed()
         composeRule.onNodeWithText(option).performClick()
     }
 
@@ -104,50 +115,58 @@ class AddClothingTest {
         }
     }
 
-    private fun waitForTextToDisappear(text: String) {
+    private fun waitUntilGone(tag: String) {
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isEmpty()
+            composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isEmpty()
         }
     }
 
-    private fun assertShowsDetectedCoat() {
-        waitForText("Navy Wool Coat")
+    private fun assertItemCards(count: Int) {
+        composeRule.onAllNodesWithTag(CLOSET_ITEM_TAG).assertCountEquals(count)
+    }
+
+    // Testing.md step 5: the new item is the first card, and its details show what was detected.
+    private fun assertDetectedCoatAddedFirst() {
+        waitUntilGone(UPLOAD_PROGRESS_TAG)
+        assertItemCards(3)
+        composeRule.onAllNodesWithTag(CLOSET_ITEM_TAG).onFirst().assert(hasText("Navy Wool Coat"))
+
+        composeRule.onAllNodesWithTag(CLOSET_ITEM_TAG).onFirst().performClick()
         composeRule.onNodeWithText("Added to your closet", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("Outerwear").assertIsDisplayed()
         composeRule.onNodeWithText("Navy").assertIsDisplayed()
         composeRule.onNodeWithText("Formal").assertIsDisplayed()
         composeRule.onNodeWithText("Edit details").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Back").performClick()
+        composeRule.onNodeWithText("My Closet").assertIsDisplayed()
 
         // The photo was uploaded as a JPEG.
         val photo = repository.uploadedPhotos.single()
         assertEquals(0xFF.toByte(), photo[0])
         assertEquals(0xD8.toByte(), photo[1])
-
-        composeRule.onNodeWithContentDescription("Back").performClick()
-        composeRule.onNodeWithText("Navy Wool Coat").assertIsDisplayed()
-        composeRule.onNodeWithText("Grey Hoodie").assertIsDisplayed()
     }
 
     @Test
-    fun addFromGallery_showsTheNewItemWithItsDetectedDetails() {
+    fun addFromGallery_addsTheItemFirstWithItsDetectedDetails() {
         repository.uploadResult = { detectedCoat }
         stubGallery()
         showCloset()
+        assertItemCards(2)
 
         addFrom("Choose from gallery")
 
-        assertShowsDetectedCoat()
+        assertDetectedCoatAddedFirst()
     }
 
     @Test
-    fun addFromCamera_showsTheNewItemWithItsDetectedDetails() {
+    fun addFromCamera_addsTheItemFirstWithItsDetectedDetails() {
         repository.uploadResult = { detectedCoat }
         stubCamera()
         showCloset()
 
         addFrom("Take photo")
 
-        assertShowsDetectedCoat()
+        assertDetectedCoatAddedFirst()
     }
 
     @Test
@@ -160,28 +179,83 @@ class AddClothingTest {
 
         addFrom("Choose from gallery")
 
-        waitForText("Classifying your photo…")
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag(UPLOAD_PROGRESS_TAG).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag(UPLOAD_PROGRESS_TAG).assertIsDisplayed()
         gate.complete(Unit)
-        waitForText("Navy Wool Coat")
-        composeRule.onNodeWithText("Classifying your photo…").assertDoesNotExist()
+        waitUntilGone(UPLOAD_PROGRESS_TAG)
+        assertItemCards(3)
     }
 
     @Test
-    fun failedUpload_showsAnErrorAndAddsNothing() {
-        val reason = "That photo doesn't look like a clothing item."
-        repository.uploadResult = { throw ClothingRepositoryException(reason) }
+    fun closingThePickerWithoutAPhoto_leavesTheClosetUnchanged() {
+        stubGallery(resultCode = Activity.RESULT_CANCELED)
+        showCloset()
+
+        addFrom("Choose from gallery")
+
+        composeRule.onNodeWithText("My Closet").assertIsDisplayed()
+        composeRule.onNodeWithText("Add clothing").assertIsDisplayed()
+        assertItemCards(2)
+        assertEquals(0, repository.uploadedPhotos.size)
+    }
+
+    @Test
+    fun photoThatIsNotClothing_showsAMessageAndAddsNothing() {
+        val message = "This photo doesn't show a clothing item. Try another photo."
+        repository.uploadResult = { throw ClothingRepositoryException(message) }
         stubGallery()
         showCloset()
 
         addFrom("Choose from gallery")
 
-        waitForText("Couldn't add item")
-        composeRule.onNodeWithText(reason).assertIsDisplayed()
+        waitForText(message)
+        composeRule.onNodeWithText("Try again").assertDoesNotExist()
         composeRule.onNodeWithText("OK").performClick()
-        composeRule.onNodeWithText("My Closet").assertIsDisplayed()
-        composeRule.onNodeWithText("Grey Hoodie").assertIsDisplayed()
-        composeRule.onNodeWithText("Navy Wool Coat").assertDoesNotExist()
-        assertEquals(listOf(hoodie), repository.items)
+        assertItemCards(2)
+        assertEquals(listOf(hoodie, jeans), repository.items)
+    }
+
+    @Test
+    fun failedUpload_canBeTriedAgainWithTheSamePhoto() {
+        var attempts = 0
+        repository.uploadResult = {
+            attempts++
+            if (attempts == 1) {
+                throw ClothingRepositoryException("Couldn't reach the server.", canRetry = true)
+            }
+            detectedCoat
+        }
+        stubGallery()
+        showCloset()
+
+        addFrom("Choose from gallery")
+
+        waitForText("Couldn't add the item. Please try again.")
+        assertItemCards(2)
+        composeRule.onNodeWithText("Try again").performClick()
+
+        waitUntilGone(UPLOAD_PROGRESS_TAG)
+        waitForText("Navy Wool Coat")
+        assertItemCards(3)
+        val (first, second) = repository.uploadedPhotos
+        assertArrayEquals(first, second)
+    }
+
+    @Test
+    fun uploadWhileFilteringACategory_showsTheNewItem() {
+        repository.uploadResult = { detectedCoat }
+        stubGallery()
+        showCloset()
+        composeRule.onNodeWithText("Bottoms").performClick()
+        assertItemCards(1)
+
+        addFrom("Choose from gallery")
+
+        waitUntilGone(UPLOAD_PROGRESS_TAG)
+        assertItemCards(3)
+        composeRule.onAllNodesWithTag(CLOSET_ITEM_TAG).onFirst().assert(hasText("Navy Wool Coat"))
     }
 
     @Test
@@ -194,7 +268,9 @@ class AddClothingTest {
         composeRule.onNodeWithTag("edit-color").performTextReplacement("red")
         composeRule.onNodeWithText("Save").performClick()
 
-        waitForTextToDisappear("Edit item")
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("Edit item").fetchSemanticsNodes().isEmpty()
+        }
         composeRule.onNodeWithText("Outerwear").assertIsDisplayed()
         composeRule.onNodeWithText("Red").assertIsDisplayed()
         assertEquals(

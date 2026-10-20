@@ -23,12 +23,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.cpen321application.data.cameraPhotoUri
 
-/** Opens the camera or the photo gallery; the chosen photo is passed to `onPhoto`. */
+const val UPLOAD_PROGRESS_TAG = "upload_progress"
+
 class PhotoPicker(val takePhoto: () -> Unit, val chooseFromGallery: () -> Unit)
 
 /**
@@ -60,7 +62,6 @@ fun rememberPhotoPicker(onPhoto: (Uri) -> Unit, onCameraUnavailable: () -> Unit)
     )
 }
 
-/** Asks whether to add an item by taking a photo or choosing one from the gallery. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PhotoSourceSheet(onTakePhoto: () -> Unit, onChooseFromGallery: () -> Unit, onDismiss: () -> Unit) {
@@ -70,7 +71,7 @@ fun PhotoSourceSheet(onTakePhoto: () -> Unit, onChooseFromGallery: () -> Unit, o
     ) {
         Column(modifier = Modifier.padding(bottom = 24.dp)) {
             Text(
-                "Add clothing",
+                "Add to your closet",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
@@ -87,7 +88,6 @@ fun PhotoSourceSheet(onTakePhoto: () -> Unit, onChooseFromGallery: () -> Unit, o
     }
 }
 
-/** Shown while a photo is uploaded and classified. It can't be dismissed. */
 @Composable
 fun UploadingDialog() {
     Dialog(
@@ -100,7 +100,7 @@ fun UploadingDialog() {
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(modifier = Modifier.testTag(UPLOAD_PROGRESS_TAG))
                 Column {
                     Text("Classifying your photo…", style = MaterialTheme.typography.titleMedium)
                     Text(
