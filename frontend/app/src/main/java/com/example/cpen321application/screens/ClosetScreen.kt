@@ -61,6 +61,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.cpen321application.data.readPhotoForUpload
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
@@ -285,7 +286,12 @@ private fun ClothingThumbnail(item: ClothingItem, modifier: Modifier = Modifier)
         )
         if (item.imageUrl != null) {
             AsyncImage(
-                model = item.imageUrl,
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(item.imageUrl)
+                    // Photo links expire and change on every load, but an item's photo never does.
+                    .memoryCacheKey(item.id)
+                    .diskCacheKey(item.id)
+                    .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier

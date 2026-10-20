@@ -25,7 +25,6 @@ data class ClothingItem(
     val style: String,
     val tags: List<String> = emptyList(),
     val isClean: Boolean = true,
-    // Points at photo in assets folder for now.
     val imageUrl: String? = null,
 )
 

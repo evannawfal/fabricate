@@ -25,33 +25,3 @@ interface ClothingRepository {
 
     suspend fun deleteItem(id: String)
 }
-
-class InMemoryClothingRepository(initialItems: List<ClothingItem>) : ClothingRepository {
-    private val items = initialItems.toMutableList()
-
-    override suspend fun listItems(): List<ClothingItem> = items.toList()
-
-    override suspend fun uploadPhoto(jpeg: ByteArray): ClothingItem =
-        throw ClothingRepositoryException("Adding clothing isn't connected to the server yet.")
-
-    override suspend fun updateItem(id: String, changes: ClothingItemChanges): ClothingItem {
-        val index = items.indexOfFirst { it.id == id }
-        if (index < 0) throw ClothingRepositoryException(ITEM_NOT_FOUND)
-        val updated = items[index].copy(
-            name = changes.name,
-            category = changes.category,
-            color = changes.color,
-            style = changes.style,
-        )
-        items[index] = updated
-        return updated
-    }
-
-    override suspend fun deleteItem(id: String) {
-        if (!items.removeAll { it.id == id }) throw ClothingRepositoryException(ITEM_NOT_FOUND)
-    }
-
-    private companion object {
-        const val ITEM_NOT_FOUND = "This item is no longer in your closet."
-    }
-}

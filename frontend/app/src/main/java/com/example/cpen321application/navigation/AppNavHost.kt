@@ -14,6 +14,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.cpen321application.FabricateApp
 import com.example.cpen321application.auth.SessionStore
+import com.example.cpen321application.network.BackendClothingRepository
 import com.example.cpen321application.screens.LoginScreen
 import com.example.cpen321application.viewmodel.LoginUiState
 import com.example.cpen321application.viewmodel.LoginViewModel
@@ -57,7 +58,14 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
     }
 
     composable(Routes.HOME) {
-      FabricateApp()
+      val clothingRepository = remember { backendClothingRepository(sessionStore) }
+      FabricateApp(clothingRepository)
     }
   }
 }
+
+// A rejected token (e.g. expired) is cleared, so the next launch starts at the login screen.
+private fun backendClothingRepository(sessionStore: SessionStore) = BackendClothingRepository(
+  tokenProvider = { sessionStore.token.first() },
+  onUnauthorized = { sessionStore.clearToken() },
+)

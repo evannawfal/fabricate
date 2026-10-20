@@ -23,8 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.cpen321application.data.InMemoryClothingRepository
-import com.example.cpen321application.data.MockCloset
+import com.example.cpen321application.data.ClothingRepository
 import com.example.cpen321application.navigation.AppNavHost
 import com.example.cpen321application.screens.AvatarScreen
 import com.example.cpen321application.screens.ClosetScreen
@@ -50,14 +49,10 @@ enum class Tab(val label: String, val icon: ImageVector) {
 }
 
 @Composable
-fun FabricateApp() {
+fun FabricateApp(clothingRepository: ClothingRepository) {
     var tab by rememberSaveable { mutableStateOf(Tab.Closet) }
-    // Created here, above the tabs, so the closet keeps its state while another tab is open.
-    // It shows the mock closet until the app can sign in; once sign-in (#2) stores the
-    // back-end's access token, use BackendClothingRepository(tokenProvider = { <that token> }).
-    val closetViewModel: ClosetViewModel = viewModel {
-        ClosetViewModel(InMemoryClothingRepository(MockCloset.items))
-    }
+    // Created above the tabs, so the closet keeps its state while another tab is open.
+    val closetViewModel: ClosetViewModel = viewModel { ClosetViewModel(clothingRepository) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),

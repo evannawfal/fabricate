@@ -170,6 +170,20 @@ class ClothingApiTest {
     }
 
     @Test
+    fun rejectedToken_endsTheSession() {
+        var sessionEnded = false
+        val repository = BackendClothingRepository(
+            tokenProvider = { token },
+            onUnauthorized = { sessionEnded = true },
+            baseUrl = server.url("/").toString(),
+        )
+        respond(401, """{"error":"Invalid or expired token"}""")
+
+        assertFailsWith(errorMessageFor(401, null)) { repository.listItems() }
+        assertTrue(sessionEnded)
+    }
+
+    @Test
     fun notSignedIn_failsWithoutSendingARequest() {
         token = null
 
