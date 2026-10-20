@@ -22,10 +22,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.cpen321application.data.InMemoryClothingRepository
+import com.example.cpen321application.data.MockCloset
 import com.example.cpen321application.navigation.AppNavHost
 import com.example.cpen321application.screens.AvatarScreen
 import com.example.cpen321application.screens.ClosetScreen
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
+import com.example.cpen321application.viewmodel.ClosetViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,6 +52,12 @@ enum class Tab(val label: String, val icon: ImageVector) {
 @Composable
 fun FabricateApp() {
     var tab by rememberSaveable { mutableStateOf(Tab.Closet) }
+    // Created here, above the tabs, so the closet keeps its state while another tab is open.
+    // It shows the mock closet until the app can sign in; once sign-in (#2) stores the
+    // back-end's access token, use BackendClothingRepository(tokenProvider = { <that token> }).
+    val closetViewModel: ClosetViewModel = viewModel {
+        ClosetViewModel(InMemoryClothingRepository(MockCloset.items))
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -66,7 +76,7 @@ fun FabricateApp() {
     ) { innerPadding ->
         val contentModifier = Modifier.padding(innerPadding)
         when (tab) {
-            Tab.Closet -> ClosetScreen(contentModifier)
+            Tab.Closet -> ClosetScreen(closetViewModel, contentModifier)
             Tab.Avatar -> Box(contentModifier) { AvatarScreen() }
         }
     }
