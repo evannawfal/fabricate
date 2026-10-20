@@ -47,28 +47,7 @@ function interpolateSurface(a: Vec3, b: Vec3, da: number, db: number): Vec3 {
  */
 function validateParameters(options: Partial<AvatarParameters>): { p: AvatarParameters; resolution: number } {
   const p = { ...DEFAULT_AVATAR_PARAMS, ...options } as AvatarParameters;
-  const resolution = options.resolution ?? 0.025;
-  if (!(resolution >= 0.005 && resolution <= 0.05)) {
-    throw new RangeError(
-      "resolution must be between 0.005 and 0.05 meters"
-    );
-  }
-
-  const keys: (keyof AvatarParameters)[] = [
-    "height",
-    "shoulderWidth",
-    "chestWidth",
-    "waistWidth",
-    "hipWidth",
-  ];
-
-  for (const key of keys) {
-    if (!Number.isFinite(p[key]) || (p[key] as number) <= 0) {
-      throw new RangeError(
-        `${key} must be a positive finite number`
-      );
-    }
-  }
+  const resolution = DEFAULT_AVATAR_PARAMS.resolution;
   return { p, resolution };
 }
 
