@@ -17,6 +17,9 @@ kotlin = "2.1.21"
 credentials = "1.5.0"
 googleid = "1.1.1"
 lifecycleViewmodelCompose = "2.9.0"
+navigationCompose = "2.9.0"
+datastorePreferences = "1.1.7"
+
 
 # Android SDK levels (mirrored in app/build.gradle.kts)
 compileSdk = "35"
@@ -60,6 +63,8 @@ androidx-credentials = { module = "androidx.credentials:credentials", version.re
 androidx-credentials-play-services = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "credentials" }
 googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleid" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
+androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -47,7 +47,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.cpen321application.network.BackendApi
 import com.example.cpen321application.network.TriviaQuestion
-import com.example.cpen321application.screens.AvatarScreen
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -57,18 +56,7 @@ import java.util.Calendar
 import java.util.Locale
 import kotlin.math.abs
 import kotlinx.coroutines.delay
-import android.util.Log
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext
-import androidx.credentials.exceptions.GetCredentialException
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.cpen321application.auth.GoogleAuthClient
-import com.example.cpen321application.screens.LoginScreen
-import com.example.cpen321application.viewmodel.LoginViewModel
-import kotlinx.coroutines.launch
-
+import com.example.cpen321application.navigation.AppNavHost
 /** The three feature areas plus the home menu. */
 enum class Screen { Home, ServerInfo, LiveUpdates, Timer }
 
@@ -84,18 +72,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             CPEN321ApplicationTheme {
-                // temp show the login screen
-                val loginViewModel: LoginViewModel = viewModel()
-                val uiState by loginViewModel.uiState.collectAsState()
-                val context = LocalContext.current
-
-                Log.d("Auth", "State: $uiState")
-
-                LoginScreen(
-                    uiState = uiState,
-                    onSignInClick = { loginViewModel.signIn(context) },
-                )
-//                AvatarScreen()
+                AppNavHost()
             }
         }
     }

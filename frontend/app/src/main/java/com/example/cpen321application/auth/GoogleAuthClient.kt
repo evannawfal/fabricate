@@ -4,9 +4,8 @@ import android.content.Context
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
-import com.example.cpen321application.R
+import com.example.cpen321application.BuildConfig
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption.Builder
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 
 class GoogleAuthClient {
@@ -14,7 +13,8 @@ class GoogleAuthClient {
   suspend fun getGoogleIdToken(activityContext: Context): String {
     val credentialManager = CredentialManager.create(activityContext)
 
-    val googleOption = Builder(activityContext.getString(R.string.google_web_client_id))
+    // Web client ID: Google puts it in the token's `aud`, which the backend checks.
+    val googleOption = GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_CLIENT_ID)
       .build()
 
     val request = GetCredentialRequest.Builder()
