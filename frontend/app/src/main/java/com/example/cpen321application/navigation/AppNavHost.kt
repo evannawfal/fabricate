@@ -6,18 +6,22 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.cpen321application.FabricateApp
+import com.example.cpen321application.auth.GoogleAuthClient
 import com.example.cpen321application.auth.SessionStore
+import com.example.cpen321application.auth.SessionToken
 import com.example.cpen321application.screens.LoginScreen
+import com.example.cpen321application.screens.MainScreen
 import com.example.cpen321application.viewmodel.LoginUiState
 import com.example.cpen321application.viewmodel.LoginViewModel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 private object Routes {
   const val LOGIN = "login"
@@ -31,8 +35,15 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
 
   // Read the saved session once; null until DataStore answers. Read once (not
   // collected) because NavHost's start destination must not change afterwards.
+  // An expired session is cleared so the user signs in again.
   val startDestination by produceState<String?>(initialValue = null) {
-    value = if (sessionStore.token.first() != null) Routes.HOME else Routes.LOGIN
+    val token = sessionStore.token.first()
+    value = if (token != null && !SessionToken.isExpired(token)) {
+      Routes.HOME
+    } else {
+      if (token != null) sessionStore.clearToken()
+      Routes.LOGIN
+    }
   }
   val start = startDestination ?: return
 
@@ -57,7 +68,18 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
     }
 
     composable(Routes.HOME) {
-      FabricateApp()
+      val scope = rememberCoroutineScope()
+      MainScreen(
+        onSignOut = {
+          scope.launch {
+            sessionStore.clearToken()
+            GoogleAuthClient().signOut(context)
+            navController.navigate(Routes.LOGIN) {
+              popUpTo(Routes.HOME) { inclusive = true }
+            }
+          }
+        },
+      )
     }
   }
 }
