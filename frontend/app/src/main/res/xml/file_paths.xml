@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Files the app shares with other apps through its FileProvider: only the camera's
+     photo, which the camera app writes into the app's cache. -->
+<paths>
+    <cache-path name="camera" path="camera/" />
+</paths>
