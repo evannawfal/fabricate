@@ -78,7 +78,12 @@ export function createBlobFileStorage(config: BlobStorageConfig, containerClient
 let defaultStorage: FileStorage | undefined;
 
 export function isFileStorageConfigured(): boolean {
-  return env.storage.connectionString !== undefined && env.storage.container !== undefined;
+  return defaultStorage !== undefined || (env.storage.connectionString !== undefined && env.storage.container !== undefined);
+}
+
+// Replaces the app-wide storage (e.g. with a stand-in in tests); undefined goes back to the env-configured one.
+export function setFileStorage(storage: FileStorage | undefined): void {
+  defaultStorage = storage;
 }
 
 // The app-wide storage, configured from environment variables.

@@ -44,8 +44,22 @@ android {
         )
     }
 
+    // Every build (debug and release, on any machine) is signed with the same
+    // committed debug key, whose SHA-1 is registered for Google Sign-In in our
+    // Google Cloud project. It only identifies our team's builds; it is not a
+    // production secret.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("fabricate-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -81,6 +95,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.okhttp)
     implementation(libs.play.services.auth)
+    implementation(libs.coil.compose)
     implementation("io.github.sceneview:sceneview:2.3.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation(libs.androidx.credentials)

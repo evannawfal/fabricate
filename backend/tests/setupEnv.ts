@@ -7,3 +7,5 @@ process.env.MONGODB_URI ??= 'mongodb://127.0.0.1:27017/fabricate-test-unused';
 // Tests never use real file storage, even if backend/.env configures it.
 process.env.AZURE_STORAGE_CONNECTION_STRING = '';
 process.env.AZURE_STORAGE_CONTAINER = '';
+// Tests never call the real Claude API, even if backend/.env has a key.
+process.env.ANTHROPIC_API_KEY = '';

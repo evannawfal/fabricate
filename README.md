@@ -37,12 +37,13 @@ Install the following before the frontend or backend setup steps:
 4. **Set up emulator/device**:
    - Create an AVD with **Pixel 9** and the **Android Baklava (API 36)** system image, **or**
    - Connect a physical Android device running API 36.
-5. **Set up app config**: copy the example file and fill in local values:
+5. **Set up app config**: copy the example file:
    ```bash
    cp frontend/local.properties.example frontend/local.properties
    ```
-   Set:
+   It already has the right values for the deployed back-end. Check:
    - `sdk.dir`: path to your Android SDK (Android Studio usually writes this automatically).
+   - `GOOGLE_CLIENT_ID`: the back-end's Google OAuth Web client ID (already filled in; it is not a secret).
    - `API_BASE_URL`: the back-end URL baked into the app. Choose one:
      - **Deployed back-end (recommended, already running):** `https://api.evannawfal.com`
      - **Local back-end on the emulator:** `http://10.0.2.2:3000` (`10.0.2.2` is the host machine)
@@ -51,7 +52,9 @@ Install the following before the frontend or backend setup steps:
 ### Build and Run
 
 - **Debug build**: click the green ▶ button in Android Studio to build, install, and run on the emulator/device. (Or `./scripts/run-frontend.sh` from the project root.)
-- **Release build**: Build → Generate Signed App Bundle or APK → APK → select the **release** variant → install the generated APK.
+- **Release build**: `cd frontend && ./gradlew :app:assembleRelease`, then install `frontend/app/build/outputs/apk/release/app-release.apk` (e.g. `adb install` or drag it onto the emulator).
+
+Debug and release builds are both signed with the team's shared debug key, `frontend/app/fabricate-debug.keystore` (password `android`). Its SHA-1 is registered for Google Sign-In in our Google Cloud project, so sign-in works no matter who builds the app. It only identifies our builds; it is not a production secret.
 
 ---
 
@@ -71,6 +74,7 @@ cp backend/.env.example backend/.env
 - `MONGODB_URI` (required): the MongoDB connection string. Docker Compose sets this automatically.
 - `PORT` (optional): defaults to `3000`.
 - `AZURE_STORAGE_CONNECTION_STRING`, `AZURE_STORAGE_CONTAINER` (needed for photos and avatars): see [File storage](#file-storage).
+- `ANTHROPIC_API_KEY` (needed to classify clothing photos): see [Photo classification](#photo-classification).
 
 ### Database
 
@@ -103,6 +107,19 @@ and set `AZURE_STORAGE_CONNECTION_STRING=UseDevelopmentStorage=true`.
 
 File storage is optional for running the server: without it, everything else works and features
 that store files respond with `503 File storage is not available`. Tests never use real storage.
+
+### Photo classification
+
+Uploaded clothing photos are classified (name, category, colour, style) by **Claude Sonnet 5.5**
+through the [Claude API](https://platform.claude.com/docs) (an external AI vision API). It was chosen
+for reliable results on tricky items (dresses vs. tops, outerwear) at a cost of well under a cent
+per photo; the account has a monthly spend limit.
+
+- `ANTHROPIC_API_KEY`: an API key from the [Anthropic Console](https://platform.claude.com/).
+
+Classification is optional for running the server: without a key, everything else works and
+features that classify photos respond with `503 Photo classification is not available right now`.
+Tests never call the real API.
 
 ### Option 1: Run locally
 
@@ -154,13 +171,32 @@ The VM is too small for Docker, so it runs the same code directly:
   ([MongoDB release notes](https://www.mongodb.com/docs/upcoming/release-notes/8.0)), so the VM
   boots a 6.17 kernel until a fixed kernel (7.0.14 or later) is available.
 
-To redeploy the latest `main` on the VM:
+### Automatic tests and deploys
+
+[`.github/workflows/backend.yml`](.github/workflows/backend.yml) runs on GitHub Actions:
+
+- **Every pull request and push to `main`:** builds the back-end and runs all back-end tests
+  (the **Backend tests** check). `main` is protected: a pull request can only be merged once this
+  check passes.
+- **After a merge to `main` whose tests pass:** connects to the VM over SSH and runs
+  [`backend/scripts/deploy-server.sh`](backend/scripts/deploy-server.sh), which installs, builds,
+  restarts the back-end only if the build succeeded, waits for `/health`, and runs the live
+  Upload Clothing check when available. A failed deploy turns the workflow red.
+
+The deploy uses a dedicated SSH key that the VM only allows to pull `main` and run the deploy
+script. One-time setup on the VM, in `~/.ssh/authorized_keys` (one line):
+
+```
+restrict,command="cd ~/fabricate && git fetch -q origin main && git checkout -q main && git merge --ff-only -q origin/main && exec bash backend/scripts/deploy-server.sh" ssh-ed25519 AAAA... github-actions-deploy
+```
+
+and the repository secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` (the private key) and
+`DEPLOY_KNOWN_HOSTS` (the VM's host key, from `ssh-keyscan`).
+
+To redeploy by hand instead:
 
 ```bash
-cd ~/fabricate && git pull --ff-only
-cd backend && MONGOMS_DISABLE_POSTINSTALL=1 npm ci && npm run build && npm prune --omit=dev
-pm2 restart backend --update-env
-curl https://api.evannawfal.com/health   # → {"status":"ok"}
+cd ~/fabricate && git pull --ff-only && bash backend/scripts/deploy-server.sh
 ```
 
 `npm run build` prints nothing for a few minutes on the VM; let it finish.

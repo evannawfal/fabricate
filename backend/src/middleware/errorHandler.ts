@@ -1,4 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
+import { MulterError } from 'multer';
+import { ClassifierNotConfiguredError, ClassifierUnavailableError, MAX_IMAGE_BYTES } from '../services/classifier.js';
 import { StorageNotConfiguredError } from '../services/storage.js';
 
 interface HttpError {
@@ -19,6 +21,19 @@ function isClientError(err: unknown): err is HttpError {
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
   if (err instanceof StorageNotConfiguredError) {
     return res.status(503).json({ error: 'File storage is not available' });
+  }
+  if (err instanceof ClassifierNotConfiguredError || err instanceof ClassifierUnavailableError) {
+    if (err instanceof ClassifierUnavailableError) {
+      console.error('Photo classification failed:', err.cause ?? err.message);
+    }
+    return res.status(503).json({ error: 'Photo classification is not available right now' });
+  }
+  // Problems with an uploaded file (too large, wrong field name, more than one file, ...)
+  if (err instanceof MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ error: `The photo must be at most ${MAX_IMAGE_BYTES / (1024 * 1024)} MB` });
+    }
+    return res.status(400).json({ error: `Invalid upload: ${err.message}${err.field ? ` (${err.field})` : ''}` });
   }
   // e.g. malformed or too-large JSON bodies rejected by express.json()
   if (isClientError(err)) {
