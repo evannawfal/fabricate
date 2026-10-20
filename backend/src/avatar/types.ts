@@ -1,5 +1,13 @@
 export type Vec3 = [number, number, number];
 
+export interface AvatarInput {
+  height: number;
+  shoulderWidth: number;
+  chestWidth: number;
+  waistWidth: number;
+  hipWidth: number;
+}
+
 export interface AvatarParameters {
   height: number;
   shoulderWidth: number;
