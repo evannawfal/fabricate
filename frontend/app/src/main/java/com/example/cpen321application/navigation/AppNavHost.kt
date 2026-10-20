@@ -12,8 +12,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.cpen321application.FabricateApp
 import com.example.cpen321application.auth.SessionStore
-import com.example.cpen321application.screens.AvatarScreen
 import com.example.cpen321application.screens.LoginScreen
 import com.example.cpen321application.viewmodel.LoginUiState
 import com.example.cpen321application.viewmodel.LoginViewModel
@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.first
 
 private object Routes {
   const val LOGIN = "login"
-  const val AVATAR = "avatar"
+  const val HOME = "home"
 }
 
 @Composable
@@ -32,7 +32,7 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
   // Read the saved session once; null until DataStore answers. Read once (not
   // collected) because NavHost's start destination must not change afterwards.
   val startDestination by produceState<String?>(initialValue = null) {
-    value = if (sessionStore.token.first() != null) Routes.AVATAR else Routes.LOGIN
+    value = if (sessionStore.token.first() != null) Routes.HOME else Routes.LOGIN
   }
   val start = startDestination ?: return
 
@@ -44,7 +44,7 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
 
       LaunchedEffect(uiState) {
         if (uiState is LoginUiState.Success) {
-          navController.navigate(Routes.AVATAR) {
+          navController.navigate(Routes.HOME) {
             popUpTo(Routes.LOGIN) { inclusive = true }
           }
         }
@@ -56,8 +56,8 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
       )
     }
 
-    composable(Routes.AVATAR) {
-      AvatarScreen()
+    composable(Routes.HOME) {
+      FabricateApp()
     }
   }
 }

@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.cpen321application.navigation.AppNavHost
 import com.example.cpen321application.network.BackendApi
 import com.example.cpen321application.network.TriviaQuestion
 import com.example.cpen321application.screens.AvatarScreen
@@ -82,7 +83,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             CPEN321ApplicationTheme {
-                FabricateApp()
+                AppNavHost()
             }
         }
     }
