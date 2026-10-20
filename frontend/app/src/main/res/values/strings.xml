@@ -13,5 +13,16 @@
     <string name="sign_out_confirm_title">Sign out?</string>
     <string name="sign_out_confirm_message">You\'ll need to sign in with Google again to use Fabricate.</string>
     <string name="cancel">Cancel</string>
-    <string name="avatar_unavailable">Your avatar isn\'t available yet.</string>
+    <string name="avatar_not_created">Set your measurements and tap Update avatar to create your avatar.</string>
+    <string name="avatar_height">Height</string>
+    <string name="avatar_shoulders">Shoulder width</string>
+    <string name="avatar_chest">Chest width</string>
+    <string name="avatar_waist">Waist width</string>
+    <string name="avatar_hips">Hip width</string>
+    <string name="avatar_cm">%1$d cm</string>
+    <string name="avatar_save">Update avatar</string>
+    <string name="avatar_saving">Creating your avatar…</string>
+    <string name="avatar_error_generic">Couldn\'t update your avatar. Please try again.</string>
+    <string name="avatar_error_network">Can\'t reach the server. Check your connection and try again.</string>
+    <string name="avatar_error_session">Your session has expired. Sign out and sign in again.</string>
 </resources>
