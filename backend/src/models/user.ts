@@ -8,6 +8,10 @@ const userSchema = new Schema(
     email: { type: String },
     givenName: { type: String },
     familyName: { type: String },
+    avatarModelKey: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

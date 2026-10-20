@@ -48,7 +48,7 @@ The project must support ES modules for the `import` and `export` syntax used by
 
 ## Configuration
 
-The generator accepts parameters to control the mannequin's dimensions and mesh resolution.
+The generator accepts parameters to control the mannequin's dimensions.
 
 | Parameter | Description |
 |---|---|
@@ -57,7 +57,7 @@ The generator accepts parameters to control the mannequin's dimensions and mesh 
 | `chestWidth` | Chest width |
 | `waistWidth` | Waist width |
 | `hipWidth` | Hip width |
-| `resolution` | Spacing between SDF samples; smaller values generally produce more detailed meshes; hardcoded in backend to avoid user create expensive meshes |
+
 
 Example configuration in `exportAvatar.ts`:
 
@@ -68,7 +68,6 @@ const options = {
   chestWidth: 0.35,
   waistWidth: 0.30,
   hipWidth: 0.32,
-  resolution: 0.015,
 };
 ```
 
