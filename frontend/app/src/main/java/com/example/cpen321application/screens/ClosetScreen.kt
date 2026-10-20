@@ -25,9 +25,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,75 +43,145 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.example.cpen321application.data.MockCloset
+import com.example.cpen321application.data.readPhotoForUpload
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
 import com.example.cpen321application.model.filterByCategory
+import com.example.cpen321application.viewmodel.ClosetError
+import com.example.cpen321application.viewmodel.ClosetUiState
+import com.example.cpen321application.viewmodel.ClosetViewModel
+
+// Test tags used by the Upload Clothing end-to-end test (documentation/Testing.md, section 4).
+const val CLOSET_ITEM_TAG = "closet_item"
+const val CLOSET_ITEM_IMAGE_TAG = "closet_item_image"
 
 /**
  * The user's closet: a category filter over a grid of their clothing items.
- * Tapping an item opens its details, where it can be deleted.
- *
- * Items live in memory for now. [initialItems] defaults to [MockCloset] until
- * the clothing endpoints are ready.
+ * Items are added from a photo with the Add button. Tapping an item opens its
+ * details, where it can be edited or deleted.
  */
 @Composable
-fun ClosetScreen(
-    modifier: Modifier = Modifier,
-    initialItems: List<ClothingItem> = MockCloset.items,
-) {
-    val items = remember { initialItems.toMutableStateList() }
-    var selectedCategory by rememberSaveable { mutableStateOf<ClothingCategory?>(null) }
-    var openItemId by rememberSaveable { mutableStateOf<String?>(null) }
+fun ClosetScreen(viewModel: ClosetViewModel, modifier: Modifier = Modifier) {
+    val state by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    var choosingPhotoSource by rememberSaveable { mutableStateOf(false) }
+    val photoPicker = rememberPhotoPicker(
+        onPhoto = { uri -> viewModel.addPhoto { readPhotoForUpload(context, uri) } },
+        onCameraUnavailable = {
+            viewModel.showError(ClosetError("No camera app is available.", title = "Couldn't open the camera"))
+        },
+    )
 
-    val openItem = items.firstOrNull { it.id == openItemId }
+    val openItem = state.openItem
     if (openItem != null) {
-        BackHandler { openItemId = null }
+        BackHandler { viewModel.closeItem() }
         ClothingItemDetail(
             item = openItem,
-            onBack = { openItemId = null },
-            onDelete = {
-                items.remove(openItem)
-                openItemId = null
-            },
+            isNew = openItem.id == state.newItemId,
+            onBack = viewModel::closeItem,
+            onEdit = { viewModel.startEditing(openItem.id) },
+            onDelete = { viewModel.deleteItem(openItem.id) },
             modifier = modifier,
         )
     } else {
-        ClosetGrid(
-            items = items,
-            selectedCategory = selectedCategory,
-            onSelectCategory = { selectedCategory = it },
-            onOpenItem = { openItemId = it.id },
-            modifier = modifier,
+        Box(modifier = modifier.fillMaxSize()) {
+            ClosetGrid(
+                state = state,
+                onSelectCategory = viewModel::selectCategory,
+                onOpenItem = { viewModel.openItem(it.id) },
+                onRetry = viewModel::loadItems,
+            )
+            ExtendedFloatingActionButton(
+                onClick = { choosingPhotoSource = true },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null)
+                Text("Add clothing", modifier = Modifier.padding(start = 12.dp))
+            }
+        }
+    }
+
+    if (choosingPhotoSource) {
+        PhotoSourceSheet(
+            onTakePhoto = {
+                choosingPhotoSource = false
+                photoPicker.takePhoto()
+            },
+            onChooseFromGallery = {
+                choosingPhotoSource = false
+                photoPicker.chooseFromGallery()
+            },
+            onDismiss = { choosingPhotoSource = false },
+        )
+    }
+    ClosetDialogs(state, viewModel)
+}
+
+// The dialogs that can show over the closet: uploading, editing an item, and errors.
+@Composable
+private fun ClosetDialogs(state: ClosetUiState, viewModel: ClosetViewModel) {
+    if (state.isUploading) {
+        UploadingDialog()
+    }
+    state.editingItem?.let { item ->
+        EditItemDialog(
+            item = item,
+            isSaving = state.isSaving,
+            error = state.editError,
+            onSave = { changes -> viewModel.saveChanges(item.id, changes) },
+            onDismiss = viewModel::cancelEditing,
+        )
+    }
+    state.error?.let { error ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissError,
+            title = error.title?.let { title -> { Text(title) } },
+            text = { Text(error.message) },
+            confirmButton = {
+                if (error.canRetry) {
+                    TextButton(onClick = viewModel::retryUpload) { Text("Try again") }
+                } else {
+                    TextButton(onClick = viewModel::dismissError) { Text("OK") }
+                }
+            },
+            dismissButton = if (error.canRetry) {
+                { TextButton(onClick = viewModel::dismissError) { Text("Cancel") } }
+            } else {
+                null
+            },
         )
     }
 }
 
 @Composable
 private fun ClosetGrid(
-    items: List<ClothingItem>,
-    selectedCategory: ClothingCategory?,
+    state: ClosetUiState,
     onSelectCategory: (ClothingCategory?) -> Unit,
     onOpenItem: (ClothingItem) -> Unit,
-    modifier: Modifier = Modifier,
+    onRetry: () -> Unit,
 ) {
-    Column(modifier = modifier.fillMaxSize()) {
+    val items = state.items
+    Column(modifier = Modifier.fillMaxSize()) {
         Text(
             "My Closet",
             style = MaterialTheme.typography.headlineSmall,
@@ -113,22 +189,31 @@ private fun ClosetGrid(
         )
 
         if (items.isNotEmpty()) {
-            CategoryFilter(selectedCategory, onSelectCategory)
+            CategoryFilter(state.selectedCategory, onSelectCategory)
         }
 
-        val visibleItems = items.filterByCategory(selectedCategory)
+        val visibleItems = items.filterByCategory(state.selectedCategory)
         when {
+            state.isLoading && items.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            state.loadError != null -> EmptyCloset(
+                title = "Couldn't load your closet",
+                message = state.loadError,
+                action = { TextButton(onClick = onRetry) { Text("Try again") } },
+            )
             items.isEmpty() -> EmptyCloset(
                 title = "Your closet is empty",
-                message = "Items you add will show up here.",
+                message = "Tap Add clothing to photograph your first item.",
             )
             visibleItems.isEmpty() -> EmptyCloset(
-                title = "No ${selectedCategory?.label?.lowercase()} yet",
+                title = "No ${state.selectedCategory?.label?.lowercase()} yet",
                 message = "Try another category.",
             )
             else -> LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(16.dp),
+                // Extra space at the bottom so the Add button doesn't cover the last row.
+                contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize(),
@@ -165,6 +250,7 @@ private fun CategoryFilter(
 private fun ClothingItemCard(item: ClothingItem, onClick: () -> Unit) {
     Column(
         modifier = Modifier
+            .testTag(CLOSET_ITEM_TAG)
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
     ) {
@@ -202,14 +288,16 @@ private fun ClothingThumbnail(item: ClothingItem, modifier: Modifier = Modifier)
                 model = item.imageUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.matchParentSize(),
+                modifier = Modifier
+                    .matchParentSize()
+                    .testTag(CLOSET_ITEM_IMAGE_TAG),
             )
         }
     }
 }
 
 @Composable
-private fun EmptyCloset(title: String, message: String) {
+private fun EmptyCloset(title: String, message: String, action: (@Composable () -> Unit)? = null) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -224,19 +312,22 @@ private fun EmptyCloset(title: String, message: String) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+        action?.invoke()
     }
 }
 
+// The item's details. [isNew] marks an item that was just added from a photo,
+// so the user is asked to check what was detected.
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ClothingItemDetail(
     item: ClothingItem,
+    isNew: Boolean,
     onBack: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var confirmingDelete by remember { mutableStateOf(false) }
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -256,6 +347,10 @@ private fun ClothingItemDetail(
             )
         }
 
+        if (isNew) {
+            NewItemNotice()
+        }
+
         ClothingThumbnail(item, Modifier.fillMaxWidth())
 
         DetailRow("Type", item.category.label)
@@ -272,20 +367,43 @@ private fun ClothingItemDetail(
             }
         }
 
-        OutlinedButton(
-            onClick = { confirmingDelete = true },
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Icon(Icons.Filled.Delete, contentDescription = null)
-            Text("Delete item", modifier = Modifier.padding(start = 8.dp))
+        OutlinedButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Filled.Edit, contentDescription = null)
+            Text("Edit details", modifier = Modifier.padding(start = 8.dp))
         }
+        DeleteItemButton(item.name, onDelete)
+    }
+}
+
+@Composable
+private fun NewItemNotice() {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+        Text(
+            "Added to your closet! Check the details we detected, and tap Edit details if anything's wrong.",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(12.dp),
+        )
+    }
+}
+
+// Deletes the item after the user confirms.
+@Composable
+private fun DeleteItemButton(itemName: String, onDelete: () -> Unit) {
+    var confirmingDelete by remember { mutableStateOf(false) }
+
+    OutlinedButton(
+        onClick = { confirmingDelete = true },
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Icon(Icons.Filled.Delete, contentDescription = null)
+        Text("Delete item", modifier = Modifier.padding(start = 8.dp))
     }
 
     if (confirmingDelete) {
         AlertDialog(
             onDismissRequest = { confirmingDelete = false },
-            title = { Text("Delete ${item.name}?") },
+            title = { Text("Delete $itemName?") },
             text = { Text("It will be removed from your closet.") },
             confirmButton = {
                 TextButton(onClick = {

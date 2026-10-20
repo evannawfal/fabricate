@@ -45,10 +45,10 @@
     "eslint-plugin-jest": "^28.14.0",
     "eslint-plugin-security": "^3.0.1",
     "eslint-plugin-security-node": "^1.1.4",
-    "jest": "^30.4.2",
+    "jest": "^30.5.2",
     "mongodb-memory-server": "^11.3.0",
     "supertest": "^7.2.2",
-    "ts-jest": "^29.4.12",
+    "ts-jest": "^29.4.15",
     "tsx": "^4.23.5",
     "typescript": "~5.9"
   }
