@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.cpen321application.fakes.FakeClothingRepository
 import com.example.cpen321application.screens.MainScreen
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -23,7 +24,9 @@ class MainScreenTest {
     private var signOutCalls = 0
 
     private fun showMainScreen() {
-        composeRule.setContent { MainScreen(onSignOut = { signOutCalls++ }) }
+        composeRule.setContent {
+            MainScreen(clothingRepository = FakeClothingRepository(emptyList()), onSignOut = { signOutCalls++ })
+        }
     }
 
     @Test

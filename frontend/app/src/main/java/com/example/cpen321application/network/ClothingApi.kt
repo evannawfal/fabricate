@@ -16,14 +16,17 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
+import java.net.HttpURLConnection
 import java.util.concurrent.TimeUnit
 
 /**
  * The closet on the back-end (`/clothing`). Every request is sent with the access
  * token from [tokenProvider], which returns null while the user isn't signed in.
+ * [onUnauthorized] runs when the back-end rejects the token, e.g. after it expired.
  */
 class BackendClothingRepository(
-    private val tokenProvider: () -> String?,
+    private val tokenProvider: suspend () -> String?,
+    private val onUnauthorized: suspend () -> Unit = {},
     baseUrl: String = BuildConfig.API_BASE_URL,
     private val client: OkHttpClient = defaultClient,
 ) : ClothingRepository {
@@ -62,6 +65,9 @@ class BackendClothingRepository(
         try {
             client.newCall(request.header("Authorization", "Bearer $token").build()).execute().use { response ->
                 val body = response.body?.string().orEmpty()
+                if (response.code == HttpURLConnection.HTTP_UNAUTHORIZED) {
+                    onUnauthorized()
+                }
                 if (!response.isSuccessful) {
                     throw ClothingRepositoryException(
                         errorMessageFor(response.code, serverError(body)),

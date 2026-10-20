@@ -1,36 +1,28 @@
 package com.example.cpen321application
 
-import com.example.cpen321application.data.MockCloset
 import com.example.cpen321application.model.ClothingCategory
+import com.example.cpen321application.model.ClothingItem
 import com.example.cpen321application.model.filterByCategory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 class ClothingItemTest {
+    private val items = listOf(
+        ClothingItem("1", "White Tee", ClothingCategory.Top, "white", "casual"),
+        ClothingItem("2", "Running Sneakers", ClothingCategory.Shoes, "grey", "sporty"),
+        ClothingItem("3", "Brown Brogues", ClothingCategory.Shoes, "brown", "smart casual"),
+    )
+
     @Test
     fun filterByCategory_nullReturnsEveryItem() {
-        assertEquals(MockCloset.items, MockCloset.items.filterByCategory(null))
+        assertEquals(items, items.filterByCategory(null))
     }
 
     @Test
     fun filterByCategory_keepsOnlyMatchingItems() {
-        val shoes = MockCloset.items.filterByCategory(ClothingCategory.Shoes)
-        assertTrue(shoes.isNotEmpty())
-        assertTrue(shoes.all { it.category == ClothingCategory.Shoes })
-    }
-
-    @Test
-    fun mockItems_allHaveBundledPhotos() {
-        val assetPrefix = "file:///android_asset/"
-        MockCloset.items.forEach { item ->
-            val url = item.imageUrl
-            assertTrue("${item.name} has no photo", url != null && url.startsWith(assetPrefix))
-            val file = File("src/main/assets", url!!.removePrefix(assetPrefix))
-            assertTrue("Missing photo for ${item.name}: $file", file.isFile)
-        }
+        assertEquals(listOf("2", "3"), items.filterByCategory(ClothingCategory.Shoes).map { it.id })
+        assertEquals(emptyList<ClothingItem>(), items.filterByCategory(ClothingCategory.Dress))
     }
 
     @Test

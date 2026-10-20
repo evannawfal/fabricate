@@ -15,13 +15,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.cpen321application.auth.GoogleAuthClient
 import com.example.cpen321application.auth.SessionStore
+import com.example.cpen321application.network.BackendClothingRepository
 import com.example.cpen321application.auth.SessionToken
 import com.example.cpen321application.screens.LoginScreen
 import com.example.cpen321application.screens.MainScreen
 import com.example.cpen321application.viewmodel.LoginUiState
 import com.example.cpen321application.viewmodel.LoginViewModel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private object Routes {
   const val LOGIN = "login"
@@ -69,7 +72,14 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
 
     composable(Routes.HOME) {
       val scope = rememberCoroutineScope()
+      val clothingRepository = remember {
+        BackendClothingRepository(
+          tokenProvider = { sessionStore.token.first() },
+          onUnauthorized = { endRejectedSession(sessionStore, navController) },
+        )
+      }
       MainScreen(
+        clothingRepository = clothingRepository,
         onSignOut = {
           scope.launch {
             sessionStore.clearToken()
@@ -80,6 +90,20 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
           }
         },
       )
+    }
+  }
+}
+
+// The back-end rejected the session token, e.g. it expired while the app was open.
+private suspend fun endRejectedSession(sessionStore: SessionStore, navController: NavHostController) {
+  sessionStore.clearToken()
+  // Requests run off the main thread, but NavController only works on it. Several
+  // requests can be rejected at once; only the first should leave the main screen.
+  withContext(Dispatchers.Main) {
+    if (navController.currentDestination?.route == Routes.HOME) {
+      navController.navigate(Routes.LOGIN) {
+        popUpTo(Routes.HOME) { inclusive = true }
+      }
     }
   }
 }
