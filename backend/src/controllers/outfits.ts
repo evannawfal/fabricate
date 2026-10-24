@@ -20,26 +20,29 @@ async function ownsAllItems(userId: string, itemIds: string[], existingItemIds: 
   return count === itemIds.length;
 }
 
-// Loads every referenced clothing item in one query and keeps each outfit's item order.
-async function toOutfitResponses(userId: string, outfits: OutfitDocument[]): Promise<OutfitResponse[]> {
+// Loads every referenced clothing item in one query.
+async function loadItemsById(userId: string, outfits: OutfitDocument[]): Promise<Map<string, ClothingItemResponse>> {
   const itemIds = outfits.flatMap((outfit) => outfit.items);
   const items = await ClothingItem.find({ _id: { $in: itemIds }, owner: userId });
   const itemResponses = await toClothingItemResponsesWithImages(items);
-  const itemsById = new Map(itemResponses.map((item) => [item.id, item]));
-  return outfits.map((outfit) => {
-    const outfitItems = outfit.items
-      .map((itemId) => itemsById.get(itemId.toString()))
-      .filter((item): item is ClothingItemResponse => item !== undefined);
-    return toOutfitResponse(outfit, outfitItems);
-  });
+  return new Map(itemResponses.map((item) => [item.id, item]));
+}
+
+// Keeps the outfit's item order.
+function toResponseWithItems(outfit: OutfitDocument, itemsById: Map<string, ClothingItemResponse>): OutfitResponse {
+  const outfitItems = outfit.items
+    .map((itemId) => itemsById.get(itemId.toString()))
+    .filter((item): item is ClothingItemResponse => item !== undefined);
+  return toOutfitResponse(outfit, outfitItems);
+}
+
+async function toOutfitResponses(userId: string, outfits: OutfitDocument[]): Promise<OutfitResponse[]> {
+  const itemsById = await loadItemsById(userId, outfits);
+  return outfits.map((outfit) => toResponseWithItems(outfit, itemsById));
 }
 
 async function toSingleOutfitResponse(userId: string, outfit: OutfitDocument): Promise<OutfitResponse> {
-  const [response] = await toOutfitResponses(userId, [outfit]);
-  if (!response) {
-    throw new Error('Failed to build outfit response');
-  }
-  return response;
+  return toResponseWithItems(outfit, await loadItemsById(userId, [outfit]));
 }
 
 // POST /outfits
