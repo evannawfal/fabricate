@@ -1,4 +1,4 @@
-package com.example.cpen321application.e2e
+package com.example.cpen321application
 
 import android.app.Activity
 import android.app.Instrumentation
@@ -47,9 +47,10 @@ import java.io.File
 import java.io.OutputStream
 
 /**
- * Adding clothing from a photo, following the Upload Clothing Item scenarios in
- * documentation/Testing.md. The camera and the photo picker are replaced with stubs that
- * return a test photo, and the back-end with [FakeClothingRepository].
+ * The Closet screen's add and edit flows with the back-end replaced by [FakeClothingRepository],
+ * so failures the real back-end can't be made to produce on demand (e.g. a retryable upload
+ * error) can be tested. The camera and the photo picker are replaced with stubs that return a
+ * test photo. The end-to-end version against the real back-end is e2e/UploadClothingTest.
  */
 @RunWith(AndroidJUnit4::class)
 class AddClothingTest {
