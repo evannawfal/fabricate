@@ -1,14 +1,18 @@
 import type { Response } from 'express';
 import { getUserId, type AuthedRequest } from '../middleware/middleware.js';
-import { ClothingItem, type ClothingItemResponse } from '../models/clothingItem.js';
+import { ClothingItem, type ClothingItemDocument, type ClothingItemResponse } from '../models/clothingItem.js';
 import { toClothingItemResponsesWithImages } from '../services/clothingImages.js';
 import { Outfit, toOutfitResponse, type OutfitDocument, type OutfitResponse } from '../models/outfit.js';
+import { getOutfitGenerator, type OutfitCandidate } from '../services/outfitGenerator.js';
+import { getWeatherService } from '../services/weather.js';
 import { isObjectId } from '../validation/common.js';
-import { validateOutfitInput, validateOutfitUpdate } from '../validation/outfit.js';
+import { validateGenerateOutfitInput, validateOutfitInput, validateOutfitUpdate } from '../validation/outfit.js';
 
 const INVALID_ID = { error: 'Invalid outfit id' };
 const NOT_FOUND = { error: 'Outfit not found' };
 const ITEMS_NOT_OWNED = { error: 'All items must be clothing items in your closet' };
+// A generated outfit needs at least one of each among the user's clean clothes.
+const REQUIRED_CATEGORIES = ['top', 'bottom'] as const;
 
 // Items must be in the user's closet. Archived items are only allowed if the outfit already had them.
 async function ownsAllItems(userId: string, itemIds: string[], existingItemIds: string[] = []): Promise<boolean> {
@@ -54,6 +58,60 @@ export async function createOutfit(req: AuthedRequest, res: Response) {
   }
   const outfit = await Outfit.create({ owner: userId, ...input.value, source: 'manual' });
   res.status(201).json(await toSingleOutfitResponse(userId, outfit));
+}
+
+/**
+ * POST /outfits/generate
+ * Picks an outfit from the user's clean clothes for the occasion and the current weather.
+ * The outfit isn't saved: the app saves it with POST /outfits if the user keeps it.
+ * Responds 200 with { outfit: { name, occasion, items }, weather }, where weather is null if it
+ * couldn't be retrieved; 400 if the body is invalid or the clean clothes lack a top or a bottom;
+ * 503 (through the error handler) if outfit generation is unavailable.
+ */
+export async function generateOutfit(req: AuthedRequest, res: Response) {
+  const input = validateGenerateOutfitInput(req.body);
+  if (!input.ok) {
+    return res.status(400).json({ error: input.error });
+  }
+  const userId = getUserId(req);
+  // Newest first, so the same closet is always listed to Claude in the same order.
+  const items = await ClothingItem.find({ owner: userId, isArchived: false, isClean: true }).sort({ createdAt: -1, _id: -1 });
+  const missing = REQUIRED_CATEGORIES.filter((category) => !items.some((item) => item.category === category));
+  if (missing.length > 0) {
+    const needed = missing.map((category) => `a ${category}`).join(' or ');
+    return res.status(400).json({
+      error: `Your clean clothes don't include ${needed}. Add one to your closet or empty your wash bin.`,
+      missing,
+    });
+  }
+
+  // Fails with 503 before the weather is requested if generation isn't set up.
+  const generator = getOutfitGenerator();
+  const { occasion, latitude, longitude } = input.value;
+  const weather = await getWeatherService().getCurrentWeather(latitude, longitude);
+  const outfit = await generator.generate({ occasion, weather, items: items.map(toOutfitCandidate) });
+
+  const itemsById = new Map(items.map((item) => [item._id.toString(), item]));
+  // The generator only returns ids of the items it was given, so the filter only narrows the type.
+  const outfitItems = outfit.itemIds
+    .map((id) => itemsById.get(id))
+    .filter((item): item is ClothingItemDocument => item !== undefined);
+  res.json({
+    outfit: { name: outfit.name, occasion, items: await toClothingItemResponsesWithImages(outfitItems) },
+    weather,
+  });
+}
+
+/** Keeps only the details Claude needs to choose, so photo keys and owner ids stay out of the prompt. */
+function toOutfitCandidate(item: ClothingItemDocument): OutfitCandidate {
+  return {
+    id: item._id.toString(),
+    name: item.name,
+    category: item.category,
+    color: item.color,
+    style: item.style,
+    tags: [...item.tags],
+  };
 }
 
 // GET /outfits
