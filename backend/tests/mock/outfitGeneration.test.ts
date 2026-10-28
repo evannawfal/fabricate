@@ -25,11 +25,7 @@ const app = createApp();
 const UBC = { latitude: 49.26, longitude: -123.25 };
 const LIGHT_RAIN: Weather = { temperatureC: 9, condition: 'Rain', description: 'light rain' };
 
-/**
- * Replaces the outfit generator (Claude API) with a stand-in.
- * @param result the outfit to generate, or the error to throw
- * @returns the stand-in's generate function, to check what it was asked
- */
+// Stand-ins for the outfit generator (Claude API) and the weather service (OpenWeather).
 function mockGenerator(result: GeneratedOutfit | Error) {
   const generate = jest.fn(async (_request: OutfitRequest) => {
     if (result instanceof Error) throw result;
@@ -39,22 +35,13 @@ function mockGenerator(result: GeneratedOutfit | Error) {
   return generate;
 }
 
-/**
- * Replaces the weather service (OpenWeather) with a stand-in.
- * @param weather the weather to report; null means it couldn't be retrieved
- * @returns the stand-in's getCurrentWeather function, to check where it was asked about
- */
 function mockWeather(weather: Weather | null) {
   const getCurrentWeather = jest.fn(async (_latitude: number, _longitude: number) => weather);
   setWeatherService({ getCurrentWeather } as WeatherService);
   return getCurrentWeather;
 }
 
-/**
- * Creates a user whose closet has a clean shirt, jeans and raincoat, plus a tee in the wash bin
- * that must never be offered to the generator.
- * @returns the user and the four items
- */
+// The tee in the wash bin must never be offered to the generator.
 async function userWithCloset() {
   const user = await createUser();
   const shirt = await createClothingItem(user.id, { name: 'White shirt', category: 'top', color: 'white' });
@@ -83,13 +70,11 @@ afterAll(stopTestDatabase);
 
 // Interface POST /outfits/generate
 describe('Mocked: POST /outfits/generate', () => {
-  /**
-   * Mocked behavior: OpenWeather reports light rain; the generator picks the raincoat, shirt and jeans
-   * Input: occasion "work" and the user's coordinates
-   * Expected status code: 200
-   * Expected behavior: the generator gets the occasion, the weather and only the user's clean items; nothing is saved
-   * Expected output: { outfit: { name, occasion, items }, weather } with the items in the generator's order
-   */
+  // Mocked behavior: OpenWeather reports light rain; the generator picks the raincoat, shirt and jeans
+  // Input: occasion "work" and the user's coordinates
+  // Expected status code: 200
+  // Expected behavior: the generator gets the occasion, the weather and only the user's clean items; nothing is saved
+  // Expected output: { outfit: { name, occasion, items }, weather } with the items in the generator's order
   test('Generates an outfit for the occasion and weather', async () => {
     const { user, shirt, jeans, raincoat } = await userWithCloset();
     const getCurrentWeather = mockWeather(LIGHT_RAIN);
@@ -114,13 +99,11 @@ describe('Mocked: POST /outfits/generate', () => {
     expect(await Outfit.countDocuments()).toBe(0);
   });
 
-  /**
-   * Mocked behavior: OpenWeather can't be reached (the weather service returns null); the generator picks the shirt and jeans
-   * Input: occasion "casual" and the user's coordinates (use case 2, failure 4b)
-   * Expected status code: 200
-   * Expected behavior: the outfit is generated without the weather
-   * Expected output: the outfit, with weather null
-   */
+  // Mocked behavior: OpenWeather can't be reached (the weather service returns null); the generator picks the shirt and jeans
+  // Input: occasion "casual" and the user's coordinates (use case 2, failure 4b)
+  // Expected status code: 200
+  // Expected behavior: the outfit is generated without the weather
+  // Expected output: the outfit, with weather null
   test('Weather unavailable', async () => {
     const { user, shirt, jeans } = await userWithCloset();
     mockWeather(null);
@@ -134,13 +117,11 @@ describe('Mocked: POST /outfits/generate', () => {
     expect((generator.mock.calls[0]?.[0] as OutfitRequest).weather).toBeNull();
   });
 
-  /**
-   * Mocked behavior: the generator is unavailable (Claude is down, rate-limited or times out)
-   * Input: occasion "work" and the user's coordinates (use case 2, failure 4a)
-   * Expected status code: 503
-   * Expected behavior: the error is logged; nothing is saved
-   * Expected output: { error: "Outfit generation is not available right now" }
-   */
+  // Mocked behavior: the generator is unavailable (Claude is down, rate-limited or times out)
+  // Input: occasion "work" and the user's coordinates (use case 2, failure 4a)
+  // Expected status code: 503
+  // Expected behavior: the error is logged; nothing is saved
+  // Expected output: { error: "Outfit generation is not available right now" }
   test('Generator unavailable', async () => {
     const { user } = await userWithCloset();
     mockWeather(LIGHT_RAIN);
@@ -154,13 +135,11 @@ describe('Mocked: POST /outfits/generate', () => {
     expect(await Outfit.countDocuments()).toBe(0);
   });
 
-  /**
-   * Mocked behavior: ClothingItem.find throws while loading the user's clean clothes
-   * Input: occasion "work" and the user's coordinates
-   * Expected status code: 500
-   * Expected behavior: the error is handled and logged; the generator is never called
-   * Expected output: { error: "Internal server error" }
-   */
+  // Mocked behavior: ClothingItem.find throws while loading the user's clean clothes
+  // Input: occasion "work" and the user's coordinates
+  // Expected status code: 500
+  // Expected behavior: the error is handled and logged; the generator is never called
+  // Expected output: { error: "Internal server error" }
   test('Clothing DB error', async () => {
     const { user } = await userWithCloset();
     const generator = mockGenerator({ name: 'Look', itemIds: [] });

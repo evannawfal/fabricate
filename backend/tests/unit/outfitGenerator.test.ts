@@ -26,11 +26,7 @@ const REQUEST: OutfitRequest = {
   items: [SHIRT, CHINOS, RAINCOAT],
 };
 
-/**
- * A stand-in for the Anthropic client, so nothing is sent to the API.
- * @param result the reply to resolve with, or the error to reject with
- * @returns the client and its create function, to check what was sent
- */
+// A stand-in for the Anthropic client: nothing is sent to the API.
 function fakeClient(result: Anthropic.Beta.BetaMessage | Error) {
   const create = jest.fn(async (_params: CreateParams) => {
     if (result instanceof Error) throw result;
@@ -40,11 +36,7 @@ function fakeClient(result: Anthropic.Beta.BetaMessage | Error) {
   return { client, create };
 }
 
-/**
- * Builds a reply from Claude.
- * @param output the reply's text; objects are sent as JSON, and undefined gives a reply with no text
- * @param stopReason why Claude stopped; anything but end_turn means the reply is unusable
- */
+// An undefined output gives a reply with no text, like a refusal.
 function claudeResponse(
   output: unknown,
   stopReason: Anthropic.Beta.BetaMessage['stop_reason'] = 'end_turn'
@@ -59,7 +51,6 @@ function claudeResponse(
   } as unknown as Anthropic.Beta.BetaMessage;
 }
 
-/** The user message of the first request sent to Claude. */
 function sentMessage(create: ReturnType<typeof fakeClient>['create']): string {
   const params = create.mock.calls[0]?.[0] as CreateParams;
   return params.messages[0]?.content as string;
@@ -77,12 +68,10 @@ afterEach(() => {
 });
 
 describe('Outfit generator', () => {
-  /**
-   * Mocked behavior: Claude picks the shirt, chinos and raincoat for a rainy work day
-   * Input: occasion "work", light rain at 9°C, three clean items
-   * Expected behavior: one request to the outfit model with the occasion, weather and items, the JSON schema and low effort
-   * Expected output: the outfit's name and item ids, in Claude's order
-   */
+  // Mocked behavior: Claude picks the shirt, chinos and raincoat for a rainy work day
+  // Input: occasion "work", light rain at 9°C, three clean items
+  // Expected behavior: one request to the outfit model with the occasion, weather and items, the JSON schema and low effort
+  // Expected output: the outfit's name and item ids, in Claude's order
   test('Generates an outfit', async () => {
     const { client, create } = fakeClient(
       claudeResponse({ name: 'Rainy office day', itemIds: [RAINCOAT.id, SHIRT.id, CHINOS.id] })
@@ -103,12 +92,10 @@ describe('Outfit generator', () => {
     expect(message).toContain(JSON.stringify(REQUEST.items));
   });
 
-  /**
-   * Mocked behavior: Claude picks the shirt and chinos
-   * Input: no weather (it couldn't be retrieved)
-   * Expected behavior: Claude is told the weather is unknown
-   * Expected output: the outfit
-   */
+  // Mocked behavior: Claude picks the shirt and chinos
+  // Input: no weather (it couldn't be retrieved)
+  // Expected behavior: Claude is told the weather is unknown
+  // Expected output: the outfit
   test('Without the weather', async () => {
     const { client, create } = fakeClient(claudeResponse({ name: 'Office basics', itemIds: [SHIRT.id, CHINOS.id] }));
 
@@ -118,12 +105,10 @@ describe('Outfit generator', () => {
     expect(sentMessage(create)).toContain('Weather: unknown');
   });
 
-  /**
-   * Mocked behavior: Claude repeats an item and includes an id that isn't one of the user's clean items
-   * Input: three clean items
-   * Expected behavior: only the user's clean items are kept, each once
-   * Expected output: the outfit without the unknown id and the repeat
-   */
+  // Mocked behavior: Claude repeats an item and includes an id that isn't one of the user's clean items
+  // Input: three clean items
+  // Expected behavior: only the user's clean items are kept, each once
+  // Expected output: the outfit without the unknown id and the repeat
   test('Keeps only the clean items, each once', async () => {
     const { client } = fakeClient(
       claudeResponse({ name: 'Look', itemIds: [SHIRT.id, 'dddddddddddddddddddddddd', SHIRT.id, CHINOS.id] })
@@ -134,12 +119,10 @@ describe('Outfit generator', () => {
     expect(outfit.itemIds).toEqual([SHIRT.id, CHINOS.id]);
   });
 
-  /**
-   * Mocked behavior: Claude returns a blank or overly long name
-   * Input: three clean items
-   * Expected behavior: the name is tidied to fit the outfit's name limit
-   * Expected output: the default name, or the name cut to 100 characters
-   */
+  // Mocked behavior: Claude returns a blank or overly long name
+  // Input: three clean items
+  // Expected behavior: the name is tidied to fit the outfit's name limit
+  // Expected output: the default name, or the name cut to 100 characters
   test.each([
     ['   ', 'Daily outfit'],
     ['  Rainy   day\nlayers ', 'Rainy day layers'],
@@ -152,12 +135,10 @@ describe('Outfit generator', () => {
     expect(outfit.name).toBe(expectedName);
   });
 
-  /**
-   * Mocked behavior: Claude can't be reached, declines, runs out of tokens, or returns unusable output
-   * Input: three clean items
-   * Expected behavior: the problem is reported as the generator being unavailable (503 for the app)
-   * Expected output: OutfitGeneratorUnavailableError
-   */
+  // Mocked behavior: Claude can't be reached, declines, runs out of tokens, or returns unusable output
+  // Input: three clean items
+  // Expected behavior: the problem is reported as the generator being unavailable (503 for the app)
+  // Expected output: OutfitGeneratorUnavailableError
   test.each([
     ['API error', new Anthropic.APIConnectionError({ message: 'Connection error.' })],
     ['Refusal', claudeResponse(undefined, 'refusal')],
@@ -170,18 +151,14 @@ describe('Outfit generator', () => {
     await expect(createOutfitGenerator(client).generate(REQUEST)).rejects.toThrow(OutfitGeneratorUnavailableError);
   });
 
-  /**
-   * Input: no ANTHROPIC_API_KEY (as in the tests)
-   * Expected behavior: the generator reports itself as not configured instead of failing at startup
-   */
+  // Input: no ANTHROPIC_API_KEY (as in the tests)
+  // Expected behavior: the generator reports itself as not configured instead of failing at startup
   test('Not configured', () => {
     expect(() => getOutfitGenerator()).toThrow(OutfitGeneratorNotConfiguredError);
   });
 
-  /**
-   * Input: ANTHROPIC_API_KEY is set
-   * Expected behavior: the app-wide generator is created once and reused (no request is sent)
-   */
+  // Input: ANTHROPIC_API_KEY is set
+  // Expected behavior: the app-wide generator is created once and reused (no request is sent)
   test('Configured from the environment', () => {
     jest.replaceProperty(env, 'anthropicApiKey', 'test-key');
 
@@ -190,11 +167,9 @@ describe('Outfit generator', () => {
     expect(getOutfitGenerator()).toBe(generator);
   });
 
-  /**
-   * Input: generator errors reaching the error handler
-   * Expected status code: 503
-   * Expected output: { error: "Outfit generation is not available right now" }
-   */
+  // Input: generator errors reaching the error handler
+  // Expected status code: 503
+  // Expected output: { error: "Outfit generation is not available right now" }
   test.each([new OutfitGeneratorNotConfiguredError(), new OutfitGeneratorUnavailableError('down')])(
     'Reported to the app: %s',
     (error) => {

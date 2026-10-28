@@ -3,7 +3,7 @@ import { env } from '../config/env.js';
 import { OUTFIT_LIMITS, type OutfitOccasion } from '../models/outfit.js';
 import type { Weather } from './weather.js';
 
-/** A clean clothing item Claude can choose from, with only the details it needs to choose. */
+// A clean clothing item Claude can choose from, with only the details it needs to choose.
 export interface OutfitCandidate {
   id: string;
   name: string;
@@ -15,24 +15,19 @@ export interface OutfitCandidate {
 
 export interface OutfitRequest {
   occasion: OutfitOccasion;
-  /** Null when the weather couldn't be retrieved. */
+  // null when the weather couldn't be retrieved
   weather: Weather | null;
   items: OutfitCandidate[];
 }
 
 export interface GeneratedOutfit {
   name: string;
-  /** Ids of items from the request, each at most once, in the order they were picked. */
+  // Ids of items from the request, each at most once, in the order they were picked
   itemIds: string[];
 }
 
 export interface OutfitGenerator {
-  /**
-   * Picks a daily outfit from the user's clean clothes.
-   * @param request the occasion, the weather and the clothes to choose from
-   * @returns the outfit's name and the ids of the items in it
-   * @throws OutfitGeneratorUnavailableError if no usable outfit could be generated
-   */
+  // Throws OutfitGeneratorUnavailableError if no usable outfit could be generated.
   generate(request: OutfitRequest): Promise<GeneratedOutfit>;
 }
 
@@ -44,7 +39,7 @@ const MAX_RETRIES = 2;
 const MAX_OUTPUT_TOKENS = 4096;
 const DEFAULT_NAME = 'Daily outfit';
 
-/** ANTHROPIC_API_KEY isn't set, so outfits can't be generated. The app reports it as 503. */
+// Generation problems the app should report as server-side unavailability (503).
 export class OutfitGeneratorNotConfiguredError extends Error {
   constructor() {
     super('Outfit generation is not configured (set ANTHROPIC_API_KEY)');
@@ -52,7 +47,6 @@ export class OutfitGeneratorNotConfiguredError extends Error {
   }
 }
 
-/** Claude couldn't be reached or gave no usable outfit. The app reports it as 503. */
 export class OutfitGeneratorUnavailableError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options);
@@ -81,20 +75,12 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
 };
 
-/** Writes the request as the user message Claude receives. */
 function describeRequest({ occasion, weather, items }: OutfitRequest): string {
   const weatherLine =
     weather === null ? 'Weather: unknown' : `Weather: ${weather.temperatureC}°C, ${weather.description}`;
   return `Occasion: ${occasion}\n${weatherLine}\nClean clothes:\n${JSON.stringify(items)}`;
 }
 
-/**
- * Reads the outfit from Claude's reply.
- * @param response Claude's reply
- * @param request the request it answers, whose items are the only ones allowed in the outfit
- * @returns the outfit, with a default name if Claude's was blank
- * @throws OutfitGeneratorUnavailableError if the reply was cut off, refused, not JSON, or picked none of the items
- */
 function parseOutfit(response: Anthropic.Beta.BetaMessage, request: OutfitRequest): GeneratedOutfit {
   const text = response.content
     .filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === 'text')
@@ -123,10 +109,6 @@ function parseOutfit(response: Anthropic.Beta.BetaMessage, request: OutfitReques
   return { name: name.length > 0 ? name : DEFAULT_NAME, itemIds };
 }
 
-/**
- * Creates an outfit generator that asks Claude for each outfit.
- * @param client the Anthropic client; tests pass a stand-in so nothing is sent
- */
 export function createOutfitGenerator(client: Anthropic): OutfitGenerator {
   return {
     async generate(request) {
@@ -154,18 +136,13 @@ export function createOutfitGenerator(client: Anthropic): OutfitGenerator {
 
 let defaultGenerator: OutfitGenerator | undefined;
 
-/**
- * Replaces the app-wide generator, e.g. with a stand-in in tests.
- * @param generator the generator to use, or undefined to go back to the one configured from the environment
- */
+// Replaces the app-wide generator (e.g. with a stand-in in tests); undefined goes back to the env-configured one.
 export function setOutfitGenerator(generator: OutfitGenerator | undefined): void {
   defaultGenerator = generator;
 }
 
-/**
- * Returns the app-wide generator, created on first use from ANTHROPIC_API_KEY.
- * @throws OutfitGeneratorNotConfiguredError if ANTHROPIC_API_KEY isn't set
- */
+// The app-wide generator, configured from ANTHROPIC_API_KEY.
+// Throws OutfitGeneratorNotConfiguredError (reported to the client as 503) if it isn't set up.
 export function getOutfitGenerator(): OutfitGenerator {
   if (defaultGenerator === undefined) {
     if (env.anthropicApiKey === undefined) {

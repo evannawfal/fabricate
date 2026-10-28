@@ -9,7 +9,6 @@ export interface OutfitInput {
 
 export type OutfitUpdate = Partial<OutfitInput>;
 
-/** The body of POST /outfits/generate. */
 export interface GenerateOutfitInput {
   occasion: OutfitOccasion;
   latitude: number;
@@ -83,10 +82,6 @@ function isOccasion(value: unknown): value is OutfitOccasion {
   return (OUTFIT_OCCASIONS as readonly unknown[]).includes(value);
 }
 
-/**
- * Checks that a coordinate is a number between -limit and limit.
- * @returns the coordinate, or an error naming the field
- */
 function parseCoordinate(value: unknown, field: string, limit: number): ValidationResult<number> {
   if (typeof value !== 'number' || !Number.isFinite(value) || Math.abs(value) > limit) {
     return invalid(`${field} must be a number between -${limit} and ${limit}`);
@@ -94,10 +89,6 @@ function parseCoordinate(value: unknown, field: string, limit: number): Validati
   return valid(value);
 }
 
-/**
- * Validates the body of POST /outfits/generate.
- * @returns the input, or an error describing the first problem found
- */
 export function validateGenerateOutfitInput(body: unknown): ValidationResult<GenerateOutfitInput> {
   const fields = checkBodyFields(body, GENERATE_FIELDS);
   if (!fields.ok) {

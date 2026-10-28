@@ -60,14 +60,8 @@ export async function createOutfit(req: AuthedRequest, res: Response) {
   res.status(201).json(await toSingleOutfitResponse(userId, outfit));
 }
 
-/**
- * POST /outfits/generate
- * Picks an outfit from the user's clean clothes for the occasion and the current weather.
- * The outfit isn't saved: the app saves it with POST /outfits if the user keeps it.
- * Responds 200 with { outfit: { name, occasion, items }, weather }, where weather is null if it
- * couldn't be retrieved; 400 if the body is invalid or the clean clothes lack a top or a bottom;
- * 503 (through the error handler) if outfit generation is unavailable.
- */
+// POST /outfits/generate
+// The outfit isn't saved: the app saves it with POST /outfits if the user keeps it.
 export async function generateOutfit(req: AuthedRequest, res: Response) {
   const input = validateGenerateOutfitInput(req.body);
   if (!input.ok) {
@@ -102,7 +96,7 @@ export async function generateOutfit(req: AuthedRequest, res: Response) {
   });
 }
 
-/** Keeps only the details Claude needs to choose, so photo keys and owner ids stay out of the prompt. */
+// Only the details Claude needs to choose, so photo keys and owner ids stay out of the prompt.
 function toOutfitCandidate(item: ClothingItemDocument): OutfitCandidate {
   return {
     id: item._id.toString(),
