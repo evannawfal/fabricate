@@ -14,10 +14,7 @@ const VANCOUVER = {
   weather: [{ id: 500, main: 'Rain', description: 'light rain', icon: '10d' }],
 };
 
-/**
- * A stand-in for fetch, so nothing is sent to OpenWeather.
- * @param result the response to resolve with, or the error to reject with
- */
+// A stand-in for fetch: nothing is sent to OpenWeather.
 function fakeFetch(result: Response | Error) {
   return jest.fn(async (_url: URL | RequestInfo, _init?: RequestInit) => {
     // Checked against Response rather than Error: a DOMException isn't an Error inside Jest's sandbox.
@@ -40,12 +37,10 @@ afterEach(() => {
 });
 
 describe('OpenWeather weather service', () => {
-  /**
-   * Mocked behavior: OpenWeather returns the current weather in Vancouver
-   * Input: UBC's coordinates
-   * Expected behavior: one request for metric units at those coordinates, with the API key
-   * Expected output: { temperatureC: 12, condition: "Rain", description: "light rain" }
-   */
+  // Mocked behavior: OpenWeather returns the current weather in Vancouver
+  // Input: UBC's coordinates
+  // Expected behavior: one request for metric units at those coordinates, with the API key
+  // Expected output: { temperatureC: 12, condition: "Rain", description: "light rain" }
   test('Returns the current weather', async () => {
     const fetchFn = fakeFetch(jsonResponse(VANCOUVER));
 
@@ -64,12 +59,10 @@ describe('OpenWeather weather service', () => {
     expect(fetchFn.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
   });
 
-  /**
-   * Mocked behavior: OpenWeather rejects the request (e.g. invalid API key or rate limit)
-   * Input: any coordinates
-   * Expected behavior: the failure is logged
-   * Expected output: null
-   */
+  // Mocked behavior: OpenWeather rejects the request (e.g. invalid API key or rate limit)
+  // Input: any coordinates
+  // Expected behavior: the failure is logged
+  // Expected output: null
   test.each([401, 429, 500])('API error %i', async (status) => {
     const fetchFn = fakeFetch(jsonResponse({ cod: status, message: 'error' }, status));
 
@@ -79,12 +72,10 @@ describe('OpenWeather weather service', () => {
     expect(console.error).toHaveBeenCalledWith(`OpenWeather request failed with status ${status}`);
   });
 
-  /**
-   * Mocked behavior: the request fails before a response arrives (network error or timeout)
-   * Input: any coordinates
-   * Expected behavior: the failure is logged
-   * Expected output: null
-   */
+  // Mocked behavior: the request fails before a response arrives (network error or timeout)
+  // Input: any coordinates
+  // Expected behavior: the failure is logged
+  // Expected output: null
   test.each([
     ['Network error', new TypeError('fetch failed')],
     ['Timeout', new DOMException('The operation was aborted due to timeout', 'TimeoutError')],
@@ -97,12 +88,10 @@ describe('OpenWeather weather service', () => {
     expect(console.error).toHaveBeenCalledWith('Could not get the current weather:', error);
   });
 
-  /**
-   * Mocked behavior: OpenWeather responds with a body that isn't the expected weather
-   * Input: any coordinates
-   * Expected behavior: the failure is logged
-   * Expected output: null
-   */
+  // Mocked behavior: OpenWeather responds with a body that isn't the expected weather
+  // Input: any coordinates
+  // Expected behavior: the failure is logged
+  // Expected output: null
   test.each([
     ['Invalid JSON', new Response('<html>', { status: 200 })],
     ['Missing temperature', jsonResponse({ weather: VANCOUVER.weather })],
@@ -114,11 +103,9 @@ describe('OpenWeather weather service', () => {
     expect(console.error).toHaveBeenCalled();
   });
 
-  /**
-   * Input: no OPENWEATHER_API_KEY (as in the tests)
-   * Expected behavior: no request is attempted
-   * Expected output: null
-   */
+  // Input: no OPENWEATHER_API_KEY (as in the tests)
+  // Expected behavior: no request is attempted
+  // Expected output: null
   test('Not configured', async () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch');
 
@@ -126,11 +113,9 @@ describe('OpenWeather weather service', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  /**
-   * Input: OPENWEATHER_API_KEY is set
-   * Expected behavior: the app-wide service calls OpenWeather with that key
-   * Expected output: the current weather
-   */
+  // Input: OPENWEATHER_API_KEY is set
+  // Expected behavior: the app-wide service calls OpenWeather with that key
+  // Expected output: the current weather
   test('Configured from the environment', async () => {
     jest.replaceProperty(env, 'openWeatherApiKey', 'env-key');
     const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(VANCOUVER));
