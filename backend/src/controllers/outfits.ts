@@ -20,13 +20,8 @@ async function ownsAllItems(userId: string, itemIds: string[], existingItemIds: 
   return count === itemIds.length;
 }
 
-/**
- * Loads the items of all the given outfits in one query rather than one per outfit. Archived
- * items are loaded too, since outfits saved before an item was removed still show it.
- * @param userId the signed-in user; only their items are loaded
- * @param outfits the outfits whose items to load
- * @returns the items with their photo links, keyed by item id
- */
+// One query for all the outfits' items rather than one per outfit. Archived items are loaded
+// too, since outfits saved before an item was removed still show it.
 async function loadItemsById(userId: string, outfits: OutfitDocument[]): Promise<Map<string, ClothingItemResponse>> {
   const itemIds = outfits.flatMap((outfit) => outfit.items);
   const items = await ClothingItem.find({ _id: { $in: itemIds }, owner: userId });
@@ -34,14 +29,8 @@ async function loadItemsById(userId: string, outfits: OutfitDocument[]): Promise
   return new Map(itemResponses.map((item) => [item.id, item]));
 }
 
-/**
- * Builds the outfit's response with its items in the order the outfit saved them, since the query
- * in loadItemsById returns them in database order. An item that can't be found is left out
- * instead of failing the whole response.
- * @param outfit the saved outfit
- * @param itemsById the items from loadItemsById
- * @returns the outfit with its items
- */
+// The query returns items in database order, so put them back in the outfit's order. An item
+// that can't be found is left out instead of failing the whole response.
 function toResponseWithItems(outfit: OutfitDocument, itemsById: Map<string, ClothingItemResponse>): OutfitResponse {
   const outfitItems = outfit.items
     .map((itemId) => itemsById.get(itemId.toString()))
