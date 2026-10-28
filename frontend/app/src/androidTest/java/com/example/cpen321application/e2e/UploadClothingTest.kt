@@ -58,10 +58,8 @@ class UploadClothingTest {
     private val closet = BackendClothingRepository(tokenProvider = { sessionStore.token.first() })
     private val galleryPhotos = mutableListOf<Uri>()
 
-    /**
-     * The tester's closet before the test, so [cleanUp] removes only the items the test added and
-     * never the tester's own. Null if it couldn't be read, in which case nothing is removed.
-     */
+    // The tester's closet before the test, so cleanUp removes only the items the test added, never
+    // the tester's own. Null if it couldn't be read, in which case nothing is removed.
     private var itemsBefore: List<ClothingItem>? = null
 
     @Before
@@ -78,21 +76,13 @@ class UploadClothingTest {
         }
     }
 
-    /**
-     * Reads the tester's closet from the back-end.
-     * @return the items that weren't there before the test
-     * @throws IllegalArgumentException if the closet couldn't be read before the test
-     */
     private suspend fun addedItems(): List<ClothingItem> {
         val idsBefore = requireNotNull(itemsBefore).map { it.id }.toSet()
         return closet.listItems().filterNot { it.id in idsBefore }
     }
 
-    /**
-     * Copies [assetName] from the test assets into the device's gallery, since the system photo
-     * picker only shows gallery photos. It is dated now, so it is the newest photo and the first
-     * one [PICKER_PHOTO] matches. [cleanUp] deletes it after the test.
-     */
+    // The system photo picker only shows gallery photos. Dating the copy now makes it the newest
+    // photo, so it is the first one PICKER_PHOTO matches.
     private fun addToGallery(assetName: String) {
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, assetName)
@@ -107,7 +97,7 @@ class UploadClothingTest {
         }
     }
 
-    /** Use case steps 1-2: open the Closet tab, tap "Add clothing" and choose the gallery. */
+    // Use case steps 1-2
     private fun chooseFromGallery() {
         composeRule.onNodeWithText("Closet").performClick()
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()
@@ -117,10 +107,8 @@ class UploadClothingTest {
         composeRule.onNodeWithText("Choose from gallery").performClick()
     }
 
-    /**
-     * The photo picker is a separate system app that the Compose test rule can't see, so it is
-     * found with UI Automator.
-     */
+    // The photo picker is a separate system app that the Compose test rule can't see, so UI
+    // Automator finds it.
     private fun waitForPhotoPicker() {
         assertTrue(
             "The photo picker didn't show the test photo",
@@ -133,27 +121,22 @@ class UploadClothingTest {
         device.findObject(PICKER_PHOTO).click()
     }
 
-    /**
-     * Waits for a node tagged [tag]. The Compose test rule waits for the UI to settle but not for
-     * the back-end's response, so screens that depend on it have to be waited for.
-     */
+    // The Compose test rule waits for the UI to settle but not for the back-end's response, so
+    // screens that depend on it are waited for explicitly.
     private fun waitForTag(tag: String, timeoutMillis: Long) {
         composeRule.waitUntil(timeoutMillis) {
             composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
         }
     }
 
-    /** Like [waitForTag], for a node showing [text]. */
     private fun waitForText(text: String, timeoutMillis: Long) {
         composeRule.waitUntil(timeoutMillis) {
             composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
         }
     }
 
-    /**
-     * Checks that the closet is back on screen and unchanged: the back-end has no new items, and
-     * the first card is still the item that was first before the test.
-     */
+    // Checks the back-end as well as the screen, so an item that was saved but isn't shown yet
+    // still fails the test.
     private fun assertClosetUnchanged() {
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()
         composeRule.onNodeWithText("Add clothing").assertIsDisplayed()
@@ -166,7 +149,7 @@ class UploadClothingTest {
         }
     }
 
-    /** Main success scenario: the user picks a photo of a shirt from the gallery. */
+    // Main success scenario
     @Test
     fun choosingAClothingPhoto_addsTheItemFirstWithItsDetectedDetails() {
         addToGallery(SHIRT_PHOTO)
@@ -202,7 +185,7 @@ class UploadClothingTest {
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()
     }
 
-    /** Failure 3a: the user closes the photo picker without choosing a photo. */
+    // Failure 3a
     @Test
     fun closingThePhotoPicker_leavesTheClosetUnchanged() {
         addToGallery(SHIRT_PHOTO)
@@ -219,7 +202,7 @@ class UploadClothingTest {
         assertClosetUnchanged()
     }
 
-    /** Failure 4a: the photo doesn't show a clothing item. */
+    // Failure 4a
     @Test
     fun photoThatIsNotClothing_showsAMessageAndAddsNothing() {
         addToGallery(MUG_PHOTO)
