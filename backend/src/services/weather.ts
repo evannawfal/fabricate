@@ -1,23 +1,18 @@
 import { env } from '../config/env.js';
 
-/** The current weather at the user's location, used when generating a daily outfit. */
+// The current weather at the user's location, used when generating a daily outfit.
 export interface Weather {
-  /** Rounded to whole degrees, which is all an outfit choice needs. */
+  // Rounded to whole degrees, which is all an outfit choice needs.
   temperatureC: number;
-  /** OpenWeather's condition group, e.g. "Rain" or "Clear". */
+  // OpenWeather's condition group, e.g. "Rain" or "Clear"
   condition: string;
-  /** OpenWeather's wording of the condition, e.g. "light rain". */
+  // e.g. "light rain"
   description: string;
 }
 
 export interface WeatherService {
-  /**
-   * Gets the current weather at a location.
-   * @param latitude between -90 and 90
-   * @param longitude between -180 and 180
-   * @returns the weather, or null if it can't be retrieved. It never rejects, because an outfit
-   * can still be generated without the weather.
-   */
+  // Resolves to null instead of failing when the weather can't be retrieved,
+  // so an outfit can still be generated without it.
   getCurrentWeather(latitude: number, longitude: number): Promise<Weather | null>;
 }
 
@@ -30,10 +25,6 @@ interface OpenWeatherResponse {
   weather?: { main?: unknown; description?: unknown }[];
 }
 
-/**
- * Reads the weather from an OpenWeather response body.
- * @returns the weather, or null if the body is missing any of the fields
- */
 function parseWeather(body: OpenWeatherResponse): Weather | null {
   const temperature = body.main?.temp;
   // OpenWeather can report several conditions at once; the first is the main one.
@@ -44,12 +35,7 @@ function parseWeather(body: OpenWeatherResponse): Weather | null {
   return { temperatureC: Math.round(temperature), condition: conditions.main, description: conditions.description };
 }
 
-/**
- * Creates a weather service backed by OpenWeather's current weather API. Failures are logged and
- * reported as null (see WeatherService).
- * @param apiKey the OpenWeather API key
- * @param fetchFn replaced in tests so that no real request is sent
- */
+// fetchFn is replaced in tests so that no real request is sent.
 export function createOpenWeatherService(apiKey: string, fetchFn: typeof fetch = fetch): WeatherService {
   return {
     async getCurrentWeather(latitude, longitude) {
@@ -72,7 +58,7 @@ export function createOpenWeatherService(apiKey: string, fetchFn: typeof fetch =
         }
         return weather;
       } catch (err) {
-        // Network errors, timeouts and invalid JSON all mean the weather is unavailable, not a failed request.
+        // Network errors, timeouts and invalid JSON: the outfit is generated without the weather.
         console.error('Could not get the current weather:', err);
         return null;
       }
@@ -85,18 +71,12 @@ const noWeather: WeatherService = { getCurrentWeather: async () => null };
 
 let defaultWeatherService: WeatherService | undefined;
 
-/**
- * Replaces the app-wide weather service, e.g. with a stand-in in tests.
- * @param service the service to use, or undefined to go back to the one configured from the environment
- */
+// Replaces the app-wide weather service (e.g. with a stand-in in tests); undefined goes back to the env-configured one.
 export function setWeatherService(service: WeatherService | undefined): void {
   defaultWeatherService = service;
 }
 
-/**
- * Returns the app-wide weather service. It is created on first use from OPENWEATHER_API_KEY;
- * without the key it always reports the weather as unavailable.
- */
+// The app-wide weather service, configured from OPENWEATHER_API_KEY.
 export function getWeatherService(): WeatherService {
   defaultWeatherService ??=
     env.openWeatherApiKey === undefined ? noWeather : createOpenWeatherService(env.openWeatherApiKey);
