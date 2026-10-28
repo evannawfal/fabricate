@@ -28,12 +28,16 @@ class RejectedSessionTest {
     private val sessionStore = SessionStore(InstrumentationRegistry.getInstrumentation().targetContext)
     private var testerSession: String? = null
 
-    // The other end-to-end tests run as the tester who signed in, so put their session back.
+    /**
+     * Saves the tester's session before this test replaces it with a fake one, since the other
+     * end-to-end tests run as the tester.
+     */
     @Before
     fun saveTesterSession() = runBlocking {
         testerSession = sessionStore.token.first()
     }
 
+    /** Puts the tester's session back, or signs out if there was none, so the fake one never outlives this test. */
     @After
     fun restoreTesterSession() = runBlocking {
         testerSession?.let { sessionStore.saveToken(it) } ?: sessionStore.clearToken()

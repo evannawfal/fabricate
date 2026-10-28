@@ -58,7 +58,10 @@ class UploadClothingTest {
     private val closet = BackendClothingRepository(tokenProvider = { sessionStore.token.first() })
     private val galleryPhotos = mutableListOf<Uri>()
 
-    // The tester's closet before the test, read from the back-end; null if it couldn't be read.
+    /**
+     * The tester's closet before the test, so [cleanUp] removes only the items the test added and
+     * never the tester's own. Null if it couldn't be read, in which case nothing is removed.
+     */
     private var itemsBefore: List<ClothingItem>? = null
 
     @Before
@@ -75,13 +78,21 @@ class UploadClothingTest {
         }
     }
 
+    /**
+     * Reads the tester's closet from the back-end.
+     * @return the items that weren't there before the test
+     * @throws IllegalArgumentException if the closet couldn't be read before the test
+     */
     private suspend fun addedItems(): List<ClothingItem> {
         val idsBefore = requireNotNull(itemsBefore).map { it.id }.toSet()
         return closet.listItems().filterNot { it.id in idsBefore }
     }
 
-    // Copies a photo from the test assets into the gallery. Being the newest photo, it is the
-    // first one the photo picker shows.
+    /**
+     * Copies [assetName] from the test assets into the device's gallery, since the system photo
+     * picker only shows gallery photos. It is dated now, so it is the newest photo and the first
+     * one [PICKER_PHOTO] matches. [cleanUp] deletes it after the test.
+     */
     private fun addToGallery(assetName: String) {
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, assetName)
@@ -96,7 +107,7 @@ class UploadClothingTest {
         }
     }
 
-    // Steps 1-2: open the Closet tab, tap "Add clothing" and choose the gallery.
+    /** Use case steps 1-2: open the Closet tab, tap "Add clothing" and choose the gallery. */
     private fun chooseFromGallery() {
         composeRule.onNodeWithText("Closet").performClick()
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()
@@ -106,6 +117,10 @@ class UploadClothingTest {
         composeRule.onNodeWithText("Choose from gallery").performClick()
     }
 
+    /**
+     * The photo picker is a separate system app that the Compose test rule can't see, so it is
+     * found with UI Automator.
+     */
     private fun waitForPhotoPicker() {
         assertTrue(
             "The photo picker didn't show the test photo",
@@ -118,19 +133,27 @@ class UploadClothingTest {
         device.findObject(PICKER_PHOTO).click()
     }
 
+    /**
+     * Waits for a node tagged [tag]. The Compose test rule waits for the UI to settle but not for
+     * the back-end's response, so screens that depend on it have to be waited for.
+     */
     private fun waitForTag(tag: String, timeoutMillis: Long) {
         composeRule.waitUntil(timeoutMillis) {
             composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
         }
     }
 
+    /** Like [waitForTag], for a node showing [text]. */
     private fun waitForText(text: String, timeoutMillis: Long) {
         composeRule.waitUntil(timeoutMillis) {
             composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
         }
     }
 
-    // The closet is back on screen with the same items as before the test.
+    /**
+     * Checks that the closet is back on screen and unchanged: the back-end has no new items, and
+     * the first card is still the item that was first before the test.
+     */
     private fun assertClosetUnchanged() {
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()
         composeRule.onNodeWithText("Add clothing").assertIsDisplayed()
@@ -143,6 +166,7 @@ class UploadClothingTest {
         }
     }
 
+    /** Main success scenario: the user picks a photo of a shirt from the gallery. */
     @Test
     fun choosingAClothingPhoto_addsTheItemFirstWithItsDetectedDetails() {
         addToGallery(SHIRT_PHOTO)
@@ -163,6 +187,7 @@ class UploadClothingTest {
         assertEquals(ClothingCategory.Top, added.category)
         assertNotNull(added.imageUrl)
         composeRule.onAllNodesWithTag(CLOSET_ITEM_TAG).onFirst().assert(hasText(added.name))
+        // The photo is merged into the card's semantics, so it's only visible in the unmerged tree.
         composeRule.onAllNodesWithTag(CLOSET_ITEM_TAG, useUnmergedTree = true).onFirst()
             .assert(hasAnyDescendant(hasTestTag(CLOSET_ITEM_IMAGE_TAG)))
 
@@ -170,13 +195,14 @@ class UploadClothingTest {
         composeRule.onAllNodesWithTag(CLOSET_ITEM_TAG).onFirst().performClick()
         composeRule.onNodeWithText("Added to your closet", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText(ClothingCategory.Top.label).assertIsDisplayed()
+        // The details screen shows the detected color and style capitalized.
         composeRule.onNodeWithText(added.color.replaceFirstChar(Char::uppercase)).assertIsDisplayed()
         composeRule.onNodeWithText(added.style.replaceFirstChar(Char::uppercase)).assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Back").performClick()
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()
     }
 
-    // Failure 3a
+    /** Failure 3a: the user closes the photo picker without choosing a photo. */
     @Test
     fun closingThePhotoPicker_leavesTheClosetUnchanged() {
         addToGallery(SHIRT_PHOTO)
@@ -193,7 +219,7 @@ class UploadClothingTest {
         assertClosetUnchanged()
     }
 
-    // Failure 4a
+    /** Failure 4a: the photo doesn't show a clothing item. */
     @Test
     fun photoThatIsNotClothing_showsAMessageAndAddsNothing() {
         addToGallery(MUG_PHOTO)
@@ -202,6 +228,7 @@ class UploadClothingTest {
         pickNewestPhoto()
 
         waitForText(NOT_CLOTHING_MESSAGE, CLASSIFY_TIMEOUT_MS)
+        // Retrying is only offered for network and server errors; the same photo would be rejected again.
         composeRule.onNodeWithText("Try again").assertDoesNotExist()
         composeRule.onNodeWithText("OK").performClick()
         assertClosetUnchanged()
