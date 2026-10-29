@@ -67,7 +67,7 @@ export function createOpenWeatherService(apiKey: string, fetchFn: typeof fetch =
 }
 
 // Without an OpenWeather API key, outfits are generated without the weather.
-const noWeather: WeatherService = { getCurrentWeather: async () => null };
+const noWeather: WeatherService = { getCurrentWeather: () => Promise.resolve(null) };
 
 let defaultWeatherService: WeatherService | undefined;
 
