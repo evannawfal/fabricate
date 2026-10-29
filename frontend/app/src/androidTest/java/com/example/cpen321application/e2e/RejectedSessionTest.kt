@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertNull
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -25,10 +26,17 @@ class RejectedSessionTest {
     val composeRule = createComposeRule()
 
     private val sessionStore = SessionStore(InstrumentationRegistry.getInstrumentation().targetContext)
+    private var testerSession: String? = null
+
+    // The other end-to-end tests run as the tester who signed in, so put their session back.
+    @Before
+    fun saveTesterSession() = runBlocking {
+        testerSession = sessionStore.token.first()
+    }
 
     @After
-    fun clearSession() = runBlocking {
-        sessionStore.clearToken()
+    fun restoreTesterSession() = runBlocking {
+        testerSession?.let { sessionStore.saveToken(it) } ?: sessionStore.clearToken()
     }
 
     // Not expired, so the app opens on the closet, but not signed by the back-end, so the
