@@ -28,10 +28,12 @@ const REQUEST: OutfitRequest = {
 
 // A stand-in for the Anthropic client: nothing is sent to the API.
 function fakeClient(result: Anthropic.Beta.BetaMessage | Error) {
-  const create = jest.fn(async (_params: CreateParams) => {
-    if (result instanceof Error) throw result;
-    return result;
-  });
+  const create = jest.fn<(params: CreateParams) => Promise<Anthropic.Beta.BetaMessage>>();
+  if (result instanceof Error) {
+    create.mockRejectedValue(result);
+  } else {
+    create.mockResolvedValue(result);
+  }
   const client = { beta: { messages: { create } } } as unknown as Anthropic;
   return { client, create };
 }
@@ -52,14 +54,17 @@ function claudeResponse(
 }
 
 function sentMessage(create: ReturnType<typeof fakeClient>['create']): string {
-  const params = create.mock.calls[0]?.[0] as CreateParams;
-  return params.messages[0]?.content as string;
+  const content = create.mock.calls[0]?.[0].messages[0]?.content;
+  if (typeof content !== 'string') {
+    throw new Error('No text message was sent to Claude');
+  }
+  return content;
 }
 
 function mockResponse() {
   const json = jest.fn();
-  const res = { status: jest.fn(() => ({ json })) } as unknown as Response;
-  return { res, json };
+  const status = jest.fn(() => ({ json }));
+  return { res: { status } as unknown as Response, status, json };
 }
 
 afterEach(() => {
@@ -81,11 +86,13 @@ describe('Outfit generator', () => {
 
     expect(outfit).toEqual({ name: 'Rainy office day', itemIds: [RAINCOAT.id, SHIRT.id, CHINOS.id] });
     expect(create).toHaveBeenCalledTimes(1);
-    const params = create.mock.calls[0]?.[0] as CreateParams;
-    expect(params.model).toBe('claude-sonnet-5-5');
-    expect(params.output_config?.effort).toBe('low');
-    expect(params.output_config?.format?.type).toBe('json_schema');
-    expect(params.fallbacks).toBe('default');
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'claude-sonnet-5-5',
+        fallbacks: 'default',
+        output_config: { effort: 'low', format: expect.objectContaining({ type: 'json_schema' }) },
+      })
+    );
     const message = sentMessage(create);
     expect(message).toContain('Occasion: work');
     expect(message).toContain('Weather: 9°C, light rain');
@@ -174,11 +181,11 @@ describe('Outfit generator', () => {
     'Reported to the app: %s',
     (error) => {
       jest.spyOn(console, 'error').mockImplementation(() => undefined);
-      const { res, json } = mockResponse();
+      const { res, status, json } = mockResponse();
 
       errorHandler(error, {} as never, res, () => undefined);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(status).toHaveBeenCalledWith(503);
       expect(json).toHaveBeenCalledWith({ error: 'Outfit generation is not available right now' });
     }
   );

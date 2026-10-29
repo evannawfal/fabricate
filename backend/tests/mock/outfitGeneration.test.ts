@@ -9,7 +9,6 @@ import {
   setOutfitGenerator,
   type GeneratedOutfit,
   type OutfitGenerator,
-  type OutfitRequest,
 } from '../../src/services/outfitGenerator.js';
 import { setWeatherService, type Weather, type WeatherService } from '../../src/services/weather.js';
 import {
@@ -27,17 +26,19 @@ const LIGHT_RAIN: Weather = { temperatureC: 9, condition: 'Rain', description: '
 
 // Stand-ins for the outfit generator (Claude API) and the weather service (OpenWeather).
 function mockGenerator(result: GeneratedOutfit | Error) {
-  const generate = jest.fn(async (_request: OutfitRequest) => {
-    if (result instanceof Error) throw result;
-    return result;
-  });
-  setOutfitGenerator({ generate } as OutfitGenerator);
+  const generate = jest.fn<OutfitGenerator['generate']>();
+  if (result instanceof Error) {
+    generate.mockRejectedValue(result);
+  } else {
+    generate.mockResolvedValue(result);
+  }
+  setOutfitGenerator({ generate });
   return generate;
 }
 
 function mockWeather(weather: Weather | null) {
-  const getCurrentWeather = jest.fn(async (_latitude: number, _longitude: number) => weather);
-  setWeatherService({ getCurrentWeather } as WeatherService);
+  const getCurrentWeather = jest.fn<WeatherService['getCurrentWeather']>().mockResolvedValue(weather);
+  setWeatherService({ getCurrentWeather });
   return getCurrentWeather;
 }
 
@@ -92,10 +93,15 @@ describe('Mocked: POST /outfits/generate', () => {
     expect(response.body.weather).toEqual(LIGHT_RAIN);
     expect(getCurrentWeather).toHaveBeenCalledWith(UBC.latitude, UBC.longitude);
     expect(generator).toHaveBeenCalledTimes(1);
-    const sent = generator.mock.calls[0]?.[0] as OutfitRequest;
-    expect(sent.occasion).toBe('work');
-    expect(sent.weather).toEqual(LIGHT_RAIN);
-    expect(sent.items.map((item) => item.name).sort()).toEqual(['Black jeans', 'Olive raincoat', 'White shirt']);
+    expect(generator).toHaveBeenCalledWith({
+      occasion: 'work',
+      weather: LIGHT_RAIN,
+      items: [
+        expect.objectContaining({ name: 'Olive raincoat' }),
+        expect.objectContaining({ name: 'Black jeans' }),
+        expect.objectContaining({ name: 'White shirt' }),
+      ],
+    });
     expect(await Outfit.countDocuments()).toBe(0);
   });
 
@@ -114,7 +120,7 @@ describe('Mocked: POST /outfits/generate', () => {
     expect(response.status).toBe(200);
     expect(response.body.weather).toBeNull();
     expect(response.body.outfit.items).toHaveLength(2);
-    expect((generator.mock.calls[0]?.[0] as OutfitRequest).weather).toBeNull();
+    expect(generator).toHaveBeenCalledWith(expect.objectContaining({ weather: null }));
   });
 
   // Mocked behavior: the generator is unavailable (Claude is down, rate-limited or times out)
