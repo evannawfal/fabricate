@@ -16,11 +16,14 @@ const VANCOUVER = {
 
 // A stand-in for fetch: nothing is sent to OpenWeather.
 function fakeFetch(result: Response | Error) {
-  return jest.fn(async (_url: URL | RequestInfo, _init?: RequestInit) => {
-    // Checked against Response rather than Error: a DOMException isn't an Error inside Jest's sandbox.
-    if (!(result instanceof Response)) throw result;
-    return result;
-  });
+  const fetchFn = jest.fn<typeof fetch>();
+  // Checked against Response rather than Error: a DOMException isn't an Error inside Jest's sandbox.
+  if (result instanceof Response) {
+    fetchFn.mockResolvedValue(result);
+  } else {
+    fetchFn.mockRejectedValue(result);
+  }
+  return fetchFn;
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -107,7 +110,7 @@ describe('OpenWeather weather service', () => {
   // Expected behavior: no request is attempted
   // Expected output: null
   test('Not configured', async () => {
-    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+    const fetchSpy = jest.spyOn(global, 'fetch');
 
     expect(await getWeatherService().getCurrentWeather(LATITUDE, LONGITUDE)).toBeNull();
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -118,7 +121,7 @@ describe('OpenWeather weather service', () => {
   // Expected output: the current weather
   test('Configured from the environment', async () => {
     jest.replaceProperty(env, 'openWeatherApiKey', 'env-key');
-    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(VANCOUVER));
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(jsonResponse(VANCOUVER));
 
     const weather = await getWeatherService().getCurrentWeather(LATITUDE, LONGITUDE);
 
