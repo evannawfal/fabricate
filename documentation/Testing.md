@@ -5,6 +5,8 @@
 | **Change Date** | **Modified Sections** | **Rationale** |
 | --------------- | --------------------- | ------------- |
 | 2026-10-18 | 2, 3, 4 | First version for CP1. Section 2 documents the back-end tests of all interfaces of the Clothing component (`/clothing`), how to run them, the GitHub Actions configuration and the coverage reports. Section 4 gives the end-to-end test design for the Upload Clothing Item use case. Section 3 is left for CP2, since the non-functional requirements are not finalized yet. |
+| 2026-10-24 | 2.1.1, 2.5 | Added the mocked `describe` groups for the `/outfits` interfaces. `controllers/outfits.ts` is now fully covered: the mocked tests reach the update-after-concurrent-delete case, and an unreachable check was removed. |
+| 2026-10-25 | 4 | Implemented the Upload Clothing Item end-to-end test (`UploadClothingTest.kt`) and added its logs. Each scenario is now a separate test so they don't depend on each other, and "the closet is unchanged" is checked against the back-end and the first card instead of by counting cards, since a large closet doesn't fit on screen. The test adds its photos to the photo library itself and removes them and any item it added afterwards. |
 
 ---
 
@@ -24,11 +26,11 @@ For CP1 the back-end tests are documented for all interfaces of the **Clothing**
 | **PATCH /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L334`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/clothing.test.ts#L334) | [`backend/tests/mock/clothing.test.ts#L101`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/mock/clothing.test.ts#L101) | Clothing DB |
 | **DELETE /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L520`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/clothing.test.ts#L520) | [`backend/tests/mock/clothing.test.ts#L149`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/mock/clothing.test.ts#L149) | Clothing DB |
 | POST /auth/google | [`backend/tests/no-mock/auth.test.ts#L20`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/auth.test.ts#L20) | [`backend/tests/mock/auth.test.ts#L47`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/mock/auth.test.ts#L47) | Google Authentication API, User DB |
-| POST /outfits | [`backend/tests/no-mock/outfits.test.ts#L29`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L29) | Planned for CP2 | Outfit DB |
-| GET /outfits | [`backend/tests/no-mock/outfits.test.ts#L172`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L172) | Planned for CP2 | Outfit DB |
-| GET /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L217`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L217) | Planned for CP2 | Outfit DB |
-| PATCH /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L279`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L279) | Planned for CP2 | Outfit DB |
-| DELETE /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L434`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L434) | Planned for CP2 | Outfit DB |
+| POST /outfits | [`backend/tests/no-mock/outfits.test.ts#L29`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L29) | [`backend/tests/mock/outfits.test.ts#L52`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L52) | Outfit DB, Clothing DB |
+| GET /outfits | [`backend/tests/no-mock/outfits.test.ts#L172`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L172) | [`backend/tests/mock/outfits.test.ts#L101`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L101) | Outfit DB, Clothing DB, Azure Blob Storage (photo links) |
+| GET /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L217`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L217) | [`backend/tests/mock/outfits.test.ts#L160`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L160) | Outfit DB |
+| PATCH /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L279`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L279) | [`backend/tests/mock/outfits.test.ts#L180`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L180) | Outfit DB |
+| DELETE /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L434`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L434) | [`backend/tests/mock/outfits.test.ts#L248`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L248) | Outfit DB |
 | GET /health | [`backend/tests/no-mock/health.test.ts#L6`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/health.test.ts#L6) | None needed (no external components) | None |
 
 How the external components are mocked:
@@ -193,7 +195,7 @@ Without mocks, `controllers/clothing.ts` misses lines 34-50: the part of `POST /
 | `src/avatar/*`, `services/avatarStorage.ts`, `services/storageKeys.ts` (19) | Avatar generation and avatar file storage for the Customize Avatar feature. No API endpoint uses them yet (avatar endpoints are in progress), so API tests can't reach them. They will be covered by the avatar interface tests. |
 | `services/classifier.ts` (82-171, 186), `services/storage.ts` (31-73, 97) | The adapters that call the real Claude API and Azure Blob Storage SDKs. The interface tests replace them with stand-ins so they never use paid external services. The adapters are tested with mocked SDK clients in `backend/tests/unit` (`npm test`: classifier.ts 98% and storage.ts 97% of statements). The only lines left are the ones that create the real SDK client from the production credentials. |
 | `config/env.ts` (6, 23) | Start-up checks that stop the server when a required environment variable is missing or `PORT` is invalid. They run once when the module loads, before any request. |
-| `controllers/outfits.ts` (40, 105), `middleware/middleware.ts` (39), `middleware/errorHandler.ts` (branches on 36, 40) | Outfits component (documented for CP2) and defensive checks. Tests for the missing outfit cases will be added with the Outfits component, and unreachable checks will be removed. |
+| `middleware/middleware.ts` (39), `middleware/errorHandler.ts` (branches on 36, 40) | Defensive checks, to be covered or removed for CP2. |
 
 ---
 
@@ -219,11 +221,15 @@ _To be added for CP2._
 
 `frontend/app/src/androidTest/java/com/example/cpen321application/e2e/`
 
-The Upload Clothing Item test will be `UploadClothingTest.kt` in this folder. It is designed here and will be implemented for CP2, once photo upload is added to the Closet screen.
+The Upload Clothing Item use case is tested by [`UploadClothingTest.kt`](https://github.com/evannawfal/fabricate/blob/main/frontend/app/src/androidTest/java/com/example/cpen321application/e2e/UploadClothingTest.kt) in this folder. Run it, with the rest of the end-to-end tests, with `scripts/run-frontend-e2e-tests.sh` (or `.ps1`), and sign in to the app on the emulator when the script asks.
 
-The test runs on the Closet screen as it is built: the app opens on the "Closet" tab of the bottom navigation bar, which shows the title "My Closet", a row of category filters ("All", "Tops", "Bottoms", ...) and a two-column grid of item cards, each with the item's photo and name. Tapping a card opens the item's details ("Type", "Colour", "Style", "Status", "Tags") with a "Back" button. The "Add clothing" button, the photo source choice, the loading indicator and the messages in the table below are part of the upload work that is still in progress; they must use the labels below, or this section will be updated to match. The test finds item cards, their photos and the loading indicator by the test tags `closet_item`, `closet_item_image` and `upload_progress`, which will be added to those elements.
+The test opens the app's main screen, signed in as the tester, and talks to the real deployed back-end and its photo classifier; nothing is mocked. The system photo picker is a separate app, so it is driven with UI Automator. Each scenario is its own test, so they don't depend on each other or on what is already in the tester's closet:
 
-Like every feature test, it starts with the user already signed in on the app's main screen. It does not assume an empty closet: it compares the number of items before and after the upload (when the closet is empty, the screen shows "Your closet is empty" and the count is 0). Before it runs, the test copies two photos from its test assets into the emulator's photo library so that they show up in the photo picker: `shirt.jpg` (a T-shirt) and `mug.jpg` (a coffee mug, not clothing). The test talks to the real deployed back-end; nothing is mocked.
+- Before each test, it reads the tester's closet from the back-end (`GET /clothing`) and copies the photo it will pick from its test assets into the emulator's photo library: `shirt.jpg` (a black T-shirt) or `mug.jpg` (a coffee mug, not clothing). Being the newest photo, it is the first one in the photo picker.
+- "The closet is unchanged" means the back-end has no new items and the first card on screen is the same item as before (or the screen still shows "Your closet is empty"). Counting cards on screen would only count the ones that fit on it.
+- After each test, it deletes the photo from the photo library and any item it added from the tester's closet.
+
+The test finds item cards, their photos and the loading indicator by the test tags `closet_item`, `closet_item_image` and `upload_progress`.
 
 ### 4.2. Tests
 
@@ -249,18 +255,30 @@ Like every feature test, it starts with the user already signed in on the app's 
 
     | **Scenario Steps** | **Test Case Steps** |
     | ------------------ | ------------------- |
-    | 1. The user opens the Closet tab and taps "Add clothing". | Click "Closet" in the bottom navigation bar.<br>Check that the text "My Closet" is present on screen.<br>Count the item cards on screen (nodes tagged `closet_item`) and store the count as N.<br>Click the button labelled "Add clothing". |
+    | 1. The user opens the Closet tab and taps "Add clothing". | Click "Closet" in the bottom navigation bar.<br>Check that the text "My Closet" is present on screen.<br>Click the button labelled "Add clothing". |
     | 2. The app asks whether to take a photo with the camera or choose one from the gallery. | Check that the options "Take photo" and "Choose from gallery" are present on screen. |
-    | 3a. The user closes the camera or gallery without choosing a photo. | Click "Choose from gallery".<br>With UI Automator, wait for the system photo picker to open, then press the Back button. |
-    | 3a1. The app returns to the Closet screen and the closet is unchanged. | Check that the text "My Closet" and the button labelled "Add clothing" are present on screen.<br>Check that there are still N item cards. |
-    | 4a. The photo does not show a clothing item. | Click "Add clothing", then "Choose from gallery".<br>With UI Automator, select `mug.jpg` in the photo picker. |
-    | 4a1. The app shows the message "This photo doesn't show a clothing item. Try another photo." and the closet is unchanged. | Wait up to 30 seconds for the text "This photo doesn't show a clothing item. Try another photo." to be present on screen.<br>Dismiss the message and check that there are still N item cards. |
-    | 3. The user takes or chooses a photo of a clothing item. | Click "Add clothing", then "Choose from gallery".<br>With UI Automator, select `shirt.jpg` in the photo picker. |
-    | 4. The app uploads the photo and shows a loading indicator while the item is classified. | Check that the loading indicator (node tagged `upload_progress`) is displayed. |
-    | 5. The app shows the new item at the top of the closet with its photo and name; its details show the category, colour and style the app detected. | Wait up to 30 seconds for the loading indicator to disappear.<br>Check that there are N + 1 item cards.<br>Check that the first card has a non-empty name and a photo (node tagged `closet_item_image`).<br>Click the first card.<br>Check that the "Type" detail shows "Tops" and that the "Colour" and "Style" details are not empty.<br>Click "Back" and check that the text "My Closet" is present on screen. |
-    | 4b. The photo can't be uploaded or classified. | Not automated: it needs the back-end to fail on purpose, and the front-end tests use the real back-end with no mocking. The back-end side of this failure is covered by the mocked `POST /clothing` tests ("Classifier unavailable", "Storage upload fails"). |
+    | 3a. The user closes the camera or gallery without choosing a photo. | `closingThePhotoPicker_leavesTheClosetUnchanged`: add `shirt.jpg` to the photo library, then do steps 1 and 2.<br>Click "Choose from gallery".<br>With UI Automator, wait for the photo picker to show the photo, then press the Back button. |
+    | 3a1. The app returns to the Closet screen and the closet is unchanged. | With UI Automator, check that the app is back on screen.<br>Check that the loading indicator (tagged `upload_progress`) is not present.<br>Check that the text "My Closet" and the button labelled "Add clothing" are present on screen.<br>Check that the closet is unchanged. |
+    | 4a. The photo does not show a clothing item. | `photoThatIsNotClothing_showsAMessageAndAddsNothing`: add `mug.jpg` to the photo library, then do steps 1 and 2.<br>Click "Choose from gallery".<br>With UI Automator, select the first photo in the photo picker (`mug.jpg`). |
+    | 4a1. The app shows the message "This photo doesn't show a clothing item. Try another photo." and the closet is unchanged. | Wait up to 30 seconds for the text "This photo doesn't show a clothing item. Try another photo." to be present on screen.<br>Check that there is no "Try again" button.<br>Click "OK".<br>Check that the closet is unchanged. |
+    | 3. The user takes or chooses a photo of a clothing item. | `choosingAClothingPhoto_addsTheItemFirstWithItsDetectedDetails`: add `shirt.jpg` to the photo library, then do steps 1 and 2.<br>Click "Choose from gallery".<br>With UI Automator, select the first photo in the photo picker (`shirt.jpg`). |
+    | 4. The app uploads the photo and shows a loading indicator while the item is classified. | Wait up to 10 seconds for the loading indicator (tagged `upload_progress`), and check that it is displayed.<br>Wait up to 30 seconds for it to disappear. |
+    | 5. The app shows the new item at the top of the closet with its photo and name; its details show the category, colour and style the app detected. | Check that the back-end has exactly one new item, that its category is "top" and that it has a photo.<br>Check that the first card (tagged `closet_item`) shows the new item's name and contains its photo (tagged `closet_item_image`).<br>Click the first card.<br>Check that the text "Added to your closet" is present, and that the details show "Tops" and the colour and style the back-end detected.<br>Click "Back" and check that the text "My Closet" is present on screen. |
+    | 4b. The photo can't be uploaded or classified. | Not automated: it needs the back-end to fail on purpose, and the front-end end-to-end tests use the real back-end with no mocking. The back-end side of this failure is covered by the mocked `POST /clothing` tests ("Classifier unavailable", "Storage upload fails"), and the app's "Try again" flow by `AddClothingTest.kt` (`failedUpload_canBeTriedAgainWithTheSamePhoto`), which runs the Closet screen with a fake back-end. |
 
   - **Test Logs:**
     ```
-    To be added when UploadClothingTest.kt is implemented (CP2).
+    > Task :app:connectedDebugAndroidTest
+    Starting 5 tests on Pixel_9(AVD) - 16
+    Pixel_9(AVD) - 16 Tests 2/5 completed. (0 skipped) (0 failed)
+    Pixel_9(AVD) - 16 Tests 3/5 completed. (0 skipped) (0 failed)
+    Pixel_9(AVD) - 16 Tests 5/5 completed. (0 skipped) (0 failed)
+    Finished 5 tests on Pixel_9(AVD) - 16
+
+    BUILD SUCCESSFUL in 46s
+
+    com.example.cpen321application.e2e.UploadClothingTest (Pixel 9 emulator, API 36, deployed back-end):
+      photoThatIsNotClothing_showsAMessageAndAddsNothing                PASSED (8.96 s)
+      choosingAClothingPhoto_addsTheItemFirstWithItsDetectedDetails     PASSED (9.10 s)
+      closingThePhotoPicker_leavesTheClosetUnchanged                    PASSED (6.32 s)
     ```
