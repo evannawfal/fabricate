@@ -7,12 +7,13 @@
 | 2026-10-18 | 2, 3, 4 | First version for CP1. Section 2 documents the back-end tests of all interfaces of the Clothing component (`/clothing`), how to run them, the GitHub Actions configuration and the coverage reports. Section 4 gives the end-to-end test design for the Upload Clothing Item use case. Section 3 is left for CP2, since the non-functional requirements are not finalized yet. |
 | 2026-10-24 | 2.1.1, 2.5 | Added the mocked `describe` groups for the `/outfits` interfaces. `controllers/outfits.ts` is now fully covered: the mocked tests reach the update-after-concurrent-delete case, and an unreachable check was removed. |
 | 2026-10-25 | 4 | Implemented the Upload Clothing Item end-to-end test (`UploadClothingTest.kt`) and added its logs. Each scenario is now a separate test so they don't depend on each other, and "the closet is unchanged" is checked against the back-end and the first card instead of by counting cards, since a large closet doesn't fit on screen. The test adds its photos to the photo library itself and removes them and any item it added afterwards. |
+| 2026-10-29 | 2, 3 | Updated for CP2. Added `POST /avatar` and `POST /outfits/generate` to the back-end test table and the mocked components, and pointed every test link at the current line. Updated the commit hash, the run instructions and the coverage screenshots, added a report of every back-end test together with the reasons each file below 100% can't be fully covered, and covered the error handler's branches listed for CP2. Section 3 now names the two non-functional requirements that are tested automatically; their tests come with the features they measure. |
 
 ---
 
 ## 2. Back-end Test Specification: APIs
 
-For CP1 the back-end tests are documented for all interfaces of the **Clothing** component: `POST /clothing`, `GET /clothing`, `GET /clothing/:id`, `PATCH /clothing/:id` and `DELETE /clothing/:id`. The other interfaces that already have tests are listed in the same table and will be documented in detail for CP2.
+The back-end tests are documented in detail for all interfaces of the **Clothing** component: `POST /clothing`, `GET /clothing`, `GET /clothing/:id`, `PATCH /clothing/:id` and `DELETE /clothing/:id`. Every other interface that has tests (authentication, avatars and outfits) is listed in the same table with its `describe` groups and mocked components.
 
 ### 2.1. Locations of Back-end Tests and Instructions to Run Them
 
@@ -20,23 +21,26 @@ For CP1 the back-end tests are documented for all interfaces of the **Clothing**
 
 | **Interface** | **Describe Group Location, No Mocks** | **Describe Group Location, With Mocks** | **Mocked Components** |
 | ------------- | ------------------------------------- | --------------------------------------- | --------------------- |
-| **POST /clothing** | [`backend/tests/no-mock/clothing.test.ts#L24`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/clothing.test.ts#L24) | [`backend/tests/mock/clothingUpload.test.ts#L69`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/mock/clothingUpload.test.ts#L69) | Clothing classifier (Claude API), Azure Blob Storage, Clothing DB |
-| **GET /clothing** | [`backend/tests/no-mock/clothing.test.ts#L120`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/clothing.test.ts#L120) | [`backend/tests/mock/clothing.test.ts#L38`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/mock/clothing.test.ts#L38) | Azure Blob Storage (photo links), Clothing DB |
-| **GET /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L242`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/clothing.test.ts#L242) | [`backend/tests/mock/clothing.test.ts#L80`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/mock/clothing.test.ts#L80) | Clothing DB |
-| **PATCH /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L334`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/clothing.test.ts#L334) | [`backend/tests/mock/clothing.test.ts#L101`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/mock/clothing.test.ts#L101) | Clothing DB |
-| **DELETE /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L520`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/clothing.test.ts#L520) | [`backend/tests/mock/clothing.test.ts#L149`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/mock/clothing.test.ts#L149) | Clothing DB |
-| POST /auth/google | [`backend/tests/no-mock/auth.test.ts#L20`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/auth.test.ts#L20) | [`backend/tests/mock/auth.test.ts#L47`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/mock/auth.test.ts#L47) | Google Authentication API, User DB |
-| POST /outfits | [`backend/tests/no-mock/outfits.test.ts#L29`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L29) | [`backend/tests/mock/outfits.test.ts#L52`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L52) | Outfit DB, Clothing DB |
-| GET /outfits | [`backend/tests/no-mock/outfits.test.ts#L172`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L172) | [`backend/tests/mock/outfits.test.ts#L101`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L101) | Outfit DB, Clothing DB, Azure Blob Storage (photo links) |
-| GET /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L217`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L217) | [`backend/tests/mock/outfits.test.ts#L160`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L160) | Outfit DB |
-| PATCH /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L279`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L279) | [`backend/tests/mock/outfits.test.ts#L180`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L180) | Outfit DB |
-| DELETE /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L434`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/outfits.test.ts#L434) | [`backend/tests/mock/outfits.test.ts#L248`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L248) | Outfit DB |
-| GET /health | [`backend/tests/no-mock/health.test.ts#L6`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/no-mock/health.test.ts#L6) | None needed (no external components) | None |
+| **POST /clothing** | [`backend/tests/no-mock/clothing.test.ts#L24`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/clothing.test.ts#L24) | [`backend/tests/mock/clothingUpload.test.ts#L71`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/clothingUpload.test.ts#L71) | Clothing classifier (Claude API), Azure Blob Storage, Clothing DB |
+| **GET /clothing** | [`backend/tests/no-mock/clothing.test.ts#L120`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/clothing.test.ts#L120) | [`backend/tests/mock/clothing.test.ts#L38`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/clothing.test.ts#L38) | Azure Blob Storage (photo links), Clothing DB |
+| **GET /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L242`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/clothing.test.ts#L242) | [`backend/tests/mock/clothing.test.ts#L78`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/clothing.test.ts#L78) | Clothing DB |
+| **PATCH /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L334`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/clothing.test.ts#L334) | [`backend/tests/mock/clothing.test.ts#L99`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/clothing.test.ts#L99) | Clothing DB |
+| **DELETE /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L520`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/clothing.test.ts#L520) | [`backend/tests/mock/clothing.test.ts#L147`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/clothing.test.ts#L147) | Clothing DB |
+| POST /auth/google | [`backend/tests/no-mock/auth.test.ts#L20`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/auth.test.ts#L20) | [`backend/tests/mock/auth.test.ts#L47`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/auth.test.ts#L47) | Google Authentication API, User DB |
+| POST /avatar | [`backend/tests/no-mock/avatar.test.ts#L24`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/avatar.test.ts#L24) | [`backend/tests/mock/avatar.test.ts#L59`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/avatar.test.ts#L59) | Avatar generation, Azure Blob Storage, User DB |
+| POST /outfits | [`backend/tests/no-mock/outfits.test.ts#L29`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/outfits.test.ts#L29) | [`backend/tests/mock/outfits.test.ts#L52`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L52) | Outfit DB, Clothing DB |
+| POST /outfits/generate | [`backend/tests/no-mock/outfitGeneration.test.ts#L26`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/outfitGeneration.test.ts#L26) | [`backend/tests/mock/outfitGeneration.test.ts#L73`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfitGeneration.test.ts#L73) | Outfit generator (Claude API), Weather service (OpenWeather), Clothing DB |
+| GET /outfits | [`backend/tests/no-mock/outfits.test.ts#L172`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/outfits.test.ts#L172) | [`backend/tests/mock/outfits.test.ts#L101`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L101) | Outfit DB, Clothing DB, Azure Blob Storage (photo links) |
+| GET /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L217`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/outfits.test.ts#L217) | [`backend/tests/mock/outfits.test.ts#L158`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L158) | Outfit DB |
+| PATCH /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L279`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/outfits.test.ts#L279) | [`backend/tests/mock/outfits.test.ts#L178`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L178) | Outfit DB |
+| DELETE /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L434`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/outfits.test.ts#L434) | [`backend/tests/mock/outfits.test.ts#L246`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L246) | Outfit DB |
+| GET /health | [`backend/tests/no-mock/health.test.ts#L6`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/health.test.ts#L6) | None needed (no external components) | None |
 
 How the external components are mocked:
 
-- **Clothing classifier (Claude API)** and **Azure Blob Storage**: the tests replace them with Jest stand-ins through `setClothingClassifier()` and `setFileStorage()`, so they can return a classification, throw an "unavailable" or "not clothing" error, or fail an upload. [`backend/tests/setupEnv.ts`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/setupEnv.ts) clears their credentials, so the tests never call the real services.
-- **Clothing DB / User DB** (MongoDB): the tests without mocks use a real in-memory MongoDB server ([`backend/tests/helpers/database.ts`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/tests/helpers/database.ts)). The mocked tests use `jest.spyOn()` on Mongoose model methods (`ClothingItem.create`, `find`, `findOne`, `findOneAndUpdate`, `exists`) to make them throw a database error.
+- **Clothing classifier (Claude API)**, **outfit generator (Claude API)**, **weather service (OpenWeather)** and **Azure Blob Storage**: the tests replace them with Jest stand-ins through `setClothingClassifier()`, `setOutfitGenerator()`, `setWeatherService()` and `setFileStorage()`. The stand-ins can return a result, throw an "unavailable" or "not clothing" error, report the weather as unavailable, or fail an upload. [`backend/tests/setupEnv.ts`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/setupEnv.ts) clears the services' credentials, so the tests never call the real services.
+- **Avatar generation**: `jest.unstable_mockModule()` replaces `exportAvatar()` so the mocked `POST /avatar` tests can return a model or fail without generating a mesh.
+- **Clothing DB / Outfit DB / User DB** (MongoDB): the tests without mocks use a real in-memory MongoDB server ([`backend/tests/helpers/database.ts`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/helpers/database.ts)). The mocked tests use `jest.spyOn()` on Mongoose model methods (for example `ClothingItem.create`, `find`, `findOne`, `findOneAndUpdate`, `exists` and the same `Outfit` methods) to make them throw a database error.
 - **Google Authentication API**: `jest.spyOn(OAuth2Client.prototype, 'verifyIdToken')` returns a chosen Google profile.
 
 **Test cases of the Clothing component**
@@ -119,18 +123,18 @@ Each test in the code is annotated with its input, expected status code, expecte
 
 #### 2.1.2. Commit Hash Where Tests Run
 
-`10f8b8a44372602cbf048c6a18e843c9c0c1ab0b`
+`<SUBMISSION_COMMIT_SHA>`
 
 #### 2.1.3. Explanation on How to Run the Tests
 
-The tests need **Node.js 22** and npm 10. They do not need a `.env` file, a MongoDB installation or any API keys: they start an in-memory MongoDB server and never call the Claude API, Azure Blob Storage or Google. The first run downloads a MongoDB binary, so it needs an internet connection.
+The tests need **Node.js 22** and npm 10. They do not need a `.env` file, a MongoDB installation or any API keys: they start an in-memory MongoDB server and never call the Claude API, OpenWeather, Azure Blob Storage or Google. The first run downloads a MongoDB binary, so it needs an internet connection.
 
 1. **Clone the repository**:
 
    ```
    git clone https://github.com/evannawfal/fabricate.git
    cd fabricate
-   git checkout 10f8b8a44372602cbf048c6a18e843c9c0c1ab0b
+   git checkout <SUBMISSION_COMMIT_SHA>
    ```
 
 2. **Install the back-end dependencies**:
@@ -155,7 +159,7 @@ The tests need **Node.js 22** and npm 10. They do not need a `.env` file, a Mong
    npm test                        # every back-end test, including the unit tests in tests/unit
    ```
 
-   Coverage is always collected for every file in `backend/src` (`collectCoverageFrom` in [`backend/jest.config.js`](https://github.com/evannawfal/fabricate/blob/10f8b8a44372602cbf048c6a18e843c9c0c1ab0b/backend/jest.config.js)) and printed as a per-file table.
+   Coverage is always collected for every file in `backend/src` (`collectCoverageFrom` in [`backend/jest.config.js`](https://github.com/evannawfal/fabricate/blob/main/backend/jest.config.js)) and printed as a per-file table.
 
 ### 2.2. GitHub Actions Configuration Location
 
@@ -165,53 +169,61 @@ The **Backend tests** job runs on every pull request and every push to `main`. I
 
 ### 2.3. Jest Coverage Report Screenshots With Mocks
 
-`npm test -- tests/mock/` (19 tests, all passing):
+`npm test -- tests/mock/` (41 tests, all passing):
 
 ![Jest coverage with mocks](images/coverage-mock.png)
 
-The mocked tests focus on error handling (failing classifier, storage and database calls) and on the parts that depend on the external services, so their coverage is low on its own.
+The mocked tests focus on error handling (failing classifiers, the outfit generator, storage and database calls) and on the parts that depend on the external services, so their coverage is low on its own.
 
 ### 2.4. Jest Coverage Report Screenshots Without Mocks
 
-`npm test -- tests/no-mock/` (93 tests, all passing):
+`npm test -- tests/no-mock/` (116 tests, all passing):
 
 ![Jest coverage without mocks](images/coverage-no-mock.png)
 
-Without mocks, `controllers/clothing.ts` misses lines 34-50: the part of `POST /clothing` after a photo is accepted, which needs the classifier and file storage (covered by the mocked tests).
+Without mocks, the controllers miss the parts that only run once an external service has answered: `controllers/clothing.ts` (34-50) after a photo is accepted, `controllers/outfits.ts` (89-106) after the outfit generator is reached, `controllers/avatar.ts` (19-44) after the avatar is generated, and `controllers/auth.ts` (35-56) after Google accepts the sign-in. The mocked tests cover these.
 
 ### 2.5. Jest Coverage Report Screenshots With and Without Mocks Combined
 
-`npm test -- tests/mock/ tests/no-mock/` (112 tests, all passing):
+`npm test -- tests/mock/ tests/no-mock/` (157 tests, all passing):
 
 ![Jest coverage with and without mocks combined](images/coverage-interface.png)
 
-**Clothing component:** every file of the Clothing component has 100% statement, branch, function and line coverage when both sets run: `routes/clothing.ts`, `controllers/clothing.ts`, `validation/clothing.ts`, `models/clothingItem.ts` and `services/clothingImages.ts`.
+**Clothing component:** every file of the Clothing component has 100% statement, branch, function and line coverage when both sets run: `routes/clothing.ts`, `controllers/clothing.ts`, `validation/clothing.ts`, `models/clothingItem.ts` and `services/clothingImages.ts`. So does every other controller, route, model and validation file.
 
-**Why the rest of the back-end is below 100%:**
+The rest of the combined report is below 100% because the interface tests replace two kinds of code with stand-ins. The adapters for external services (`services/classifier.ts`, `outfitGenerator.ts`, `weather.ts` and `storage.ts`) would call paid or rate-limited APIs. The avatar mesh generator (`avatar/meshGenerator.ts` and `sdf.ts`) takes seconds per mesh. Both are tested directly in `backend/tests/unit`: the adapters with mocked SDK clients, and the mesh generator with real meshes. Running every back-end test (`npm test`, 251 tests, all passing) gives:
+
+![Jest coverage of every back-end test](images/coverage-all.png)
+
+**Why some files are below 100% when every test runs:**
 
 | **File (uncovered lines)** | **Reason** |
 | -------------------------- | ---------- |
-| `src/index.ts` (8-61) | The server entry point: it connects to the production MongoDB and calls `app.listen()`. The tests build the same Express app with `createApp()` from `src/app.ts` and an in-memory database instead, so this file only runs when the server is started. |
-| `src/avatar/*`, `services/avatarStorage.ts`, `services/storageKeys.ts` (19) | Avatar generation and avatar file storage for the Customize Avatar feature. No API endpoint uses them yet (avatar endpoints are in progress), so API tests can't reach them. They will be covered by the avatar interface tests. |
-| `services/classifier.ts` (82-171, 186), `services/storage.ts` (31-73, 97) | The adapters that call the real Claude API and Azure Blob Storage SDKs. The interface tests replace them with stand-ins so they never use paid external services. The adapters are tested with mocked SDK clients in `backend/tests/unit` (`npm test`: classifier.ts 98% and storage.ts 97% of statements). The only lines left are the ones that create the real SDK client from the production credentials. |
-| `config/env.ts` (6, 23) | Start-up checks that stop the server when a required environment variable is missing or `PORT` is invalid. They run once when the module loads, before any request. |
-| `middleware/middleware.ts` (39), `middleware/errorHandler.ts` (branches on 36, 40) | Defensive checks, to be covered or removed for CP2. |
+| `src/index.ts` (6-26) | The server entry point: it connects to the production MongoDB and starts listening. The tests build the same Express app with `createApp()` from `src/app.ts` and an in-memory database instead, so this file only runs when the server is started. |
+| `config/env.ts` (6, 22) | Start-up checks that stop the server when a required environment variable is missing or `PORT` is invalid. They run once when the module loads, before any test can change the environment. |
+| `services/classifier.ts` (186), `services/storage.ts` (97) | The lines that create the real Claude and Azure SDK clients from the production credentials. Running them in a test would need real credentials. |
+| `services/avatarStorage.ts` (branch on 17) | The default value of the optional `storage` parameter. The tests always pass a stand-in so they never contact Azure. |
+| `middleware/middleware.ts` (39) | `getUserId()` throws if a handler is mounted without `requireAuth`. Every route is mounted behind `requireAuth`, so a request can't reach it; it turns a routing mistake into a clear error instead of an undefined user id in a database query. |
+| `avatar/meshGenerator.ts` (branches on 21-38, 161, 246-288, 412), `avatar/sdf.ts` (branch on 424) | Numerical guards in the mesh generator: a fallback for a zero-length gradient or a near-zero denominator, the alternative helper axis when a normal is almost parallel to the x-axis, and default parameter values. A real body shape never produces these values, and every line still runs. |
+
+In the interface tests alone, `middleware/errorHandler.ts` (25-26) is also uncovered: it passes an error to Express when a response has already started, which no current endpoint does (none streams its response). `tests/unit/errorHandler.test.ts` covers it.
 
 ---
 
 ## 3. Tests of Non-Functional Requirements
 
-The non-functional requirements are not finalized in `Requirements_and_Design.md` yet. Their automated tests will be in `backend/tests/nfr/` and will be documented here for CP2.
+Two of the three non-functional requirements in `Requirements_and_Design.md` will be tested automatically: [room update latency](Requirements_and_Design.md#nfr1) and [closet analysis time](Requirements_and_Design.md#nfr3). Both measure features that are still being built (the rooms back-end and the closet gap analysis), so their tests will be in `backend/tests/nfr/` and documented here once those features are merged.
 
 ### 3.1. Test Locations in Git
 
 | **Non-Functional Requirement** | **Location in Git** |
 | ------------------------------ | ------------------- |
-| _To be added for CP2_ | `backend/tests/nfr/` |
+| Room updates reach members within 1 second | `backend/tests/nfr/` (with the rooms back-end) |
+| Closet gap analysis finishes within 2 seconds for 500 items | `backend/tests/nfr/` (with the gap analysis) |
 
 ### 3.2. Test Verification and Logs
 
-_To be added for CP2._
+To be added with the tests.
 
 ---
 
