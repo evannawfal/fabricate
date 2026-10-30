@@ -19,17 +19,23 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
     return res.status(401).json({ error: 'Missing token' });
   }
 
+  const userId = verifyToken(token);
+  if (userId === undefined) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+  req.userId = userId;
+  next();
+}
+
+// The user id in a valid session token, or undefined. Also used to authenticate room sockets.
+export function verifyToken(token: unknown): string | undefined {
+  if (typeof token !== 'string') return undefined;
   try {
-    // Signs token for every request
     const payload = jwt.verify(token, env.jwtAccessSecret) as { sub?: unknown };
     // Tokens identify users by their database id
-    if (!isObjectId(payload.sub)) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
-    req.userId = payload.sub;
-    next();
+    return isObjectId(payload.sub) ? payload.sub : undefined;
   } catch {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    return undefined;
   }
 }
 
