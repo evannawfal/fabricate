@@ -12,8 +12,6 @@ data class ChatMessage(val id: String, val senderId: String, val senderName: Str
 
 data class RoomDetail(val room: Room, val outfitItems: List<ClothingItem>, val messages: List<ChatMessage>)
 
-class RoomsException(override val message: String, cause: Throwable? = null) : Exception(message, cause)
-
 /** Events from an open room. Called on a background thread. */
 interface RoomListener {
     fun onConnectionChanged(connected: Boolean)

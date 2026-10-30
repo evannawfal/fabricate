@@ -13,6 +13,7 @@ const userSchema = new Schema(
       default: null,
     },
     friends: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    pronouns: { type: String, trim: true, maxlength: 30, default: '' },
   },
   { timestamps: true }
 );

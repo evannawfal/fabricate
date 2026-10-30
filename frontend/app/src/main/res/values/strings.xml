@@ -10,6 +10,7 @@
     <string name="tab_closet">Closet</string>
     <string name="tab_avatar">Avatar</string>
     <string name="tab_rooms">Rooms</string>
+    <string name="tab_profile">Profile</string>
     <string name="sign_out">Sign out</string>
     <string name="sign_out_confirm_title">Sign out?</string>
     <string name="sign_out_confirm_message">You\'ll need to sign in with Google again to use Fabricate.</string>

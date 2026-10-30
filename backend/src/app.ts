@@ -6,6 +6,7 @@ import { outfitsRouter } from './routes/outfits.js';
 import { avatarRouter } from './routes/avatar.js';
 import { roomsRouter } from './routes/rooms.js';
 import { friendsRouter } from './routes/friends.js';
+import { usersRouter } from './routes/users.js';
 
 export function createApp(): Express {
   const app = express();
@@ -25,6 +26,7 @@ export function createApp(): Express {
   app.use('/avatar', avatarRouter);
   app.use('/rooms', roomsRouter);
   app.use('/friends', friendsRouter);
+  app.use('/users', usersRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: 'Not Found' });
