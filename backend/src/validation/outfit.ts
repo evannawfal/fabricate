@@ -1,4 +1,4 @@
-import { OUTFIT_LIMITS } from '../models/outfit.js';
+import { OUTFIT_LIMITS, OUTFIT_OCCASIONS, type OutfitOccasion } from '../models/outfit.js';
 import { checkBodyFields, invalid, parseIdList, parseText, valid, type ValidationResult } from './common.js';
 
 export interface OutfitInput {
@@ -9,7 +9,16 @@ export interface OutfitInput {
 
 export type OutfitUpdate = Partial<OutfitInput>;
 
+export interface GenerateOutfitInput {
+  occasion: OutfitOccasion;
+  latitude: number;
+  longitude: number;
+}
+
 const OUTFIT_FIELDS = ['name', 'occasion', 'items'] as const;
+const GENERATE_FIELDS = ['occasion', 'latitude', 'longitude'] as const;
+const MAX_LATITUDE = 90;
+const MAX_LONGITUDE = 180;
 
 function parseName(value: unknown): ValidationResult<string> {
   return parseText(value, 'name', OUTFIT_LIMITS.nameLength);
@@ -67,4 +76,33 @@ export function validateOutfitUpdate(body: unknown): ValidationResult<OutfitUpda
     update.items = items.value;
   }
   return valid(update);
+}
+
+function isOccasion(value: unknown): value is OutfitOccasion {
+  return (OUTFIT_OCCASIONS as readonly unknown[]).includes(value);
+}
+
+function parseCoordinate(value: unknown, field: string, limit: number): ValidationResult<number> {
+  if (typeof value !== 'number' || !Number.isFinite(value) || Math.abs(value) > limit) {
+    return invalid(`${field} must be a number between -${limit} and ${limit}`);
+  }
+  return valid(value);
+}
+
+export function validateGenerateOutfitInput(body: unknown): ValidationResult<GenerateOutfitInput> {
+  const fields = checkBodyFields(body, GENERATE_FIELDS);
+  if (!fields.ok) {
+    return invalid(fields.error);
+  }
+  const input = fields.value;
+
+  if (!isOccasion(input.occasion)) {
+    return invalid(`occasion must be one of: ${OUTFIT_OCCASIONS.join(', ')}`);
+  }
+  const latitude = parseCoordinate(input.latitude, 'latitude', MAX_LATITUDE);
+  if (!latitude.ok) return invalid(latitude.error);
+  const longitude = parseCoordinate(input.longitude, 'longitude', MAX_LONGITUDE);
+  if (!longitude.ok) return invalid(longitude.error);
+
+  return valid({ occasion: input.occasion, latitude: latitude.value, longitude: longitude.value });
 }
