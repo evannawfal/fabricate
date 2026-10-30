@@ -39,6 +39,9 @@ okhttp = "4.12.0"
 # Image loading for clothing photos
 coil = "2.7.0"
 
+# Live room updates (Socket.IO 4 server)
+socketio = "2.1.1"
+
 # Test
 # org.json's real implementation, for unit tests of JSON parsing (Android's copy is
 # only available on a device).
@@ -69,6 +72,7 @@ okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhtt
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
 org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+socketio-client = { group = "io.socket", name = "socket.io-client", version.ref = "socketio" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
