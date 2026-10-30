@@ -1,7 +1,7 @@
 import type { Response } from 'express';
 import { getUserId, type AuthedRequest } from '../middleware/middleware.js';
 import { User, displayName } from '../models/user.js';
-import { checkBodyFields, parseText } from '../validation/common.js';
+import { checkBodyFields, isObjectId, parseText } from '../validation/common.js';
 
 const EMAIL_LENGTH = 254;
 
@@ -35,4 +35,15 @@ export async function addFriend(req: AuthedRequest, res: Response) {
     User.updateOne({ _id: friend._id }, { $addToSet: { friends: userId } }),
   ]);
   res.status(201).json(toFriendResponse(friend));
+}
+
+// DELETE /friends/:id
+export async function removeFriend(req: AuthedRequest, res: Response) {
+  const friendId = req.params.id;
+  if (!isObjectId(friendId)) return res.status(400).json({ error: 'Invalid friend id' });
+  const userId = getUserId(req);
+  const { modifiedCount } = await User.updateOne({ _id: userId, friends: friendId }, { $pull: { friends: friendId } });
+  if (modifiedCount === 0) return res.status(404).json({ error: 'Not in your friend list' });
+  await User.updateOne({ _id: friendId }, { $pull: { friends: userId } });
+  res.status(204).end();
 }
