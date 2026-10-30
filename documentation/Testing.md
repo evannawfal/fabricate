@@ -199,7 +199,7 @@ The rest of the combined report is below 100% because the interface tests replac
 
 | **File (uncovered lines)** | **Reason** |
 | -------------------------- | ---------- |
-| `src/index.ts` (6-26) | The server entry point: it connects to the production MongoDB and starts listening. The tests build the same Express app with `createApp()` from `src/app.ts` and an in-memory database instead, so this file only runs when the server is started. |
+| `src/index.ts` (6-25) | The server entry point: it connects to the production MongoDB and starts listening. The tests build the same Express app with `createApp()` from `src/app.ts` and an in-memory database instead, so this file only runs when the server is started. |
 | `config/env.ts` (6, 22) | Start-up checks that stop the server when a required environment variable is missing or `PORT` is invalid. They run once when the module loads, before any test can change the environment. |
 | `services/classifier.ts` (186), `services/storage.ts` (97) | The lines that create the real Claude and Azure SDK clients from the production credentials. Running them in a test would need real credentials. |
 | `services/avatarStorage.ts` (branch on 17) | The default value of the optional `storage` parameter. The tests always pass a stand-in so they never contact Azure. |
