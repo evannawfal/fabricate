@@ -5,7 +5,7 @@ description: "Use when writing, adding, or reviewing comments in code, or when a
 
 # How to write comments (CPEN 321, UBC)
 
-This skill follows the CPEN 321 Software Engineering lecture **W7 L1 Code Reviews** (slides 21-35 and 50), plus the matching code-issue slides in **W5 L1 Design II** (slides 61, 62, 67). Every rule and example below comes from those slides. Apply the rules both when writing comments and when reviewing someone else's code.
+This skill follows the CPEN 321 Software Engineering lecture **W7 L1 Code Reviews** (slides 21-35 and 50), plus the matching code-issue slides in **W5 L1 Design II** (slides 61, 62, 67). Sections 1-8 come from those slides. Section 9 sets how high the bar for a comment is, based on what reviewers on this project have flagged. Apply the rules both when writing comments and when reviewing someone else's code.
 
 ## 1. The core principle (slide 27)
 
@@ -153,17 +153,32 @@ Rule: write comments so that someone reading only the code, months later and wit
 - Use unclear naming or inconsistent conventions, then try to explain it with comments.
 - Leave hardcoded values and magic numbers. Name them instead of explaining them in a comment (see `secondsPerDay` above).
 
+## 9. How high the bar is
+
+A comment can explain "why" and still be one too many. Reviewers flag comments that tell them something the code already shows, even when the comment is phrased as a reason. Keep a comment only if it passes all of these checks:
+
+- **Would a teammate get it wrong without it?** Comment when a competent teammate reading the code would misunderstand it, be surprised by it, or "fix" it into a bug. Explaining a choice they would accept without a second thought doesn't count.
+- **Do the names and types already say it?** Don't restate what a type shows (`User | null` already says the value can be missing), what an error class's name says (`ServiceUnavailableError`), or what a constant's name says (`MAX_RETRIES`).
+- **No comments on data shapes.** In interfaces, types, schemas and config objects, the field names and types are the documentation. Don't add a comment per field, example values ("e.g. ..."), or a header saying what the type is or where it's used. If a field needs explaining, rename it.
+- **Say it once, where it happens.** Don't describe behavior at a distance, like a config entry or a call site saying what another module does when the value is missing. If that behavior needs a comment, it goes on the code that does it, and only there.
+- **Don't annotate error handling the code already shows.** A `catch` that rethrows as a named error, or a function whose `throw` is visible a few lines down, doesn't need a comment listing which failures end up there.
+- **One line.** A comment that needs two lines of justification is usually defending a design decision. That belongs in the PR description or design doc, not in the code.
+- **Match how much the team comments.** Look at a few files teammates wrote. If their everyday code (routes, controllers, services) has a comment every 20-30 lines, don't put one every 5. Algorithmic or numerical code (geometry, parsing an external format) is where denser comments earn their place.
+- **When in doubt, leave it out.** A missing comment costs one review question. A needless one costs every reader after that, and reviewers will flag it.
+
 ## How to apply this skill
 
 **When writing code:**
 1. Choose meaningful names first (3d).
 2. Add a comment only where it answers "why" or documents behavior that isn't obvious (section 2).
-3. Make sure every doc comment matches what the function actually does (3e).
-4. Remove commented-out and unused code (section 5).
-5. Match the project's existing comment style (section 7).
+3. Check every comment against section 9 and delete the ones that don't pass.
+4. Make sure every doc comment matches what the function actually does (3e).
+5. Remove commented-out and unused code (section 5).
+6. Match the project's existing comment style (section 7).
 
 **When reviewing code**, flag:
 - "What" comments that restate the code (3a, 3b, 3c) and suggest deleting them.
+- Comments that fail a section 9 check, such as per-field comments on a data shape or a comment repeating what a type or name says.
 - Comments that explain a bad name (3d) and suggest a rename instead.
 - Comments that contradict the code (3e). Treat these as bugs.
 - Missing explanations for non-obvious or surprising behavior (section 4), and ask for meaningful comments.
