@@ -3,7 +3,6 @@ import { env } from '../config/env.js';
 import { OUTFIT_LIMITS, type OutfitOccasion } from '../models/outfit.js';
 import type { Weather } from './weather.js';
 
-// A clean clothing item Claude can choose from, with only the details it needs to choose.
 export interface OutfitCandidate {
   id: string;
   name: string;
@@ -15,19 +14,16 @@ export interface OutfitCandidate {
 
 export interface OutfitRequest {
   occasion: OutfitOccasion;
-  // null when the weather couldn't be retrieved
   weather: Weather | null;
   items: OutfitCandidate[];
 }
 
 export interface GeneratedOutfit {
   name: string;
-  // Ids of items from the request, each at most once, in the order they were picked
   itemIds: string[];
 }
 
 export interface OutfitGenerator {
-  // Throws OutfitGeneratorUnavailableError if no usable outfit could be generated.
   generate(request: OutfitRequest): Promise<GeneratedOutfit>;
 }
 
@@ -39,7 +35,6 @@ const MAX_RETRIES = 2;
 const MAX_OUTPUT_TOKENS = 4096;
 const DEFAULT_NAME = 'Daily outfit';
 
-// Generation problems the app should report as server-side unavailability (503).
 export class OutfitGeneratorNotConfiguredError extends Error {
   constructor() {
     super('Outfit generation is not configured (set ANTHROPIC_API_KEY)');
@@ -64,7 +59,6 @@ Put together one complete outfit using only the listed items, referring to each 
 
 Also give the outfit a short, friendly name, e.g. "Rainy day layers" (at most ${OUTFIT_LIMITS.nameLength} characters).`;
 
-// Structured outputs make Claude's reply match this schema, so it can be parsed as JSON.
 const OUTPUT_SCHEMA = {
   type: 'object',
   properties: {
@@ -97,14 +91,12 @@ function parseOutfit(response: Anthropic.Beta.BetaMessage, request: OutfitReques
   } catch (err) {
     throw new OutfitGeneratorUnavailableError('Outfit generator returned invalid JSON', { cause: err });
   }
-  // Claude can repeat an item or invent an id, so keep only the user's clean items, each once,
-  // and no more than an outfit can hold.
+  // Claude can repeat an item or invent an id.
   const candidateIds = new Set(request.items.map((item) => item.id));
   const itemIds = [...new Set(output.itemIds)].filter((id) => candidateIds.has(id)).slice(0, OUTFIT_LIMITS.maxItems);
   if (itemIds.length === 0) {
     throw new OutfitGeneratorUnavailableError('Outfit generator picked none of the closet items');
   }
-  // The app saves the outfit under this name, so it must fit the outfit's name limit.
   const name = output.name.trim().replace(/\s+/g, ' ').slice(0, OUTFIT_LIMITS.nameLength).trim();
   return { name: name.length > 0 ? name : DEFAULT_NAME, itemIds };
 }
@@ -125,8 +117,6 @@ export function createOutfitGenerator(client: Anthropic): OutfitGenerator {
           output_config: { effort: 'low', format: { type: 'json_schema', schema: OUTPUT_SCHEMA } },
         });
       } catch (err) {
-        // Rate limits, timeouts, outages and authentication problems all mean generation is
-        // unavailable for now, not that the request was wrong.
         throw new OutfitGeneratorUnavailableError('Outfit generation is unavailable right now', { cause: err });
       }
       return parseOutfit(response, request);
@@ -136,13 +126,11 @@ export function createOutfitGenerator(client: Anthropic): OutfitGenerator {
 
 let defaultGenerator: OutfitGenerator | undefined;
 
-// Replaces the app-wide generator (e.g. with a stand-in in tests); undefined goes back to the env-configured one.
+// undefined goes back to the generator configured from the environment.
 export function setOutfitGenerator(generator: OutfitGenerator | undefined): void {
   defaultGenerator = generator;
 }
 
-// The app-wide generator, configured from ANTHROPIC_API_KEY.
-// Throws OutfitGeneratorNotConfiguredError (reported to the client as 503) if it isn't set up.
 export function getOutfitGenerator(): OutfitGenerator {
   if (defaultGenerator === undefined) {
     if (env.anthropicApiKey === undefined) {

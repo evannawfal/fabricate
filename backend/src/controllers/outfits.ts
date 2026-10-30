@@ -11,7 +11,6 @@ import { validateGenerateOutfitInput, validateOutfitInput, validateOutfitUpdate 
 const INVALID_ID = { error: 'Invalid outfit id' };
 const NOT_FOUND = { error: 'Outfit not found' };
 const ITEMS_NOT_OWNED = { error: 'All items must be clothing items in your closet' };
-// A generated outfit needs at least one of each among the user's clean clothes.
 const REQUIRED_CATEGORIES = ['top', 'bottom'] as const;
 
 // Items must be in the user's closet. Archived items are only allowed if the outfit already had them.
