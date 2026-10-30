@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { MulterError } from 'multer';
 import { ClassifierNotConfiguredError, ClassifierUnavailableError, MAX_IMAGE_BYTES } from '../services/classifier.js';
+import { OutfitGeneratorNotConfiguredError, OutfitGeneratorUnavailableError } from '../services/outfitGenerator.js';
 import { StorageNotConfiguredError } from '../services/storage.js';
 
 interface HttpError {
@@ -27,6 +28,13 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
       console.error('Photo classification failed:', err.cause ?? err.message);
     }
     return res.status(503).json({ error: 'Photo classification is not available right now' });
+  }
+  if (err instanceof OutfitGeneratorNotConfiguredError || err instanceof OutfitGeneratorUnavailableError) {
+    // A missing API key is a known setup state, so only actual failures are logged.
+    if (err instanceof OutfitGeneratorUnavailableError) {
+      console.error('Outfit generation failed:', err.cause ?? err.message);
+    }
+    return res.status(503).json({ error: 'Outfit generation is not available right now' });
   }
   // Problems with an uploaded file (too large, wrong field name, more than one file, ...)
   if (err instanceof MulterError) {
