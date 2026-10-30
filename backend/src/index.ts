@@ -6,7 +6,6 @@ import { env } from './config/env.js';
 const app = createApp();
 const server = http.createServer(app);
 
-// Connect to the database before accepting requests. If it fails, the error ends the process.
 try {
   await connectDatabase(env.mongodbUri);
 } catch (err) {

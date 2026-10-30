@@ -1,17 +1,17 @@
 import { checkBodyFields, invalid, valid, type ValidationResult } from './common.js';
 import { AvatarInput } from '../avatar/types.js';
+import {
+  CHEST_WIDTH_RANGE,
+  HEIGHT_RANGE,
+  HIP_WIDTH_RANGE,
+  SHOULDER_WIDTH_RANGE,
+  WAIST_WIDTH_RANGE,
+} from '../config/constants.js';
 
 interface MeasurementRange {
   min: number;
   max: number;
 }
-
-// Allowed range of each measurement, in metres.
-const HEIGHT_RANGE: MeasurementRange = { min: 1.0, max: 3.0 };
-const SHOULDER_WIDTH_RANGE: MeasurementRange = { min: 0.25, max: 0.6 };
-const CHEST_WIDTH_RANGE: MeasurementRange = { min: 0.1, max: 1.0 };
-const WAIST_WIDTH_RANGE: MeasurementRange = { min: 0.1, max: 2.0 };
-const HIP_WIDTH_RANGE: MeasurementRange = { min: 0.1, max: 1.5 };
 
 const AVATAR_FIELDS = ['height', 'shoulderWidth', 'chestWidth', 'waistWidth', 'hipWidth'] as const;
 

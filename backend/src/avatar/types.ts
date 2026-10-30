@@ -50,7 +50,7 @@ export interface PolygonizeContext {
   normals: number[];
 }
 
-// The eight corners of a grid cell, in the order of CORNERS in meshGenerator.ts.
+// In the same order as CORNERS in meshGenerator.ts.
 export type CubeCorners<T> = [T, T, T, T, T, T, T, T];
 export type TetraCorners<T> = [T, T, T, T];
 
