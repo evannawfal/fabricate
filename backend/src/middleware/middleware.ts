@@ -27,7 +27,7 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
   next();
 }
 
-// The user id in a valid session token, or undefined. Also used to authenticate room sockets.
+// The user id in a valid session token, or undefined.
 export function verifyToken(token: unknown): string | undefined {
   if (typeof token !== 'string') return undefined;
   try {

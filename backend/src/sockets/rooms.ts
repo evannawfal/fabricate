@@ -43,7 +43,6 @@ function handle(roomId: string, handler: (payload: Record<string, unknown>) => P
 export function attachRoomSockets(server: http.Server): Server {
   const io = new Server(server);
 
-  // Only signed-in members of the room may connect.
   io.use((socket, next) => {
     const { token, roomId } = socket.handshake.auth as Record<string, unknown>;
     const userId = verifyToken(token);
