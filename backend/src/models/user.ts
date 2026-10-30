@@ -25,7 +25,6 @@ export function displayName(user: { givenName?: string | null; familyName?: stri
   return [user.givenName, user.familyName].filter(Boolean).join(' ') || user.email || 'Unknown user';
 }
 
-// Used by Social to check who a user can invite to rooms.
 export async function getFriendIds(userId: string): Promise<string[]> {
   const user = await User.findById(userId, { friends: 1 });
   return user?.friends.map((id) => id.toString()) ?? [];
