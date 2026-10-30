@@ -37,4 +37,5 @@ export const env = {
   },
   // Clothing photo classification (Claude API) is optional in the same way.
   anthropicApiKey: getOptionalEnvVar('ANTHROPIC_API_KEY'),
+  openWeatherApiKey: getOptionalEnvVar('OPENWEATHER_API_KEY'),
 } as const;
