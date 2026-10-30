@@ -1,6 +1,6 @@
 import 'dotenv/config';
 
-// Each variable is read as process.env.NAME and passed in, rather than looked up by name here.
+// Callers pass process.env.NAME in, because looking up process.env[name] is flagged by Codacy as object injection.
 function required(name: string, value: string | undefined): string {
   if (!value) {
     throw new Error(`Missing required env var: ${name}`);
@@ -36,6 +36,5 @@ export const env = {
   },
   // Clothing photo classification (Claude API) is optional in the same way.
   anthropicApiKey: optional(process.env.ANTHROPIC_API_KEY),
-  // Without it, outfits are generated without the weather.
   openWeatherApiKey: optional(process.env.OPENWEATHER_API_KEY),
 } as const;
