@@ -1,7 +1,7 @@
 import type { Response } from 'express';
 import { getUserId, type AuthedRequest } from '../middleware/middleware.js';
 import { ClothingItem } from '../models/clothingItem.js';
-import { Outfit, toOutfitResponse } from '../models/outfit.js';
+import { saveOutfit, toOutfitResponse } from '../models/outfit.js';
 import { Message, ROOM_LIMITS, Room, toMessageResponse, type RoomDocument } from '../models/room.js';
 import { User, displayName, getFriendIds } from '../models/user.js';
 import { toClothingItemResponsesWithImages } from '../services/clothingImages.js';
@@ -84,6 +84,6 @@ export async function saveRoomOutfit(req: AuthedRequest, res: Response) {
   if (items.length === 0) {
     return res.status(400).json({ error: 'The shared outfit has none of your clothing items' });
   }
-  const outfit = await Outfit.create({ owner: userId, name: room.name, items: items.map((item) => item._id) });
+  const outfit = await saveOutfit(userId, room.name, items.map((item) => item.id as string));
   res.status(201).json(toOutfitResponse(outfit, await toClothingItemResponsesWithImages(items)));
 }
