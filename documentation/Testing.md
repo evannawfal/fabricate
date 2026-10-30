@@ -181,7 +181,7 @@ The mocked tests focus on error handling (failing classifiers, the outfit genera
 
 ![Jest coverage without mocks](images/coverage-no-mock.png)
 
-Without mocks, the controllers miss the parts that only run once an external service has answered: `controllers/clothing.ts` (34-50) after a photo is accepted, `controllers/outfits.ts` (89-106) after the outfit generator is reached, `controllers/avatar.ts` (19-44) after the avatar is generated, and `controllers/auth.ts` (35-56) after Google accepts the sign-in. The mocked tests cover these.
+Without mocks, the controllers miss the parts that only run once an external service has answered: `controllers/clothing.ts` (34-50) after a photo is accepted, `controllers/outfits.ts` (88-105) after the outfit generator is reached, `controllers/avatar.ts` (19-44) after the avatar is generated, and `controllers/auth.ts` (35-56) after Google accepts the sign-in. The mocked tests cover these.
 
 ### 2.5. Jest Coverage Report Screenshots With and Without Mocks Combined
 
