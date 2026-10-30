@@ -10,7 +10,6 @@ import { validateRoomInput } from '../validation/room.js';
 
 export type RoomAccess = { room: RoomDocument } | { status: 400 | 403 | 404; error: string };
 
-// Shared with the room sockets so both check membership the same way.
 export async function findRoomForMember(roomId: unknown, userId: string): Promise<RoomAccess> {
   if (!isObjectId(roomId)) return { status: 400, error: 'Invalid room id' };
   const room = await Room.findById(roomId);
@@ -53,7 +52,7 @@ export async function listRooms(req: AuthedRequest, res: Response) {
   res.json({ rooms: await toRoomResponses(rooms) });
 }
 
-// GET /rooms/:id: the room with its shared outfit and recent messages, oldest first.
+// GET /rooms/:id
 export async function getRoom(req: AuthedRequest, res: Response) {
   const access = await findRoomForMember(req.params.id, getUserId(req));
   if (!('room' in access)) return res.status(access.status).json({ error: access.error });
@@ -73,7 +72,7 @@ export async function getRoom(req: AuthedRequest, res: Response) {
 }
 
 // POST /rooms/:id/save
-// Saves the board items from the user's own closet; friends' items aren't in the user's closet.
+// Only the user's own items are saved, since outfits can only show items from the user's closet.
 export async function saveRoomOutfit(req: AuthedRequest, res: Response) {
   const userId = getUserId(req);
   const access = await findRoomForMember(req.params.id, userId);
