@@ -2,12 +2,12 @@ import { jest } from '@jest/globals';
 import Anthropic from '@anthropic-ai/sdk';
 import type { Response } from 'express';
 
+import { OUTFIT_MODEL } from '../../src/config/constants.js';
 import { env } from '../../src/config/env.js';
 import { errorHandler } from '../../src/middleware/errorHandler.js';
 import {
   createOutfitGenerator,
   getOutfitGenerator,
-  OUTFIT_MODEL,
   OutfitGeneratorNotConfiguredError,
   OutfitGeneratorUnavailableError,
   setOutfitGenerator,
