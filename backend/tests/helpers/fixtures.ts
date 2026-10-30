@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../../src/config/env.js';
 import { ClothingItem, type ClothingCategory } from '../../src/models/clothingItem.js';
 import { Outfit } from '../../src/models/outfit.js';
+import { Room } from '../../src/models/room.js';
 import { User } from '../../src/models/user.js';
 
 let userCount = 0;
@@ -48,6 +49,15 @@ export async function createClothingItem(ownerId: string, overrides: ClothingIte
 
 export async function createOutfit(ownerId: string, itemIds: string[], name = 'Weekend look') {
   return Outfit.create({ owner: ownerId, name, items: itemIds });
+}
+
+export async function makeFriends(userId: string, ...friendIds: string[]) {
+  await User.updateOne({ _id: userId }, { $addToSet: { friends: { $each: friendIds } } });
+  await User.updateMany({ _id: { $in: friendIds } }, { $addToSet: { friends: userId } });
+}
+
+export async function createRoom(name: string, memberIds: string[], outfitItems: string[] = []) {
+  return Room.create({ name, members: memberIds, outfitItems });
 }
 
 // A valid id that doesn't belong to any document.
