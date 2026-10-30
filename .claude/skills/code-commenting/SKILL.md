@@ -152,6 +152,7 @@ Rule: write comments so that someone reading only the code, months later and wit
 - Leave unused or commented-out code.
 - Use unclear naming or inconsistent conventions, then try to explain it with comments.
 - Leave hardcoded values and magic numbers. Name them instead of explaining them in a comment (see `secondsPerDay` above).
+  - Put the named constant where the project keeps its constants. If the project has a shared constants file, add it there rather than at the top of the module that uses it, and keep any "why" comment next to the constant. Before adding a new one, look for an existing constants file.
 
 ## 9. How high the bar is
 
@@ -169,7 +170,7 @@ A comment can explain "why" and still be one too many. Reviewers flag comments t
 ## How to apply this skill
 
 **When writing code:**
-1. Choose meaningful names first (3d).
+1. Choose meaningful names first (3d), and put named constants where the project keeps them (section 8).
 2. Add a comment only where it answers "why" or documents behavior that isn't obvious (section 2).
 3. Check every comment against section 9 and delete the ones that don't pass.
 4. Make sure every doc comment matches what the function actually does (3e).
