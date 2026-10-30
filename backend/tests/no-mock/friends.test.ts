@@ -112,3 +112,40 @@ describe('Unmocked: POST /friends', () => {
     }
   );
 });
+
+// Interface DELETE /friends/:id
+describe('Unmocked: DELETE /friends/:id', () => {
+  // Input: the id of one of the user's friends
+  // Expected status code: 204
+  // Expected behavior: both users are removed from each other's friend lists
+  // Expected output: empty body
+  test('Removes a friend', async () => {
+    const user = await createUser();
+    const friend = await createUser();
+    await makeFriends(user.id, friend.id);
+
+    const response = await request(app).delete(`/friends/${friend.id}`).set('Authorization', authHeader(user.id));
+
+    expect(response.status).toBe(204);
+    expect(await friendIdsOf(user.id)).toEqual([]);
+    expect(await friendIdsOf(friend.id)).toEqual([]);
+  });
+
+  // Input: the id of a user who isn't a friend, and a malformed id
+  // Expected status code: 404 and 400
+  // Expected behavior: no friend list changes
+  // Expected output: an error
+  test.each([
+    ['not a friend', 404],
+    ['malformed', 400],
+  ] as const)('Rejects an id that is %s', async (kind, status) => {
+    const user = await createUser();
+    const stranger = await createUser();
+    const id = kind === 'malformed' ? 'nope' : stranger.id;
+
+    const response = await request(app).delete(`/friends/${id}`).set('Authorization', authHeader(user.id));
+
+    expect(response.status).toBe(status);
+    expect(response.body.error).toEqual(expect.any(String));
+  });
+});

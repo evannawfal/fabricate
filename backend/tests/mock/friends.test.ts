@@ -9,7 +9,7 @@ import {
   startTestDatabase,
   stopTestDatabase,
 } from '../helpers/database.js';
-import { authHeader, createUser } from '../helpers/fixtures.js';
+import { authHeader, createUser, makeFriends } from '../helpers/fixtures.js';
 
 const app = createApp();
 
@@ -69,5 +69,22 @@ describe('Mocked: POST /friends', () => {
       .send({ email: friend.email });
 
     expectInternalError(response);
+  });
+});
+
+// Interface DELETE /friends/:id
+describe('Mocked: DELETE /friends/:id', () => {
+  // Mocked behavior: User.updateOne throws while removing the friend
+  // Input: the id of one of the user's friends
+  // Expected status code: 500
+  // Expected behavior: the error is handled and logged
+  // Expected output: { error: "Internal server error" }
+  test('User DB error while removing', async () => {
+    const user = await createUser();
+    const friend = await createUser();
+    await makeFriends(user.id, friend.id);
+    failUserCall('updateOne');
+
+    expectInternalError(await request(app).delete(`/friends/${friend.id}`).set('Authorization', authHeader(user.id)));
   });
 });
