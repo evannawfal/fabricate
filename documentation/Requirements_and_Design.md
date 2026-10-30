@@ -5,9 +5,9 @@
 | **Change Date** | **Modified Sections** | **Rationale** |
 | --------------- | --------------------- | ------------- |
 | 2026-10-19 | All sections | First version for CP1, based on the features and use case diagram agreed on in M2 and on the back-end implemented so far (authentication, Clothing and Outfits components). |
-| 2026-10-30 | 3.1, 3.2, 3.3, 3.4, 3.5 (use case 4 name) | Reorganized the features to match the app we are building (Manage Closet, Customize Avatar, Create Outfit, Recommend Clothes to Buy, Friends and Social). CP1 TA feedback: the use cases were at very different levels of abstraction, so every use case is now one user goal, split into major use cases (the five with formal specifications) and the minor use cases that extend them; the use case diagram was redrawn to match and keeps the Closet and Outfit use cases separate. |
-| 2026-10-30 | 4.1, 4.2, 4.3, 4.4 | Interfaces updated to match the code on `main`: `POST /auth/google` returns `{ accessToken }`, the avatar is generated with `POST /avatar` (replacing `PUT /users/me/avatar`), outfits use `items` and `occasion`, rooms use `GET /rooms/{id}` and a Socket.IO connection per room with `room:message`, `room:outfitUpdate` and `room:memberLeft`. Daily outfits are generated with the Claude API instead of Gemini. Added the avatar generation method, Three.js and Socket.IO details. CP1 TA feedback: Clothing and Outfits are described as separate components with their own interfaces everywhere. |
-| 2026-10-30 | 4.5, 4.6 | Dependency and sequence diagrams updated to match the interfaces above: Outfits calls the Claude API, Users stores avatar models in Azure Blob Storage, Social saves room outfits through Outfits, and the room sequence diagram shows the membership check and the broadcast before the database write. |
+| 2026-10-30 | 3.1, 3.2, 3.4, 3.5 (use case names) | Reorganized the features to match the app we are building: Manage Closet, Customize Avatar, Create Outfit, Recommend Clothes to Buy, and Friends and Social. CP1 TA feedback: the use cases were at very different levels of abstraction, major and minor use cases were not separated, and the closet and outfit use cases were not separated. The use case diagram was redrawn so every use case is one user action, and 3.4 now lists the same use cases with the same names, marking the five with formal specifications as major and the rest as minor. |
+| 2026-10-30 | 4.1, 4.2, 4.3, 4.4, 4.5 | Split the back-end into the six components of the redrawn design diagram: User Manager, Closet, Outfit, Avatar, Recommendation Engine, and Social & Rooms. CP1 TA feedback: Closet and Outfit are now separate components with their own interfaces in the text and in every diagram. Interfaces updated to match the code: `POST /auth/google` returns `{ accessToken }`, the avatar is generated with `POST /avatar` (replacing `PUT /users/me/avatar`), outfits use `items` and `occasion`, and rooms use `GET /rooms/{id}` and a Socket.IO connection per room with `room:message`, `room:outfitUpdate` and `room:memberLeft`. Daily outfits are generated with the Claude API instead of Gemini. Added `GET`/`PATCH /users/me`, `DELETE /friends/{id}`, Firebase Cloud Messaging, the avatar generation method, Three.js and SceneView. |
+| 2026-10-30 | 4.6, 4.7 | Sequence diagrams and NFR designs use the new component names, and the room sequence diagram shows the membership check and the broadcast before the database write. |
 
 ---
 
@@ -24,14 +24,14 @@ Fabricate is aimed at fashion enthusiasts who want more out of their wardrobe, p
 ### **3.1. List of Features**
 
 1. **Manage Closet**: Users add clothing items by taking a photo or choosing one from their gallery. The photo is classified by an external AI service and the item is added to the closet, where it can be browsed, edited and removed. Users keep track of which clothes are dirty with a wash bin.
-2. **Customize Avatar**: Users customize a personal avatar from their body measurements, skin tone and hair style, preview outfits on it, and generate a realistic image of the avatar wearing an outfit.
-3. **Create Outfit**: Users build outfits from their closet by hand, have AI generate a daily outfit from their clean clothes based on the occasion and the current weather, or build an outfit together with friends in a room where chat messages and outfit changes appear live for every member.
+2. **Customize Avatar**: Users customize the proportions of a personal avatar from their body measurements, view clothing items and outfits on it, and generate a realistic image of the avatar wearing an outfit.
+3. **Create Outfit**: Users have AI generate a daily outfit from their clean clothes based on the occasion and the current weather, save outfits, and browse the outfits they saved.
 4. **Recommend Clothes to Buy**: The app analyzes the gaps in the user's closet and recommends items from online stores that fill them, with the user's clothes that each item pairs with.
-5. **Friends and Social**: Users sign in with their Google account (a new user is registered automatically on their first sign-in), add friends by email, post their daily outfit, and rate their friends' outfits.
+5. **Friends and Social**: Users sign in with their Google account (a new user is registered automatically on their first sign-in), add and remove friends, post their daily outfit, rate their friends' outfits, and create and join rooms with friends to build outfits together, where chat messages and outfit changes appear live for every member.
 
 ### **3.2. Use Case Diagram**
 
-![Use case diagram](images/use_case_diagram.png)
+![Use case diagram](images/use_case_diagram_updated.png)
 
 ### **3.3. Actors Description**
 
@@ -41,32 +41,40 @@ Fabricate is aimed at fashion enthusiasts who want more out of their wardrobe, p
 
 ### **3.4. Use Case Description**
 
-Each use case is one goal the user completes in a single visit to a screen. **Major** use cases are the five with formal specifications in 3.5; each **minor** use case is listed under the major use case it extends or depends on.
+Each use case below has the same name as in the use case diagram. **Major** use cases are the five with formal specifications in 3.5; the other use cases are **minor**.
 
 - Use cases for feature 1: **Manage Closet**
-1. **Add Clothing Items** (major): The user takes or chooses a photo of a clothing item, which is classified and added to their closet.
-   - 1.1. **Browse Closet** (minor): The user browses their closet, optionally filtered by category.
-   - 1.2. **Edit or Remove Item** (minor): The user edits an item's name, category, color, style or tags, or removes it from the closet. Saved outfits that used a removed item still show it.
-   - 1.3. **Manage Wash Bin** (minor): The user moves worn clothes to the wash bin and back to the closet once they are clean. Clothes in the wash bin are left out of generated outfits.
+1. **Add clothing items** (major): The user takes or chooses a photo of a clothing item, which is classified and added to their closet.
+2. **Browse items** (minor): The user browses their closet, optionally filtered by category.
+3. **Edit items** (minor): The user changes an item's name, category, color, style or tags.
+4. **Remove items** (minor): The user removes an item from their closet. Saved outfits that used it still show it.
+5. **Add items in wash bin** (minor): The user moves worn clothes to the wash bin, which leaves them out of generated outfits.
+6. **Remove items from wash bin** (minor): The user moves clean clothes from the wash bin back to the closet.
 
 - Use cases for feature 2: **Customize Avatar**
-2. **Customize Avatar** (major): The user sets their avatar's body measurements, skin tone and hair style and saves it to their profile.
-   - 2.1. **Preview Outfit on Avatar** (minor): The user sees an outfit displayed on their avatar before deciding to wear or save it.
-   - 2.2. **Generate Realistic Outfit Image** (minor): The app generates a realistic image of the user's avatar wearing a chosen outfit.
+7. **Customize Avatar Proportion** (major): The user sets their avatar's body measurements and saves the avatar to their profile.
+8. **View items on Avatar** (minor): The user sees a single clothing item from their closet displayed on their avatar.
+9. **Preview outfits on Avatar** (minor): The user sees a whole outfit displayed on their avatar before deciding to wear or save it.
+10. **Generate realistic outfits** (minor): The app generates a realistic image of the user's avatar wearing a chosen outfit.
 
 - Use cases for feature 3: **Create Outfit**
-3. **Generate Daily Outfit** (major): The app generates an outfit from the user's clean clothes for an occasion they choose, taking the current weather into account.
-   - 3.1. **Create Outfit Manually** (minor): The user picks items from their closet, names the outfit and saves it; saved outfits can be edited or deleted later.
-4. **Join Room to Create Outfits Together** (major): The user joins a room with friends, where they chat and build an outfit together, and every message and outfit change appears live on all members' devices.
+11. **Generate daily outfit** (major): The app generates an outfit from the user's clean clothes for an occasion they choose, taking the current weather into account.
+12. **Save outfits** (minor): The user saves a generated outfit, or one they built from their closet, to their outfits.
+13. **Browse past outfits** (minor): The user browses the outfits they saved, and edits or deletes them.
 
 - Use cases for feature 4: **Recommend Clothes to Buy**
-5. **Browse Recommended Items** (major): The user browses items from online stores, recommended by analyzing the gaps in their closet, and sees which of their clothes each item pairs with.
+14. **Browse online outfit / items** (major): The user browses items from online stores, recommended by analyzing the gaps in their closet, and sees which of their clothes each item pairs with.
 
 - Use cases for feature 5: **Friends and Social**
-6. **Sign In / Out** (minor): The user signs in with their Google account, or signs out. If they have never used Fabricate, a new account is created on their first sign-in. Every other use case requires it.
-7. **Add Friend** (minor): The user adds another user to their friend list by email. Needed by use case 4 to invite friends to a room.
-8. **Post Daily Outfit** (minor): The user posts the outfit they are wearing today so their friends can see it.
-9. **Rate Friend's Outfit** (minor): The user rates an outfit a friend posted, from 1 to 5 stars.
+15. **Sign In / Out** (minor): The user signs in with their Google account, or signs out. If they have never used Fabricate, a new account is created on their first sign-in.
+16. **Add people in friendlist** (minor): The user adds another user to their friend list by email.
+17. **Remove people from friendlist** (minor): The user removes someone from their friend list.
+18. **Post daily outfits** (minor): The user posts the outfit they are wearing today so their friends can see it.
+19. **Rate your friend's outfits** (minor): The user rates an outfit a friend posted, from 1 to 5 stars.
+20. **Create a room** (minor): The user names a new room and invites friends from their friend list.
+21. **Join a room** (minor): The user opens one of the rooms they belong to and sees its chat and shared outfit board.
+22. **Browse room owner's outfit** (minor): The user browses the outfit on the room's shared board, including items from other members' closets.
+23. **Create outfits in a room** (major): The user builds an outfit together with the room's members, where every chat message and outfit change appears live on all members' devices.
 
 ### **3.5. Formal Use Case Specifications (5 Most Major Use Cases)**
 
@@ -118,7 +126,7 @@ Each use case is one goal the user completes in a single visit to a screen. **Ma
 - 4b. The current weather cannot be retrieved.
   - 4b1. The app generates the outfit without the weather and tells the user that the weather was not considered.
 
-#### Use Case 3: Join Room to Create Outfits Together
+#### Use Case 3: Create Outfits in a Room
 
 **Description**: The user joins a room with friends, where members chat and build a shared outfit together, and every message and outfit change appears live on all members' devices.
 
@@ -141,7 +149,7 @@ Each use case is one goal the user completes in a single visit to a screen. **Ma
 - 4a. Another member leaves the room.
   - 4a1. The app shows a notice that the member left, and the room continues for the remaining members.
 
-#### Use Case 4: Browse Recommended Items
+#### Use Case 4: Browse Online Outfit / Items
 
 **Description**: The app analyzes the user's closet for gaps and shows items from online stores that would fill them, along with the user's clothes that each item pairs with.
 
@@ -164,7 +172,7 @@ Each use case is one goal the user completes in a single visit to a screen. **Ma
 - 3b. The analysis or the catalog search fails because of a server or network problem.
   - 3b1. The app displays an error message prompting the user to try again.
 
-#### Use Case 5: Customize Avatar
+#### Use Case 5: Customize Avatar Proportion
 
 **Description**: The user customizes their avatar's appearance and saves it to their profile, so outfits can be previewed on it.
 
@@ -207,23 +215,24 @@ Not included for CP1.
 
 ### **4.1. Main Components**
 
-1. **Users**
-   - **Purpose**: Signs users in with Google, stores their profiles, avatars and friend lists, and authenticates the requests sent to every other component. Keeping authentication in one component means every component checks users the same way.
+1. **User Manager**
+   - **Purpose**: Signs users in with Google, stores their accounts, profiles and friend lists, and authenticates the requests sent to every other component. Keeping authentication in one component means every component checks users the same way.
    - **Interfaces**:
      1. `POST /auth/google`, body `{ idToken: String }`, returns `{ accessToken: String }`
         - **Purpose**: Verifies a Google ID token with Google, finds or creates the user by their Google ID, and returns a session token signed by the back-end.
-     2. `POST /avatar`, body `{ height, shoulderWidth, chestWidth, waistWidth, hipWidth }` (numbers, in cm), returns `201 { downloadUrl: String, contentType: String }`
-        - **Purpose**: Generates the user's 3D avatar model (a GLB file) from their measurements, stores it in file storage, saves it to their profile, and returns a time-limited link to download it.
+     2. `GET /users/me`, returns `{ id, name, email, pronouns }`, and `PATCH /users/me`, body `{ pronouns: String }`, returns the same
+        - **Purpose**: Returns the signed-in user's profile, or updates their pronouns (at most 30 characters).
      3. `GET /friends`, returns `{ friends: List<Friend> }`, and `POST /friends`, body `{ email: String }`, returns `201 Friend`
         - **Purpose**: Returns the user's friend list, or adds the user with that email as a friend of both users. `POST` returns 404 if no user has the email, 400 for the user's own email, and 409 if they are already friends.
-     4. `requireAuth(request, response, next)` and `String? verifyToken(String token)`
+     4. `DELETE /friends/{id}`, returns `204`
+        - **Purpose**: Removes a friend from both users' friend lists. Returns 404 if they are not friends.
+     5. `requireAuth(request, response, next)` and `String? verifyToken(String token)`
         - **Purpose**: `requireAuth` checks the session token sent in the `Authorization` header and attaches the user's ID to the request, or rejects it with 401 if the token is missing or invalid. Every other component's routes use it; room sockets use `verifyToken` to check the token sent when they connect.
-     5. `List<String> getFriendIds(String userId)`
-        - **Purpose**: Returns the IDs of a user's friends, so Social can check who can see and rate posts or join rooms.
-   - **Avatar generation**: The avatar is built procedurally on the back-end with Three.js. The body is defined as signed distance fields (ellipsoids, capsules and rounded boxes for each body part, joined with smooth unions) sized from the user's measurements, sampled on a 3D grid, meshed with marching tetrahedra, and exported as a GLB file that the app displays with SceneView.
+     6. `List<String> getFriendIds(String userId)`
+        - **Purpose**: Returns the IDs of a user's friends, so Social & Rooms can check who can see and rate posts or be invited to rooms.
 
-2. **Clothing**
-   - **Purpose**: Stores and manages the user's clothing items and wash bin. It sends new photos to the clothing classifier and keeps the photos in file storage. It is separate from Outfits so that the other components read closet data through one interface.
+2. **Closet**
+   - **Purpose**: Stores and manages the user's clothing items and wash bin. It sends new photos to the clothing classifier and keeps the photos in file storage. Other components read closet data only through its interfaces.
    - **Interfaces**:
      1. `POST /clothing`, multipart form with a `photo` file (JPEG, PNG or WebP, at most 5 MB), returns `201 ClothingItem`
         - **Purpose**: Classifies the photo, stores it, and saves the new item with the detected category, color and style. Returns 422 if the photo does not show clothing and 503 if classification or storage is unavailable.
@@ -232,32 +241,43 @@ Not included for CP1.
      3. `GET /clothing/{id}`, returns `ClothingItem`
         - **Purpose**: Returns one of the user's items, including items that were removed from the closet.
      4. `PATCH /clothing/{id}`, body with any of `{ name, category, color, style, tags, isClean }`, returns `ClothingItem`
-        - **Purpose**: Updates an item's details, or moves it into or out of the wash bin.
+        - **Purpose**: Updates an item's details, or moves it into (`isClean: false`) or out of (`isClean: true`) the wash bin.
      5. `DELETE /clothing/{id}`, returns `204`
         - **Purpose**: Archives an item: it leaves the closet, but saved outfits still show it.
      6. `List<ClothingItem> getItemsForUser(String userId, Boolean cleanOnly)`
-        - **Purpose**: Returns a user's items in the closet, optionally only the clean ones, for Outfits and Social.
+        - **Purpose**: Returns a user's items in the closet, optionally only the clean ones, for the Outfit, Recommendation Engine and Social & Rooms components.
 
-3. **Outfits**
-   - **Purpose**: Saves and generates outfits, renders realistic outfit images, and runs the closet gap analysis for shopping recommendations. These are in the same component because they all reason about how closet items combine.
+3. **Outfit**
+   - **Purpose**: Stores the user's outfits and checks that every item in an outfit is in the user's closet. It is separate from Closet because an outfit refers to items without owning them: removing an item archives it in Closet, and the outfit still shows it.
    - **Interfaces**:
      1. `POST /outfits`, body `{ name: String, occasion?: String, items: List<String> }`, returns `201 Outfit`
         - **Purpose**: Saves an outfit made from items in the user's closet.
      2. `GET /outfits`, returns `{ outfits: List<Outfit> }`, and `GET /outfits/{id}`, returns `Outfit`
-        - **Purpose**: Returns the user's saved outfits, or one of them.
+        - **Purpose**: Returns the user's saved outfits, newest first, or one of them.
      3. `PATCH /outfits/{id}`, body with any of `{ name, occasion, items }`, returns `Outfit`, and `DELETE /outfits/{id}`, returns `204`
         - **Purpose**: Edits or deletes a saved outfit.
-     4. `POST /outfits/generate`, body `{ occasion: String, latitude: Double, longitude: Double }`, returns `{ outfit: { name, occasion, items }, weather: Weather? }`
-        - **Purpose**: Generates an outfit from the user's clean clothes for the occasion (`casual`, `work`, `formal` or `workout`) and the current weather, without saving it; the app saves it with `POST /outfits` if the user keeps it. Returns 400 listing the missing categories if the clean clothes don't include a top and a bottom, and 503 if generation is unavailable.
-     5. `POST /outfits/{id}/render`, returns `{ imageUrl: String }`
-        - **Purpose**: Generates a realistic image of the user's avatar wearing the outfit.
-     6. `GET /recommendations`, returns `{ gaps: List<String>, items: List<StoreItem> }`
-        - **Purpose**: Analyzes the user's closet for gaps and returns matching items from online catalogs, each with the closet items it pairs with.
-     7. `Outfit getOutfit(String outfitId)` and `Outfit saveOutfit(String userId, String name, List<String> itemIds)`
-        - **Purpose**: Read and save outfits for other users' posts and rooms. Used by Social.
+     4. `Outfit getOutfit(String outfitId)` and `Outfit saveOutfit(String userId, String name, List<String> itemIds)`
+        - **Purpose**: Read and save outfits for the Avatar component's renders and for rooms' shared outfits.
 
-4. **Social**
-   - **Purpose**: Manages outfit posts, ratings and rooms, and delivers chat messages and shared outfit changes to room members in real time.
+4. **Avatar**
+   - **Purpose**: Generates and stores the user's 3D avatar, and renders realistic images of the avatar wearing an outfit.
+   - **Interfaces**:
+     1. `POST /avatar`, body `{ height, shoulderWidth, chestWidth, waistWidth, hipWidth }` (numbers, in cm), returns `201 { downloadUrl: String, contentType: String }`
+        - **Purpose**: Generates the user's 3D avatar model (a GLB file) from their measurements, stores it in file storage, saves it to their profile, and returns a time-limited link to download it.
+     2. `POST /outfits/{id}/render`, returns `{ imageUrl: String }`
+        - **Purpose**: Generates a realistic image of the user's avatar wearing the outfit.
+   - **Avatar generation**: The avatar is built procedurally on the back-end with Three.js. The body is defined as signed distance fields (ellipsoids, capsules and rounded boxes for each body part, joined with smooth unions) sized from the user's measurements, sampled on a 3D grid, meshed with marching tetrahedra, and exported as a GLB file that the app displays with SceneView.
+
+5. **Recommendation Engine**
+   - **Purpose**: Chooses clothes for the user: it generates daily outfits from the weather, occasion and wash bin, and runs the closet gap analysis that finds items to buy. Both read the closet the same way and reason about which items go together, so they share one component.
+   - **Interfaces**:
+     1. `POST /outfits/generate`, body `{ occasion: String, latitude: Double, longitude: Double }`, returns `{ outfit: { name, occasion, items }, weather: Weather? }`
+        - **Purpose**: Generates an outfit from the user's clean clothes for the occasion (`casual`, `work`, `formal` or `workout`) and the current weather, without saving it; the app saves it with `POST /outfits` if the user keeps it. Returns 400 listing the missing categories if the clean clothes don't include a top and a bottom, and 503 if generation is unavailable.
+     2. `GET /recommendations`, returns `{ gaps: List<String>, items: List<StoreItem> }`
+        - **Purpose**: Analyzes the user's closet for gaps and returns matching items from online catalogs, each with the closet items it pairs with.
+
+6. **Social & Rooms**
+   - **Purpose**: Manages daily outfit posts, ratings and rooms, and delivers chat messages and shared outfit changes to room members in real time.
    - **Interfaces**:
      1. `POST /posts`, body `{ outfitId: String }`, returns `201 Post`
         - **Purpose**: Posts the user's daily outfit for their friends.
@@ -285,18 +305,20 @@ Not included for CP1.
 
 ### **4.3. External Modules**
 
-1. **Google Sign-In**
-   - **Purpose**: Signs the user in on their device and issues a Google ID token, which the Users component verifies with Google.
-2. **Claude API**
+1. **Google OAuth (Google Sign-In)**
+   - **Purpose**: Signs the user in on their device and issues a Google ID token, which the User Manager verifies with Google.
+2. **LLM: Claude API**
    - **Purpose**: Used with Claude Sonnet 5.5 (`claude-sonnet-5-5`) for two tasks: classifying clothing photos (detecting an item's category, color and style, or reporting that the photo is not clothing), and generating daily outfits by picking items from the user's clean clothes for the occasion and weather.
-3. **Gemini API**
+3. **LLM: Gemini API**
    - **Purpose**: Renders realistic images of the user's avatar wearing an outfit with the Nano Banana 2.1 image model (`gemini-nano-banana-2.1`).
 4. **OpenWeather API**
    - **Purpose**: Provides the current weather at the user's location for daily outfit generation. Chosen because it is widely used and its free plan (1,000,000 calls a month) is far more than the project needs.
 5. **Online Stores / Catalogs**
-   - **Purpose**: Provide product listings (photo, price, category and store link) that the Outfits component searches for items that fill the user's closet gaps.
+   - **Purpose**: Provide product listings (photo, price, category and store link) that the Recommendation Engine searches for items that fill the user's closet gaps.
 6. **Azure Blob Storage**
    - **Purpose**: Stores clothing photos, avatar models and generated outfit images, and gives the app time-limited links to download them.
+7. **Firebase Cloud Messaging**
+   - **Purpose**: Sends push notifications to the user's device, for example when a friend adds them to a room or posts their daily outfit. Social & Rooms sends the notifications and the app receives them.
 
 ### **4.4. Frameworks and Libraries**
 
@@ -339,50 +361,7 @@ Not included for CP1.
 
 ### **4.5. Dependencies Diagram**
 
-```mermaid
-flowchart LR
-    FE[Front-end]
-    US[Users]
-    CL[Clothing]
-    OU[Outfits]
-    SO[Social]
-    DB[(MongoDB)]
-    GS[Google Sign-In]
-    CA[Claude API]
-    AZ[Azure Blob Storage]
-    GE[Gemini API]
-    WE[OpenWeather API]
-    ST[Online Stores / Catalogs]
-
-    FE --> GS
-    FE --> US
-    FE --> CL
-    FE --> OU
-    FE <--> SO
-
-    CL --> US
-    OU --> US
-    SO --> US
-
-    OU --> CL
-    SO --> CL
-    SO --> OU
-
-    US --> GS
-    US --> AZ
-    CL --> CA
-    CL --> AZ
-    OU --> CA
-    OU --> AZ
-    OU --> GE
-    OU --> WE
-    OU --> ST
-
-    US --> DB
-    CL --> DB
-    OU --> DB
-    SO --> DB
-```
+![Dependencies diagram](images/high_level_design_diagram_updated.png)
 
 ### **4.6. Use Case Sequence Diagram (5 Most Major Use Cases)**
 
@@ -392,8 +371,8 @@ flowchart LR
 sequenceDiagram
     actor U as User
     participant FE as Front-end
-    participant CL as Clothing
-    participant US as Users
+    participant CL as Closet
+    participant US as User Manager
     participant CA as Claude API
     participant AZ as Azure Blob Storage
     participant DB as MongoDB
@@ -418,9 +397,9 @@ sequenceDiagram
 sequenceDiagram
     actor U as User
     participant FE as Front-end
-    participant OU as Outfits
-    participant US as Users
-    participant CL as Clothing
+    participant OU as Recommendation Engine
+    participant US as User Manager
+    participant CL as Closet
     participant WE as OpenWeather API
     participant CA as Claude API
 
@@ -438,14 +417,14 @@ sequenceDiagram
     FE-->>U: Show the outfit on the avatar
 ```
 
-3. [**Join Room to Create Outfits Together**](#use-case-3-join-room-to-create-outfits-together)
+3. [**Create Outfits in a Room**](#use-case-3-create-outfits-in-a-room)
 
 ```mermaid
 sequenceDiagram
     actor U as User
     participant FE as Front-end (user)
-    participant SO as Social
-    participant US as Users
+    participant SO as Social & Rooms
+    participant US as User Manager
     participant DB as MongoDB
     participant FE2 as Front-end (other members)
 
@@ -469,15 +448,15 @@ sequenceDiagram
     SO-->>FE: ack { ok: true }
 ```
 
-4. [**Browse Recommended Items**](#use-case-4-browse-recommended-items)
+4. [**Browse Online Outfit / Items**](#use-case-4-browse-online-outfit--items)
 
 ```mermaid
 sequenceDiagram
     actor U as User
     participant FE as Front-end
-    participant OU as Outfits
-    participant US as Users
-    participant CL as Clothing
+    participant OU as Recommendation Engine
+    participant US as User Manager
+    participant CL as Closet
     participant ST as Online Stores / Catalogs
 
     U->>FE: Open Shop screen
@@ -493,27 +472,29 @@ sequenceDiagram
     FE-->>U: Show recommended items and pairings
 ```
 
-5. [**Customize Avatar**](#use-case-5-customize-avatar)
+5. [**Customize Avatar Proportion**](#use-case-5-customize-avatar-proportion)
 
 ```mermaid
 sequenceDiagram
     actor U as User
     participant FE as Front-end
-    participant US as Users
+    participant AV as Avatar
+    participant US as User Manager
     participant AZ as Azure Blob Storage
     participant DB as MongoDB
 
     U->>FE: Change measurements, tap "Update avatar"
-    FE->>US: POST /avatar (measurements)
-    US->>US: requireAuth(request)
-    US->>US: generate the avatar mesh and export it as GLB
-    US->>AZ: store the model
-    AZ-->>US: stored
-    US->>DB: save the model's key to the user's profile
-    DB-->>US: updated user
-    US->>AZ: create a download link
-    AZ-->>US: downloadUrl
-    US-->>FE: 201 { downloadUrl }
+    FE->>AV: POST /avatar (measurements)
+    AV->>US: requireAuth(request)
+    US-->>AV: userId
+    AV->>AV: generate the avatar mesh and export it as GLB
+    AV->>AZ: store the model
+    AZ-->>AV: stored
+    AV->>DB: save the model's key to the user's profile
+    DB-->>AV: updated user
+    AV->>AZ: create a download link
+    AZ-->>AV: downloadUrl
+    AV-->>FE: 201 { downloadUrl }
     FE->>AZ: download the model
     AZ-->>FE: GLB file
     FE-->>U: Show the updated avatar
@@ -522,8 +503,8 @@ sequenceDiagram
 ### **4.7. Design of Non-Functional Requirements**
 
 1. [**Room update latency**](#nfr1)
-   - **Implementation**: Social keeps a persistent Socket.IO connection with each member's device and pushes each update to the room as soon as it arrives, so devices never wait on polling. The update is sent to members before the database write, so storage time does not add to delivery time.
+   - **Implementation**: Social & Rooms keeps a persistent Socket.IO connection with each member's device and pushes each update to the room as soon as it arrives, so devices never wait on polling. The update is sent to members before the database write, so storage time does not add to delivery time.
 2. [**Clothing upload time**](#nfr2)
    - **Implementation**: Photos are limited to 5 MB and checked for type and size before anything else, so invalid uploads fail immediately. The back-end checks that storage is configured before calling the classifier, and the classifier call has a timeout, so a slow or rate-limited service returns a clear 503 error instead of leaving the user waiting.
 3. [**Closet analysis time**](#nfr3)
-   - **Implementation**: The gap analysis loads the user's items in one database query (indexed by user ID) and runs entirely in memory, counting items per category, color and style and checking pairings without further database or network calls. The catalog search runs only after the analysis, once per gap found.
+   - **Implementation**: The Recommendation Engine's gap analysis loads the user's items in one database query (indexed by user ID) and runs entirely in memory, counting items per category, color and style and checking pairings without further database or network calls. The catalog search runs only after the analysis, once per gap found.
