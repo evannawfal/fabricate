@@ -11,7 +11,6 @@ const roomSchema = new Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: ROOM_LIMITS.nameLength },
     members: [{ type: Schema.Types.ObjectId, ref: 'User', required: true }],
-    // The shared outfit board: items from any member's closet.
     outfitItems: [{ type: Schema.Types.ObjectId, ref: 'ClothingItem' }],
   },
   { timestamps: true }
