@@ -1,4 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
+import {
+  DEFAULT_OUTFIT_NAME,
+  OUTFIT_MAX_OUTPUT_TOKENS,
+  OUTFIT_MAX_RETRIES,
+  OUTFIT_MODEL,
+  OUTFIT_REQUEST_TIMEOUT_MS,
+} from '../config/constants.js';
 import { env } from '../config/env.js';
 import { OUTFIT_LIMITS, type OutfitOccasion } from '../models/outfit.js';
 import type { Weather } from './weather.js';
@@ -27,14 +34,6 @@ export interface OutfitGenerator {
   generate(request: OutfitRequest): Promise<GeneratedOutfit>;
 }
 
-export const OUTFIT_MODEL = 'claude-sonnet-5-5';
-// Generation takes a few seconds, so a request still running after this is treated as unavailable.
-const REQUEST_TIMEOUT_MS = 30_000;
-const MAX_RETRIES = 2;
-// Far more than an outfit's name and item ids need, so the reply is never cut off.
-const MAX_OUTPUT_TOKENS = 4096;
-const DEFAULT_NAME = 'Daily outfit';
-
 export class OutfitGeneratorNotConfiguredError extends Error {
   constructor() {
     super('Outfit generation is not configured (set ANTHROPIC_API_KEY)');
@@ -54,6 +53,7 @@ const SYSTEM_PROMPT = `You are the stylist in a digital wardrobe app. Each reque
 Put together one complete outfit using only the listed items, referring to each item by its id:
 - Include a top and a bottom, or a dress instead of both.
 - Add shoes, outerwear and accessories when the closet has suitable ones. Add outerwear when it is cold, wet or windy.
+- When it is cold, layer tops: a lighter top can go under a warmer one, e.g. a t-shirt under a sweater, with outerwear over both.
 - Choose items whose style suits the occasion and whose colours go well together.
 - Use each item at most once.
 
@@ -98,7 +98,7 @@ function parseOutfit(response: Anthropic.Beta.BetaMessage, request: OutfitReques
     throw new OutfitGeneratorUnavailableError('Outfit generator picked none of the closet items');
   }
   const name = output.name.trim().replace(/\s+/g, ' ').slice(0, OUTFIT_LIMITS.nameLength).trim();
-  return { name: name.length > 0 ? name : DEFAULT_NAME, itemIds };
+  return { name: name.length > 0 ? name : DEFAULT_OUTFIT_NAME, itemIds };
 }
 
 export function createOutfitGenerator(client: Anthropic): OutfitGenerator {
@@ -108,7 +108,7 @@ export function createOutfitGenerator(client: Anthropic): OutfitGenerator {
       try {
         response = await client.beta.messages.create({
           model: OUTFIT_MODEL,
-          max_tokens: MAX_OUTPUT_TOKENS,
+          max_tokens: OUTFIT_MAX_OUTPUT_TOKENS,
           // Retries a declined request on another model inside the same call.
           betas: ['server-side-fallback-2026-07-01'],
           fallbacks: 'default',
@@ -137,7 +137,7 @@ export function getOutfitGenerator(): OutfitGenerator {
       throw new OutfitGeneratorNotConfiguredError();
     }
     defaultGenerator = createOutfitGenerator(
-      new Anthropic({ apiKey: env.anthropicApiKey, timeout: REQUEST_TIMEOUT_MS, maxRetries: MAX_RETRIES })
+      new Anthropic({ apiKey: env.anthropicApiKey, timeout: OUTFIT_REQUEST_TIMEOUT_MS, maxRetries: OUTFIT_MAX_RETRIES })
     );
   }
   return defaultGenerator;
