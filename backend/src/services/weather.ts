@@ -1,3 +1,4 @@
+import { OPENWEATHER_URL, WEATHER_REQUEST_TIMEOUT_MS } from '../config/constants.js';
 import { env } from '../config/env.js';
 
 export interface Weather {
@@ -10,10 +11,6 @@ export interface WeatherService {
   // Never throws, so a weather outage can't stop an outfit from being generated.
   getCurrentWeather(latitude: number, longitude: number): Promise<Weather | null>;
 }
-
-const OPENWEATHER_URL = 'https://api.openweathermap.org/data/2.5/weather';
-// Outfit generation waits for the weather, so give up quickly rather than keep the user waiting.
-const REQUEST_TIMEOUT_MS = 5_000;
 
 interface OpenWeatherResponse {
   main?: { temp?: unknown };
@@ -41,7 +38,7 @@ export function createOpenWeatherService(apiKey: string, fetchFn: typeof fetch =
         appid: apiKey,
       }).toString();
       try {
-        const response = await fetchFn(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+        const response = await fetchFn(url, { signal: AbortSignal.timeout(WEATHER_REQUEST_TIMEOUT_MS) });
         if (!response.ok) {
           console.error(`OpenWeather request failed with status ${response.status}`);
           return null;
