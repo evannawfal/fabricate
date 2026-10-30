@@ -57,9 +57,10 @@ describe("generateAvatarGeometry", () => {
     try {
       geometry.computeBoundingBox();
 
-      expect(geometry.boundingBox).not.toBeNull();
-
-      const bounds = geometry.boundingBox!;
+      const bounds = geometry.boundingBox;
+      if (bounds === null) {
+        throw new Error('computeBoundingBox() left the bounding box null');
+      }
 
       for (const value of [
         bounds.min.x,

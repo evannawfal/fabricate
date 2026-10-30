@@ -5,26 +5,12 @@ import {
   DEFAULT_AVATAR_PARAMS,
 } from "./sdf.js";
 import {
-  Vec3, AvatarParameters, AvatarBounds, SamplingGrid, PolygonizeContext, CubeData, ScalarField
+  Vec3, AvatarParameters, AvatarBounds, SamplingGrid, PolygonizeContext, CubeData, CubeCorners, TetraCorners, ScalarField
 } from "./types.js";
 
 const CORNERS: Vec3[] = [
   [0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0],
   [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1],
-];
-
-const TETRAHEDRA: number[][] = [
-  [0, 5, 1, 6],
-  [0, 1, 2, 6],
-  [0, 2, 3, 6],
-  [0, 3, 7, 6],
-  [0, 7, 4, 6],
-  [0, 4, 5, 6],
-];
-
-const TETRA_EDGES: [number, number][] = [
-  [0, 1], [0, 2], [0, 3],
-  [1, 2], [1, 3], [2, 3],
 ];
 
 /**
@@ -56,18 +42,18 @@ function validateParameters(options: Partial<AvatarParameters>): { p: AvatarPara
     );
   }
 
-  const keys: (keyof AvatarParameters)[] = [
-    "height",
-    "shoulderWidth",
-    "chestWidth",
-    "waistWidth",
-    "hipWidth",
+  const measurements: [string, number][] = [
+    ["height", p.height],
+    ["shoulderWidth", p.shoulderWidth],
+    ["chestWidth", p.chestWidth],
+    ["waistWidth", p.waistWidth],
+    ["hipWidth", p.hipWidth],
   ];
 
-  for (const key of keys) {
-    if (!Number.isFinite(p[key]) || (p[key] as number) <= 0) {
+  for (const [name, value] of measurements) {
+    if (!Number.isFinite(value) || value <= 0) {
       throw new RangeError(
-        `${key} must be a positive finite number`
+        `${name} must be a positive finite number`
       );
     }
   }
@@ -198,12 +184,16 @@ function triangleCenter(a: Vec3, b: Vec3, c: Vec3): Vec3 {
   ];
 }
 
+function subtract([ax, ay, az]: Vec3, [bx, by, bz]: Vec3): Vec3 {
+  return [ax - bx, ay - by, az - bz];
+}
+
 /**
  * Append a triangle with consistent outward-facing winding.
  */
 function addTriangle(a: Vec3, b: Vec3, c: Vec3, context: PolygonizeContext): void {
-  const ab = b.map((value, i) => value - (a[i] as number)) as Vec3;
-  const ac = c.map((value, i) => value - (a[i] as number)) as Vec3;
+  const ab = subtract(b, a);
+  const ac = subtract(c, a);
   const faceNormal = crossProduct(ab, ac);
   const center = triangleCenter(a, b, c);
   const g = gradient(
@@ -236,13 +226,13 @@ function addTriangle(a: Vec3, b: Vec3, c: Vec3, context: PolygonizeContext): voi
  * Calculate the centroid of a polygon.
  */
 function polygonCenter(points: Vec3[]): Vec3 {
-  const center: Vec3 = [0, 0, 0];
-  for (const point of points) {
-    for (let axis = 0; axis < 3; axis++) {
-      center[axis]! += point[axis]! / points.length;
-    }
+  let [x, y, z] = [0, 0, 0];
+  for (const [px, py, pz] of points) {
+    x += px / points.length;
+    y += py / points.length;
+    z += pz / points.length;
   }
-  return center;
+  return [x, y, z];
 }
 
 /**
@@ -262,25 +252,25 @@ function createPlaneBasis(normal: Vec3): { u: Vec3; v: Vec3 } {
 /**
  * Sort quad vertices around their centroid.
  */
-function sortQuadVertices(points: Vec3[], center: Vec3, normal: Vec3): Vec3[] {
+function sortQuadVertices(points: TetraCorners<Vec3>, center: Vec3, normal: Vec3): TetraCorners<Vec3> {
   const { u, v } = createPlaneBasis(normal);
   function angle(point: Vec3): number {
-    const offset = point.map(
-      (value, i) => value - center[i]!
-    );
+    const [ox, oy, oz] = subtract(point, center);
     const alongU =
-      offset[0]! * u[0] +
-      offset[1]! * u[1] +
-      offset[2]! * u[2];
+      ox * u[0] +
+      oy * u[1] +
+      oz * u[2];
     const alongV =
-      offset[0]! * v[0] +
-      offset[1]! * v[1] +
-      offset[2]! * v[2];
+      ox * v[0] +
+      oy * v[1] +
+      oz * v[2];
 
     return Math.atan2(alongV, alongU);
   }
 
-  return [...points].sort(
+  const [p0, p1, p2, p3] = points;
+  const sorted: TetraCorners<Vec3> = [p0, p1, p2, p3];
+  return sorted.sort(
     (a, b) => angle(a) - angle(b)
   );
 }
@@ -288,7 +278,7 @@ function sortQuadVertices(points: Vec3[], center: Vec3, normal: Vec3): Vec3[] {
 /**
  * Split a four-vertex intersection polygon into two triangles.
  */
-function triangulateQuad(points: Vec3[], context: PolygonizeContext): void {
+function triangulateQuad(points: TetraCorners<Vec3>, context: PolygonizeContext): void {
   const center = polygonCenter(points);
   const g = gradient(
     center,
@@ -297,38 +287,41 @@ function triangulateQuad(points: Vec3[], context: PolygonizeContext): void {
   );
   const length = Math.hypot(...g) || 1;
   const normal = g.map(value => value / length) as Vec3;
-  const sorted = sortQuadVertices(points, center, normal);
+  const [first, second, third, fourth] = sortQuadVertices(points, center, normal);
 
-  addTriangle(sorted[0]!, sorted[1]!, sorted[2]!, context);
-  addTriangle(sorted[0]!, sorted[2]!, sorted[3]!, context);
+  addTriangle(first, second, third, context);
+  addTriangle(first, third, fourth, context);
 
 }
 
 /**
  * Polygonize one tetrahedron using its edge intersections.
  */
-function polygonizeTetra(points: Vec3[], distances: number[], context: PolygonizeContext): void {
+function polygonizeTetra(
+  [p0, p1, p2, p3]: TetraCorners<Vec3>,
+  [d0, d1, d2, d3]: TetraCorners<number>,
+  context: PolygonizeContext
+): void {
+  const edges: [Vec3, Vec3, number, number][] = [
+    [p0, p1, d0, d1], [p0, p2, d0, d2], [p0, p3, d0, d3],
+    [p1, p2, d1, d2], [p1, p3, d1, d3], [p2, p3, d2, d3],
+  ];
   const intersections: Vec3[] = [];
-  for (const [ia, ib] of TETRA_EDGES) {
-    const da = distances[ia]!;
-    const db = distances[ib]!;
+  for (const [a, b, da, db] of edges) {
     if ((da < 0) !== (db < 0)) {
-
-      intersections.push(
-        interpolateSurface(
-          points[ia]!,
-          points[ib]!,
-          da,
-          db
-        )
-      );
+      intersections.push(interpolateSurface(a, b, da, db));
     }
   }
 
-  if (intersections.length === 3) {
-    addTriangle(intersections[0]!, intersections[1]!, intersections[2]!, context);
-  } else if (intersections.length === 4) {
-    triangulateQuad(intersections, context);
+  // The surface crosses either none, three or four of a tetrahedron's edges.
+  const [first, second, third, fourth] = intersections;
+  if (first === undefined || second === undefined || third === undefined) {
+    return;
+  }
+  if (fourth === undefined) {
+    addTriangle(first, second, third, context);
+  } else {
+    triangulateQuad([first, second, third, fourth], context);
   }
 }
 
@@ -336,13 +329,13 @@ function polygonizeTetra(points: Vec3[], distances: number[], context: Polygoniz
  * Get the eight corners and SDF values of one grid cell.
  */
 function getCubeData(i: number, j: number, k: number, grid: SamplingGrid, bounds: AvatarBounds): CubeData {
-  const points: Vec3[] = CORNERS.map(([ci, cj, ck]) =>
+  const points = CORNERS.map(([ci, cj, ck]) =>
     gridPoint(i + ci, j + cj, k + ck, grid, bounds)
-  );
+  ) as CubeCorners<Vec3>;
 
   const distances = CORNERS.map(([ci, cj, ck]) =>
     grid.values[grid.index(i + ci, j + cj, k + ck)]
-  ) as number[];
+  ) as CubeCorners<number>;
   return { points, distances };
 }
 
@@ -358,16 +351,16 @@ function intersectsSurface(distances: number[]): boolean {
 /**
  * Polygonize all six tetrahedra in one grid cell.
  */
-function polygonizeCube(points: Vec3[], distances: number[], context: PolygonizeContext): void {
-  for (const tetra of TETRAHEDRA) {
-    const tetraPoints: Vec3[] = tetra.map(id => points[id]!);
-    const tetraDistances: number[] = tetra.map(id => distances[id]!);
-    polygonizeTetra(
-      tetraPoints,
-      tetraDistances,
-      context
-    );
-  }
+function polygonizeCube(points: CubeCorners<Vec3>, distances: CubeCorners<number>, context: PolygonizeContext): void {
+  const [p0, p1, p2, p3, p4, p5, p6, p7] = points;
+  const [d0, d1, d2, d3, d4, d5, d6, d7] = distances;
+  // The cell is split into six tetrahedra that share the diagonal from corner 0 to corner 6.
+  polygonizeTetra([p0, p5, p1, p6], [d0, d5, d1, d6], context);
+  polygonizeTetra([p0, p1, p2, p6], [d0, d1, d2, d6], context);
+  polygonizeTetra([p0, p2, p3, p6], [d0, d2, d3, d6], context);
+  polygonizeTetra([p0, p3, p7, p6], [d0, d3, d7, d6], context);
+  polygonizeTetra([p0, p7, p4, p6], [d0, d7, d4, d6], context);
+  polygonizeTetra([p0, p4, p5, p6], [d0, d4, d5, d6], context);
 }
 
 /**
