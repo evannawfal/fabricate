@@ -1,18 +1,13 @@
 import { env } from '../config/env.js';
 
-// The current weather at the user's location, used when generating a daily outfit.
 export interface Weather {
-  // Rounded to whole degrees, which is all an outfit choice needs.
   temperatureC: number;
-  // OpenWeather's condition group, e.g. "Rain" or "Clear"
   condition: string;
-  // e.g. "light rain"
   description: string;
 }
 
 export interface WeatherService {
-  // Resolves to null instead of failing when the weather can't be retrieved,
-  // so an outfit can still be generated without it.
+  // Never throws, so a weather outage can't stop an outfit from being generated.
   getCurrentWeather(latitude: number, longitude: number): Promise<Weather | null>;
 }
 
@@ -35,7 +30,6 @@ function parseWeather(body: OpenWeatherResponse): Weather | null {
   return { temperatureC: Math.round(temperature), condition: conditions.main, description: conditions.description };
 }
 
-// fetchFn is replaced in tests so that no real request is sent.
 export function createOpenWeatherService(apiKey: string, fetchFn: typeof fetch = fetch): WeatherService {
   return {
     async getCurrentWeather(latitude, longitude) {
@@ -58,7 +52,6 @@ export function createOpenWeatherService(apiKey: string, fetchFn: typeof fetch =
         }
         return weather;
       } catch (err) {
-        // Network errors, timeouts and invalid JSON: the outfit is generated without the weather.
         console.error('Could not get the current weather:', err);
         return null;
       }
@@ -66,17 +59,15 @@ export function createOpenWeatherService(apiKey: string, fetchFn: typeof fetch =
   };
 }
 
-// Without an OpenWeather API key, outfits are generated without the weather.
 const noWeather: WeatherService = { getCurrentWeather: () => Promise.resolve(null) };
 
 let defaultWeatherService: WeatherService | undefined;
 
-// Replaces the app-wide weather service (e.g. with a stand-in in tests); undefined goes back to the env-configured one.
+// undefined goes back to the service configured from the environment.
 export function setWeatherService(service: WeatherService | undefined): void {
   defaultWeatherService = service;
 }
 
-// The app-wide weather service, configured from OPENWEATHER_API_KEY.
 export function getWeatherService(): WeatherService {
   defaultWeatherService ??=
     env.openWeatherApiKey === undefined ? noWeather : createOpenWeatherService(env.openWeatherApiKey);
