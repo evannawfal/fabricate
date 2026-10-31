@@ -30,7 +30,7 @@ const GOOGLE_PROFILE: TokenPayload = {
 function mockGoogleVerification(payload: TokenPayload | undefined) {
   return jest
     .spyOn(OAuth2Client.prototype, 'verifyIdToken')
-    .mockImplementation(async () => new LoginTicket(undefined, payload));
+    .mockResolvedValue(new LoginTicket(undefined, payload) as never);
 }
 
 beforeAll(startTestDatabase, DATABASE_SETUP_TIMEOUT_MS);
@@ -59,7 +59,8 @@ describe('Mocked: POST /auth/google', () => {
     expect(verify).toHaveBeenCalledTimes(1);
     const user = await User.findOne({ googleId: GOOGLE_PROFILE.sub });
     expect(user).toMatchObject({ email: 'jane@example.com', givenName: 'Jane', familyName: 'Doe' });
-    const token = jwt.verify(response.body.accessToken, env.jwtAccessSecret) as { sub: string };
+    const { accessToken } = response.body as { accessToken: string };
+    const token = jwt.verify(accessToken, env.jwtAccessSecret) as { sub: string };
     expect(token.sub).toBe(user?.id);
     const closet = await request(app).get('/clothing').set('Authorization', `Bearer ${response.body.accessToken}`);
     expect(closet.status).toBe(200);
@@ -80,8 +81,8 @@ describe('Mocked: POST /auth/google', () => {
     expect(second.status).toBe(200);
     expect(await User.countDocuments()).toBe(1);
     expect((await User.findOne())?.givenName).toBe('Janet');
-    const firstSub = (jwt.decode(first.body.accessToken) as { sub: string }).sub;
-    const secondSub = (jwt.decode(second.body.accessToken) as { sub: string }).sub;
+    const firstSub = (jwt.decode((first.body as { accessToken: string }).accessToken) as { sub: string }).sub;
+    const secondSub = (jwt.decode((second.body as { accessToken: string }).accessToken) as { sub: string }).sub;
     expect(secondSub).toBe(firstSub);
   });
 

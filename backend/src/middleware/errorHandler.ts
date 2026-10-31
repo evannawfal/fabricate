@@ -19,7 +19,12 @@ function isClientError(err: unknown): err is HttpError {
 }
 
 // Last middleware: turns errors into JSON responses instead of Express's default HTML page.
-export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
+export function errorHandler(err: unknown, _req: Request, res: Response, next: NextFunction) {
+  // A response that has already started can't be replaced, so Express's default handler closes it.
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
   if (err instanceof StorageNotConfiguredError) {
     return res.status(503).json({ error: 'File storage is not available' });
   }
