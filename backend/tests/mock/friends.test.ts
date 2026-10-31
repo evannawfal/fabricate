@@ -13,7 +13,7 @@ import { authHeader, createUser, makeFriends } from '../helpers/fixtures.js';
 
 const app = createApp();
 
-function failUserCall(method: 'findById' | 'findOne' | 'updateOne') {
+function failUserCall(method: 'findById' | 'findOne' | 'countDocuments' | 'updateOne' | 'updateMany') {
   return jest.spyOn(User, method).mockImplementation(() => {
     throw new Error('Forced database error');
   });
@@ -53,12 +53,13 @@ describe('Mocked: GET /friends', () => {
 
 // Interface POST /friends
 describe('Mocked: POST /friends', () => {
-  // Mocked behavior: User.findOne throws while looking up the email, or User.updateOne throws while saving
+  // Mocked behavior: User.findOne throws while looking up the email, User.countDocuments while checking
+  // for an existing friendship, or User.updateOne while saving
   // Input: another user's email
   // Expected status code: 500
   // Expected behavior: the error is handled and logged
   // Expected output: { error: "Internal server error" }
-  test.each(['findOne', 'updateOne'] as const)('User DB error in %s', async (method) => {
+  test.each(['findOne', 'countDocuments', 'updateOne'] as const)('User DB error in %s', async (method) => {
     const user = await createUser();
     const friend = await createUser();
     failUserCall(method);
@@ -74,7 +75,7 @@ describe('Mocked: POST /friends', () => {
 
 // Interface DELETE /friends/:id
 describe('Mocked: DELETE /friends/:id', () => {
-  // Mocked behavior: User.updateOne throws while removing the friend
+  // Mocked behavior: User.updateMany throws while removing the friend
   // Input: the id of one of the user's friends
   // Expected status code: 500
   // Expected behavior: the error is handled and logged
@@ -83,7 +84,7 @@ describe('Mocked: DELETE /friends/:id', () => {
     const user = await createUser();
     const friend = await createUser();
     await makeFriends(user.id, friend.id);
-    failUserCall('updateOne');
+    failUserCall('updateMany');
 
     expectInternalError(await request(app).delete(`/friends/${friend.id}`).set('Authorization', authHeader(user.id)));
   });

@@ -27,23 +27,27 @@ export async function addFriend(req: AuthedRequest, res: Response) {
   const friend = await User.findOne({ email: email.value }).collation({ locale: 'en', strength: 2 });
   if (!friend) return res.status(404).json({ error: 'No user has that email' });
   if (friend.id === userId) return res.status(400).json({ error: "You can't add yourself as a friend" });
-  if (friend.friends.some((id) => id.toString() === userId)) {
+  // Our MongoDB has no transactions, so the two lists are updated separately. Checking both
+  // lists means a retry completes an add that only reached one of them.
+  const pair = [userId, friend.id as string];
+  if ((await User.countDocuments({ _id: { $in: pair }, friends: { $in: pair } })) === 2) {
     return res.status(409).json({ error: 'You are already friends' });
   }
-  await Promise.all([
-    User.updateOne({ _id: userId }, { $addToSet: { friends: friend._id } }),
-    User.updateOne({ _id: friend._id }, { $addToSet: { friends: userId } }),
-  ]);
+  await User.updateOne({ _id: userId }, { $addToSet: { friends: friend._id } });
+  await User.updateOne({ _id: friend._id }, { $addToSet: { friends: userId } });
   res.status(201).json(toFriendResponse(friend));
 }
 
 // DELETE /friends/:id
+// Clears both lists in one command, and also clears a friendship that only one list still has.
 export async function removeFriend(req: AuthedRequest, res: Response) {
   const friendId = req.params.id;
   if (!isObjectId(friendId)) return res.status(400).json({ error: 'Invalid friend id' });
-  const userId = getUserId(req);
-  const { modifiedCount } = await User.updateOne({ _id: userId, friends: friendId }, { $pull: { friends: friendId } });
+  const pair = [getUserId(req), friendId];
+  const { modifiedCount } = await User.updateMany(
+    { _id: { $in: pair }, friends: { $in: pair } },
+    { $pull: { friends: { $in: pair } } }
+  );
   if (modifiedCount === 0) return res.status(404).json({ error: 'Not in your friend list' });
-  await User.updateOne({ _id: friendId }, { $pull: { friends: userId } });
   res.status(204).end();
 }
