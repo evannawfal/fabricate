@@ -21,7 +21,6 @@ object SessionToken {
     return nowMillis >= expirySeconds * MILLIS_PER_SECOND
   }
 
-  /** The signed-in user's id, or null if [token] isn't a readable JWT. */
   fun userId(token: String): String? = claim(token, SUBJECT_CLAIM)
 
   private fun expirySeconds(token: String): Long? = claim(token, EXPIRY_CLAIM)?.toLongOrNull()
