@@ -105,9 +105,7 @@ describe('Mocked: GET /outfits', () => {
   // Expected behavior: the outfits still load; their items just have no photo link
   // Expected output: the outfit with its item's imageUrl null
   test('Outfits load without photo links when storage fails', async () => {
-    const getDownloadUrl = jest.fn(async (_key: string): Promise<string> => {
-      throw new Error('Forced signing error');
-    });
+    const getDownloadUrl = jest.fn<FileStorage['getDownloadUrl']>().mockRejectedValue(new Error('Forced signing error'));
     setFileStorage({ getDownloadUrl } as unknown as FileStorage);
     const { user } = await userWithOutfit();
 
