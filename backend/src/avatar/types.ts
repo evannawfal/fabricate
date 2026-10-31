@@ -50,7 +50,11 @@ export interface PolygonizeContext {
   normals: number[];
 }
 
+// In the same order as CORNERS in meshGenerator.ts.
+export type CubeCorners<T> = [T, T, T, T, T, T, T, T];
+export type TetraCorners<T> = [T, T, T, T];
+
 export interface CubeData {
-  points: Vec3[];
-  distances: number[];
+  points: CubeCorners<Vec3>;
+  distances: CubeCorners<number>;
 }

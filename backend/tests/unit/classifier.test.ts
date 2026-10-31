@@ -21,10 +21,12 @@ type CreateParams = Anthropic.Beta.MessageCreateParamsNonStreaming;
 
 // A stand-in for the Anthropic client: nothing is sent to the API.
 function fakeClient(result: Anthropic.Beta.BetaMessage | Error) {
-  const create = jest.fn(async (_params: CreateParams) => {
-    if (result instanceof Error) throw result;
-    return result;
-  });
+  const create = jest.fn<(params: CreateParams) => Promise<Anthropic.Beta.BetaMessage>>();
+  if (result instanceof Error) {
+    create.mockRejectedValue(result);
+  } else {
+    create.mockResolvedValue(result);
+  }
   const client = { beta: { messages: { create } } } as unknown as Anthropic;
   return { client, create };
 }
@@ -47,8 +49,8 @@ const JACKET = { isClothing: true, name: 'Navy wool overcoat', category: 'outerw
 
 function mockResponse() {
   const json = jest.fn();
-  const res = { status: jest.fn(() => ({ json })) } as unknown as Response;
-  return { res, json };
+  const status = jest.fn(() => ({ json }));
+  return { res: { status } as unknown as Response, status, json };
 }
 
 afterEach(() => {
@@ -67,16 +69,23 @@ describe('Clothing photo classifier', () => {
 
     expect(result).toEqual({ name: 'Navy wool overcoat', category: 'outerwear', color: 'navy', style: 'formal' });
     expect(create).toHaveBeenCalledTimes(1);
-    const params = create.mock.calls[0]?.[0] as CreateParams;
-    expect(params.model).toBe('claude-sonnet-5-5');
-    expect(params.output_config?.effort).toBe('low');
-    expect(params.output_config?.format?.type).toBe('json_schema');
-    expect(params.fallbacks).toBe('default');
-    const content = params.messages[0]?.content as Anthropic.Beta.BetaContentBlockParam[];
-    expect(content[0]).toEqual({
-      type: 'image',
-      source: { type: 'base64', media_type: 'image/jpeg', data: Buffer.from(PHOTO).toString('base64') },
-    });
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'claude-sonnet-5-5',
+        fallbacks: 'default',
+        output_config: { effort: 'low', format: expect.objectContaining({ type: 'json_schema' }) },
+        messages: [
+          expect.objectContaining({
+            content: expect.arrayContaining([
+              {
+                type: 'image',
+                source: { type: 'base64', media_type: 'image/jpeg', data: Buffer.from(PHOTO).toString('base64') },
+              },
+            ]),
+          }),
+        ],
+      })
+    );
   });
 
   // Mocked behavior: Claude returns fields with extra spaces, capitals and an overlong name
@@ -187,11 +196,11 @@ describe('Classifier configuration and errors', () => {
     [new UnclassifiablePhotoError('The photo does not show a clothing item'), 422, 'The photo does not show a clothing item'],
   ])('Reported to the app: %s', (error, status, message) => {
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
-    const { res, json } = mockResponse();
+    const { res, status: setStatus, json } = mockResponse();
 
     errorHandler(error, {} as never, res, () => undefined);
 
-    expect(res.status).toHaveBeenCalledWith(status);
+    expect(setStatus).toHaveBeenCalledWith(status);
     expect(json).toHaveBeenCalledWith({ error: message });
   });
 });
