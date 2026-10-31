@@ -1,57 +1,24 @@
 import { jest } from '@jest/globals';
-import http from 'node:http';
-import type { AddressInfo } from 'node:net';
-import { io as connect, type Socket } from 'socket.io-client';
 
-import { createApp } from '../../src/app.js';
 import { ClothingItem } from '../../src/models/clothingItem.js';
 import { Message, Room } from '../../src/models/room.js';
-import { attachRoomSockets } from '../../src/sockets/rooms.js';
-import {
-  clearTestDatabase,
-  DATABASE_SETUP_TIMEOUT_MS,
-  startTestDatabase,
-  stopTestDatabase,
-} from '../helpers/database.js';
-import { authHeader, createClothingItem, createRoom, createUser } from '../helpers/fixtures.js';
+import { createClothingItem, createRoom, createUser } from '../helpers/fixtures.js';
+import { tokenFor, useRoomSocketServer } from '../helpers/roomSockets.js';
 
-const server = http.createServer(createApp());
-const io = attachRoomSockets(server);
-let url = '';
-const clients: Socket[] = [];
+const { join } = useRoomSocketServer();
 
-beforeAll(async () => {
-  await startTestDatabase();
-  await new Promise<void>((resolve) => server.listen(0, resolve));
-  url = `http://localhost:${(server.address() as AddressInfo).port}`;
-}, DATABASE_SETUP_TIMEOUT_MS);
 // Silences the logged errors; the spy lets tests check they were logged.
 beforeEach(() => {
   jest.spyOn(console, 'error').mockImplementation(() => undefined);
 });
-afterEach(async () => {
-  clients.splice(0).forEach((client) => client.disconnect());
+afterEach(() => {
   jest.restoreAllMocks();
-  await clearTestDatabase();
 });
-afterAll(async () => {
-  await io.close();
-  await stopTestDatabase();
-});
-
-function join(auth: Record<string, unknown>): Promise<Socket> {
-  const client = connect(url, { auth, transports: ['websocket'], reconnection: false });
-  clients.push(client);
-  return new Promise((resolve, reject) => {
-    client.on('connect', () => resolve(client));
-    client.on('connect_error', (err) => reject(err));
-  });
-}
 
 async function memberClient() {
   const user = await createUser();
   const room = await createRoom('Room', [user.id]);
-  const client = await join({ token: authHeader(user.id).slice('Bearer '.length), roomId: room.id });
+  const client = await join({ token: tokenFor(user.id), roomId: room.id });
   return { user, room, client };
 }
 
@@ -72,9 +39,7 @@ describe('Mocked: room socket connection', () => {
     const room = await createRoom('Room', [user.id]);
     forceError(Room, 'findById');
 
-    await expect(join({ token: authHeader(user.id).slice('Bearer '.length), roomId: room.id })).rejects.toThrow(
-      'Internal server error'
-    );
+    await expect(join({ token: tokenFor(user.id), roomId: room.id })).rejects.toThrow('Internal server error');
     expect(console.error).toHaveBeenCalledWith('Room socket connection failed:', expect.any(Error));
   });
 });

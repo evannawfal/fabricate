@@ -1,54 +1,8 @@
-import http from 'node:http';
-import type { AddressInfo } from 'node:net';
-import { io as connect, type Socket } from 'socket.io-client';
-
-import { createApp } from '../../src/app.js';
 import { Message, Room } from '../../src/models/room.js';
-import { attachRoomSockets } from '../../src/sockets/rooms.js';
-import {
-  clearTestDatabase,
-  DATABASE_SETUP_TIMEOUT_MS,
-  startTestDatabase,
-  stopTestDatabase,
-} from '../helpers/database.js';
-import { authHeader, createClothingItem, createRoom, createUser, makeFriends, UNKNOWN_ID } from '../helpers/fixtures.js';
+import { createClothingItem, createRoom, createUser, makeFriends, UNKNOWN_ID } from '../helpers/fixtures.js';
+import { nextEvent, tokenFor, useRoomSocketServer } from '../helpers/roomSockets.js';
 
-const server = http.createServer(createApp());
-const io = attachRoomSockets(server);
-let url = '';
-const clients: Socket[] = [];
-
-beforeAll(async () => {
-  await startTestDatabase();
-  await new Promise<void>((resolve) => server.listen(0, resolve));
-  url = `http://localhost:${(server.address() as AddressInfo).port}`;
-}, DATABASE_SETUP_TIMEOUT_MS);
-afterEach(async () => {
-  clients.splice(0).forEach((client) => client.disconnect());
-  await clearTestDatabase();
-});
-afterAll(async () => {
-  await io.close();
-  await stopTestDatabase();
-});
-
-function tokenFor(userId: string) {
-  return authHeader(userId).slice('Bearer '.length);
-}
-
-// Connects a client and resolves once connected, or rejects with the server's error message.
-function join(auth: Record<string, unknown>): Promise<Socket> {
-  const client = connect(url, { auth, transports: ['websocket'], reconnection: false });
-  clients.push(client);
-  return new Promise((resolve, reject) => {
-    client.on('connect', () => resolve(client));
-    client.on('connect_error', (err) => reject(err));
-  });
-}
-
-function nextEvent<T>(client: Socket, event: string): Promise<T> {
-  return new Promise((resolve) => client.once(event, resolve));
-}
+const { join } = useRoomSocketServer();
 
 async function roomWithTwoMembers() {
   const user = await createUser();
@@ -137,14 +91,12 @@ describe('Unmocked: room:outfitUpdate', () => {
   // Expected behavior: the board is cleared for every member
   // Expected output: ack { ok: true }
   test('Clears the board', async () => {
-    const { user, friend, userClient } = await roomWithTwoMembers();
+    const { user, room, userClient } = await roomWithTwoMembers();
     const shirt = await createClothingItem(user.id);
-    const room = await createRoom('Board', [user.id, friend.id], [shirt.id]);
-    const client = await join({ token: tokenFor(user.id), roomId: room.id });
+    await Room.updateOne({ _id: room._id }, { outfitItems: [shirt._id] });
 
-    expect(await client.emitWithAck('room:outfitUpdate', { itemIds: [] })).toEqual({ ok: true });
+    expect(await userClient.emitWithAck('room:outfitUpdate', { itemIds: [] })).toEqual({ ok: true });
     expect((await Room.findById(room.id))?.outfitItems).toHaveLength(0);
-    expect(userClient.connected).toBe(true);
   });
 
   // Input: an item from a non-member's closet, an archived item, and malformed ids
