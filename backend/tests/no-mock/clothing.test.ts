@@ -157,7 +157,7 @@ describe('Unmocked: GET /clothing', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.items.map((item: { name: string }) => item.name)).toEqual(['New jeans', 'Old shirt']);
-    expect(Object.keys(response.body.items[0]).sort()).toEqual(
+    expect(Object.keys(response.body.items[0] as object).sort()).toEqual(
       ['category', 'color', 'createdAt', 'id', 'imageUrl', 'isArchived', 'isClean', 'name', 'style', 'tags', 'updatedAt'].sort()
     );
     // File storage isn't configured in these tests, so there's no photo link
