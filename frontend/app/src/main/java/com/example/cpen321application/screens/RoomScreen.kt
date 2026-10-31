@@ -119,64 +119,79 @@ fun RoomScreen(viewModel: RoomViewModel, onBack: () -> Unit, modifier: Modifier 
 
 @Composable
 private fun RoomContent(state: RoomUiState, viewModel: RoomViewModel, onAddItem: () -> Unit) {
-    var draft by rememberSaveable { mutableStateOf("") }
-    val chatState = rememberLazyListState()
-    LaunchedEffect(state.messages.size) {
-        if (state.messages.isNotEmpty()) chatState.animateScrollToItem(state.messages.lastIndex)
-    }
-
     Column {
-        if (!state.isConnected) {
-            Text(
-                if (state.hasConnected) "Reconnecting…" else "Connecting…",
-                color = MaterialTheme.colorScheme.onErrorContainer,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.errorContainer)
-                    .padding(8.dp)
-                    .testTag(RECONNECTING_BANNER_TAG),
-            )
+        if (!state.isConnected) ConnectionBanner(state.hasConnected)
+        SharedBoard(state.board, canEdit = state.isConnected, onAdd = onAddItem, onRemove = viewModel::removeItem)
+        Chat(state.messages, state.currentUserId, Modifier.weight(1f))
+        MessageInput(canSend = state.isConnected, onSend = viewModel::sendMessage)
+    }
+}
+
+@Composable
+private fun ConnectionBanner(hasConnected: Boolean) {
+    Text(
+        if (hasConnected) "Reconnecting…" else "Connecting…",
+        color = MaterialTheme.colorScheme.onErrorContainer,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.errorContainer)
+            .padding(8.dp)
+            .testTag(RECONNECTING_BANNER_TAG),
+    )
+}
+
+@Composable
+private fun SharedBoard(items: List<ClothingItem>, canEdit: Boolean, onAdd: () -> Unit, onRemove: (String) -> Unit) {
+    Text("Shared outfit", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(16.dp, 8.dp))
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 16.dp)) {
+        items(items, key = ClothingItem::id) { item ->
+            BoardItem(item, canRemove = canEdit, onRemove = { onRemove(item.id) })
         }
-        Text("Shared outfit", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(16.dp, 8.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 16.dp)) {
-            items(state.board, key = ClothingItem::id) { item ->
-                BoardItem(item, canRemove = state.isConnected, onRemove = { viewModel.removeItem(item.id) })
-            }
-            item {
-                Card(
-                    Modifier.size(96.dp).clickable(enabled = state.isConnected, onClick = onAddItem).testTag(ADD_BOARD_ITEM_TAG),
-                ) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.Add, contentDescription = "Add from your closet")
-                    }
+        item {
+            Card(Modifier.size(96.dp).clickable(enabled = canEdit, onClick = onAdd).testTag(ADD_BOARD_ITEM_TAG)) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add from your closet")
                 }
             }
         }
-        LazyColumn(
-            state = chatState,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.weight(1f).fillMaxWidth().padding(16.dp),
-        ) {
-            items(state.messages, key = ChatMessage::id) { message ->
-                ChatBubble(message, isMine = message.senderId == state.currentUserId)
-            }
+    }
+}
+
+@Composable
+private fun Chat(messages: List<ChatMessage>, currentUserId: String?, modifier: Modifier) {
+    val listState = rememberLazyListState()
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+    }
+    LazyColumn(
+        state = listState,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier.fillMaxWidth().padding(16.dp),
+    ) {
+        items(messages, key = ChatMessage::id) { message ->
+            ChatBubble(message, isMine = message.senderId == currentUserId)
         }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
-            OutlinedTextField(
-                value = draft,
-                onValueChange = { draft = it },
-                placeholder = { Text("Message") },
-                modifier = Modifier.weight(1f).testTag(CHAT_INPUT_TAG),
-            )
-            IconButton(
-                onClick = {
-                    viewModel.sendMessage(draft)
-                    draft = ""
-                },
-                enabled = state.isConnected && draft.isNotBlank(),
-                modifier = Modifier.testTag(SEND_MESSAGE_TAG),
-            ) { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send") }
-        }
+    }
+}
+
+@Composable
+private fun MessageInput(canSend: Boolean, onSend: (String) -> Unit) {
+    var draft by rememberSaveable { mutableStateOf("") }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
+        OutlinedTextField(
+            value = draft,
+            onValueChange = { draft = it },
+            placeholder = { Text("Message") },
+            modifier = Modifier.weight(1f).testTag(CHAT_INPUT_TAG),
+        )
+        IconButton(
+            onClick = {
+                onSend(draft)
+                draft = ""
+            },
+            enabled = canSend && draft.isNotBlank(),
+            modifier = Modifier.testTag(SEND_MESSAGE_TAG),
+        ) { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send") }
     }
 }
 
