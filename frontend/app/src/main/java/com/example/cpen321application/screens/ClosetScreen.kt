@@ -26,10 +26,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -46,7 +44,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -198,16 +195,16 @@ private fun ClosetGrid(
             state.isLoading && items.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                 CircularProgressIndicator()
             }
-            state.loadError != null -> EmptyCloset(
+            state.loadError != null -> EmptyState(
                 title = "Couldn't load your closet",
                 message = state.loadError,
                 action = { TextButton(onClick = onRetry) { Text("Try again") } },
             )
-            items.isEmpty() -> EmptyCloset(
+            items.isEmpty() -> EmptyState(
                 title = "Your closet is empty",
                 message = "Tap Add clothing to photograph your first item.",
             )
-            visibleItems.isEmpty() -> EmptyCloset(
+            visibleItems.isEmpty() -> EmptyState(
                 title = "No ${state.selectedCategory?.label?.lowercase()} yet",
                 message = "Try another category.",
             )
@@ -269,7 +266,7 @@ private fun ClothingItemCard(item: ClothingItem, onClick: () -> Unit) {
 // The item's photo. Has a swatch in item's color underneath with category's
 // initial. This shows while the photo loads, or if no photo is available.
 @Composable
-private fun ClothingThumbnail(item: ClothingItem, modifier: Modifier = Modifier) {
+internal fun ClothingThumbnail(item: ClothingItem, modifier: Modifier = Modifier) {
     val swatch = swatchFor(item.color) ?: MaterialTheme.colorScheme.surfaceVariant
     Box(
         modifier = modifier
@@ -303,7 +300,7 @@ private fun ClothingThumbnail(item: ClothingItem, modifier: Modifier = Modifier)
 }
 
 @Composable
-private fun EmptyCloset(title: String, message: String, action: (@Composable () -> Unit)? = null) {
+internal fun EmptyState(title: String, message: String, action: (@Composable () -> Unit)? = null) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -377,7 +374,12 @@ private fun ClothingItemDetail(
             Icon(Icons.Filled.Edit, contentDescription = null)
             Text("Edit details", modifier = Modifier.padding(start = 8.dp))
         }
-        DeleteItemButton(item.name, onDelete)
+        ConfirmDeleteButton(
+            label = "Delete item",
+            title = "Delete ${item.name}?",
+            message = "It will be removed from your closet.",
+            onDelete = onDelete,
+        )
     }
 }
 
@@ -388,38 +390,6 @@ private fun NewItemNotice() {
             "Added to your closet! Check the details we detected, and tap Edit details if anything's wrong.",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(12.dp),
-        )
-    }
-}
-
-// Deletes the item after the user confirms.
-@Composable
-private fun DeleteItemButton(itemName: String, onDelete: () -> Unit) {
-    var confirmingDelete by remember { mutableStateOf(false) }
-
-    OutlinedButton(
-        onClick = { confirmingDelete = true },
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Icon(Icons.Filled.Delete, contentDescription = null)
-        Text("Delete item", modifier = Modifier.padding(start = 8.dp))
-    }
-
-    if (confirmingDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmingDelete = false },
-            title = { Text("Delete $itemName?") },
-            text = { Text("It will be removed from your closet.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmingDelete = false
-                    onDelete()
-                }) { Text("Delete") }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmingDelete = false }) { Text("Cancel") }
-            },
         )
     }
 }
