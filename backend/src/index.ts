@@ -6,24 +6,27 @@ import { attachRoomSockets } from './sockets/rooms.js';
 
 const app = createApp();
 const server = http.createServer(app);
-attachRoomSockets(server);
+const io = attachRoomSockets(server);
 
-// Connect to the database before accepting requests.
 try {
   await connectDatabase(env.mongodbUri);
 } catch (err) {
-  console.error('Failed to connect to MongoDB:', err);
-  process.exit(1);
+  throw new Error('Failed to connect to MongoDB', { cause: err });
 }
 
 server.listen(env.port, () => {
-  console.log(`Server listening on port ${env.port}`);
+  console.info(`Server listening on port ${env.port}`);
 });
 
+// Once the server and the database connection are closed, nothing keeps Node running, so it exits.
+// io.close() also closes the HTTP server, after disconnecting the room sockets that would keep it open.
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
-    server.close(() => {
-      void disconnectDatabase().finally(() => process.exit(0));
+    void io.close(() => {
+      disconnectDatabase().catch((err: unknown) => {
+        console.error('Failed to disconnect from MongoDB:', err);
+        process.exitCode = 1;
+      });
     });
   });
 }

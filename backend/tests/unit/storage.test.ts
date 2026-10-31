@@ -32,26 +32,26 @@ function mockBlobCalls() {
   const createContainer = jest
     .spyOn(ContainerClient.prototype, 'createIfNotExists')
     .mockResolvedValue({ succeeded: true } as never);
-  const upload = jest.spyOn(BlockBlobClient.prototype, 'uploadData').mockImplementation(async function (
+  const upload = jest.spyOn(BlockBlobClient.prototype, 'uploadData').mockImplementation(function (
     this: BlockBlobClient,
     data: unknown,
     options: unknown
   ) {
     uploads.push({ blob: this.name, data, options });
-    return {} as never;
+    return Promise.resolve({} as never);
   } as never);
-  jest.spyOn(BlobClient.prototype, 'deleteIfExists').mockImplementation(async function (this: BlobClient) {
+  jest.spyOn(BlobClient.prototype, 'deleteIfExists').mockImplementation(function (this: BlobClient) {
     deletes.push(this.name);
-    return { succeeded: true } as never;
+    return Promise.resolve({ succeeded: true } as never);
   } as never);
   return { uploads, deletes, createContainer, upload };
 }
 
 function fakeStorage(): FileStorage & { uploadFile: jest.Mock; getDownloadUrl: jest.Mock } {
   return {
-    uploadFile: jest.fn(async () => undefined),
-    getDownloadUrl: jest.fn(async () => 'https://signed.example/avatar.glb'),
-    deleteFile: jest.fn(async () => undefined),
+    uploadFile: jest.fn(() => Promise.resolve()),
+    getDownloadUrl: jest.fn(() => Promise.resolve('https://signed.example/avatar.glb')),
+    deleteFile: jest.fn(() => Promise.resolve()),
   } as unknown as FileStorage & { uploadFile: jest.Mock; getDownloadUrl: jest.Mock };
 }
 
@@ -199,11 +199,11 @@ describe('App-wide file storage configuration', () => {
   // Expected output: { error: "File storage is not available" }
   test('Reported to the app as 503', () => {
     const json = jest.fn();
-    const res = { status: jest.fn(() => ({ json })) } as unknown as Response;
+    const status = jest.fn(() => ({ json }));
 
-    errorHandler(new StorageNotConfiguredError(), {} as never, res, () => undefined);
+    errorHandler(new StorageNotConfiguredError(), {} as never, { status } as unknown as Response, () => undefined);
 
-    expect(res.status).toHaveBeenCalledWith(503);
+    expect(status).toHaveBeenCalledWith(503);
     expect(json).toHaveBeenCalledWith({ error: 'File storage is not available' });
   });
 });
@@ -215,9 +215,11 @@ describe('Storage keys', () => {
     const first = avatarModelKey(USER_ID);
     const second = avatarModelKey(USER_ID);
 
-    expect(first).toMatch(new RegExp(`^avatars/${USER_ID}/[0-9a-f-]{36}\\.glb$`));
+    expect(first).toMatch(/^avatars\/[0-9a-f]{24}\/[0-9a-f-]{36}\.glb$/);
+    expect(first.startsWith(`avatars/${USER_ID}/`)).toBe(true);
     expect(second).not.toBe(first);
-    expect(clothingImageKey(USER_ID, 'png')).toMatch(new RegExp(`^clothing/${USER_ID}/[0-9a-f-]{36}\\.png$`));
+    expect(clothingImageKey(USER_ID, 'png')).toMatch(/^clothing\/[0-9a-f]{24}\/[0-9a-f-]{36}\.png$/);
+    expect(clothingImageKey(USER_ID, 'png').startsWith(`clothing/${USER_ID}/`)).toBe(true);
   });
 });
 
@@ -232,7 +234,8 @@ describe('Avatar model storage', () => {
 
     const key = await saveAvatarModel(USER_ID, glb, storage);
 
-    expect(key).toMatch(new RegExp(`^avatars/${USER_ID}/.+\\.glb$`));
+    expect(key.startsWith(`avatars/${USER_ID}/`)).toBe(true);
+    expect(key).toMatch(/\.glb$/);
     expect(storage.uploadFile).toHaveBeenCalledWith(key, glb, 'model/gltf-binary');
   });
 

@@ -26,15 +26,15 @@ const GLB = new Uint8Array([0x67, 0x6c, 0x54, 0x46]);
 // Stand-in for file storage (Azure Blob Storage).
 function mockStorage(options: { uploadError?: Error; deleteError?: Error } = {}) {
   const storage = {
-    uploadFile: jest.fn(async (_key: string, _body: Uint8Array | ArrayBuffer, _contentType: string) => {
-      if (options.uploadError) throw options.uploadError;
-    }),
-    getDownloadUrl: jest.fn(async (key: string) => `https://storage.test/${key}?sig=test`),
-    deleteFile: jest.fn(async (_key: string) => {
-      if (options.deleteError) throw options.deleteError;
-    }),
+    uploadFile: jest.fn<FileStorage['uploadFile']>(() =>
+      options.uploadError ? Promise.reject(options.uploadError) : Promise.resolve()
+    ),
+    getDownloadUrl: jest.fn<FileStorage['getDownloadUrl']>((key) => Promise.resolve(`https://storage.test/${key}?sig=test`)),
+    deleteFile: jest.fn<FileStorage['deleteFile']>(() =>
+      options.deleteError ? Promise.reject(options.deleteError) : Promise.resolve()
+    ),
   };
-  setFileStorage(storage as FileStorage);
+  setFileStorage(storage);
   return storage;
 }
 
@@ -72,7 +72,8 @@ describe('Mocked: POST /avatar', () => {
     expect(response.status).toBe(201);
     expect(exportAvatar).toHaveBeenCalledWith(MEASUREMENTS);
     const [key, body, contentType] = storage.uploadFile.mock.calls[0] ?? [];
-    expect(key).toMatch(new RegExp(`^avatars/${user.id}/[0-9a-f-]{36}\\.glb$`));
+    expect(key).toMatch(/^avatars\/[0-9a-f]{24}\/[0-9a-f-]{36}\.glb$/);
+    expect(key?.startsWith(`avatars/${user.id}/`)).toBe(true);
     expect(body).toBe(GLB);
     expect(contentType).toBe('model/gltf-binary');
     expect(response.body).toEqual({ downloadUrl: `https://storage.test/${key}?sig=test`, contentType: 'model/gltf-binary' });
