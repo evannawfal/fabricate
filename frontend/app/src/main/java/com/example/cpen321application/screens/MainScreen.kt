@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -28,15 +29,18 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cpen321application.R
 import com.example.cpen321application.data.ClothingRepository
+import com.example.cpen321application.data.ProfileRepository
 import com.example.cpen321application.data.RoomsRepository
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
 import com.example.cpen321application.viewmodel.ClosetViewModel
+import com.example.cpen321application.viewmodel.ProfileViewModel
 
 /** Top-level tabs reachable from the bottom navigation bar. */
 enum class Tab(@StringRes val labelRes: Int, val icon: ImageVector) {
   Closet(R.string.tab_closet, Icons.AutoMirrored.Filled.List),
   Avatar(R.string.tab_avatar, Icons.Filled.Face),
   Rooms(R.string.tab_rooms, Icons.Filled.Person),
+  Profile(R.string.tab_profile, Icons.Filled.AccountCircle),
 }
 
 /**
@@ -47,6 +51,7 @@ enum class Tab(@StringRes val labelRes: Int, val icon: ImageVector) {
 fun MainScreen(
   clothingRepository: ClothingRepository,
   roomsRepository: RoomsRepository,
+  profileRepository: ProfileRepository,
   onSignOut: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
@@ -84,6 +89,7 @@ fun MainScreen(
       Tab.Closet -> ClosetScreen(closetViewModel, contentModifier)
       Tab.Avatar -> AvatarRoute(contentModifier)
       Tab.Rooms -> RoomsRoute(roomsRepository, clothingRepository, contentModifier)
+      Tab.Profile -> ProfileScreen(viewModel { ProfileViewModel(profileRepository) }, contentModifier)
     }
   }
 
