@@ -26,23 +26,25 @@ const JACKET: ClothingClassification = { name: 'Washed denim jacket', category: 
 
 // Stand-ins for the photo classifier (Claude API) and file storage (Azure Blob Storage).
 function mockClassifier(result: ClothingClassification | Error) {
-  const classify = jest.fn(async (_image: Uint8Array, _mediaType: string) => {
-    if (result instanceof Error) throw result;
-    return result;
-  });
-  setClothingClassifier({ classify } as ClothingClassifier);
+  const classify = jest.fn<ClothingClassifier['classify']>();
+  if (result instanceof Error) {
+    classify.mockRejectedValue(result);
+  } else {
+    classify.mockResolvedValue(result);
+  }
+  setClothingClassifier({ classify });
   return classify;
 }
 
 function mockStorage(options: { uploadError?: Error } = {}) {
   const storage = {
-    uploadFile: jest.fn(async (_key: string, _body: Uint8Array | ArrayBuffer, _contentType: string) => {
-      if (options.uploadError) throw options.uploadError;
-    }),
-    getDownloadUrl: jest.fn(async (key: string) => `https://storage.test/${key}?sig=test`),
-    deleteFile: jest.fn(async (_key: string) => undefined),
+    uploadFile: jest.fn<FileStorage['uploadFile']>(() =>
+      options.uploadError ? Promise.reject(options.uploadError) : Promise.resolve()
+    ),
+    getDownloadUrl: jest.fn<FileStorage['getDownloadUrl']>((key) => Promise.resolve(`https://storage.test/${key}?sig=test`)),
+    deleteFile: jest.fn<FileStorage['deleteFile']>(() => Promise.resolve()),
   };
-  setFileStorage(storage as FileStorage);
+  setFileStorage(storage);
   return storage;
 }
 
@@ -83,7 +85,8 @@ describe('Mocked: POST /clothing', () => {
     expect(response.body).toMatchObject({ ...JACKET, tags: [], isClean: true, isArchived: false });
     expect(classify).toHaveBeenCalledWith(expect.any(Buffer), 'image/jpeg');
     const [key, body, contentType] = storage.uploadFile.mock.calls[0] ?? [];
-    expect(key).toMatch(new RegExp(`^clothing/${user.id}/[0-9a-f-]{36}\\.jpg$`));
+    expect(key).toMatch(/^clothing\/[0-9a-f]{24}\/[0-9a-f-]{36}\.jpg$/);
+    expect(key?.startsWith(`clothing/${user.id}/`)).toBe(true);
     expect(Buffer.from(body as Uint8Array).equals(JPEG)).toBe(true);
     expect(contentType).toBe('image/jpeg');
     expect(response.body.imageUrl).toBe(`https://storage.test/${key}?sig=test`);
