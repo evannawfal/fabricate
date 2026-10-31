@@ -33,7 +33,9 @@ data class OutfitsUiState(
     val saveError: String? = null,
     val isDeleting: Boolean = false,
     val deleteError: String? = null,
-)
+) {
+    val isBusy: Boolean get() = isSaving || isDeleting
+}
 
 class OutfitsViewModel(private val repository: OutfitRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(OutfitsUiState())
@@ -60,7 +62,7 @@ class OutfitsViewModel(private val repository: OutfitRepository) : ViewModel() {
     fun startEditing(outfit: Outfit) =
         _uiState.update { it.copy(draft = OutfitDraft(outfit.id, outfit.name, outfit.items), saveError = null) }
 
-    fun closeDraft() = _uiState.update { it.copy(draft = null, saveError = null) }
+    fun closeDraft() = _uiState.update { if (it.isBusy) it else it.copy(draft = null, saveError = null) }
 
     fun rename(name: String) = updateDraft { it.copy(name = name.take(NAME_MAX_LENGTH)) }
 
@@ -73,12 +75,12 @@ class OutfitsViewModel(private val repository: OutfitRepository) : ViewModel() {
     }
 
     private fun updateDraft(change: (OutfitDraft) -> OutfitDraft) =
-        _uiState.update { state -> state.copy(draft = state.draft?.let(change)) }
+        _uiState.update { state -> if (state.isBusy) state else state.copy(draft = state.draft?.let(change)) }
 
     fun saveDraft() {
         val state = _uiState.value
         val draft = state.draft ?: return
-        if (state.isSaving || !draft.canSave) return
+        if (state.isBusy || !draft.canSave) return
         _uiState.update { it.copy(isSaving = true, saveError = null) }
         viewModelScope.launch {
             try {
@@ -94,7 +96,7 @@ class OutfitsViewModel(private val repository: OutfitRepository) : ViewModel() {
     }
 
     fun deleteOutfit(id: String) {
-        if (_uiState.value.isDeleting) return
+        if (_uiState.value.isBusy) return
         _uiState.update { it.copy(isDeleting = true) }
         viewModelScope.launch {
             try {

@@ -58,9 +58,13 @@ class BackendOutfitRepository(
 }
 
 internal const val OUTFIT_NOT_FOUND = "This outfit no longer exists."
+internal const val OUTFITS_UNAVAILABLE = "Outfits aren't available right now. Try again later."
 
-internal fun outfitErrorMessageFor(status: Int, serverError: String?): String =
-    if (status == 404) OUTFIT_NOT_FOUND else errorMessageFor(status, serverError)
+internal fun outfitErrorMessageFor(status: Int, serverError: String?): String = when (status) {
+    404 -> OUTFIT_NOT_FOUND
+    503 -> OUTFITS_UNAVAILABLE
+    else -> errorMessageFor(status, serverError)
+}
 
 // Items in a category this app doesn't know are left out, same as in the closet.
 internal fun parseOutfit(json: JSONObject): Outfit {
