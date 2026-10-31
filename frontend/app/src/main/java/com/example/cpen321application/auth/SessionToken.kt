@@ -13,6 +13,7 @@ object SessionToken {
 
   // The JWT payload's "exp" claim: seconds since the epoch.
   private val EXPIRY_CLAIM = Regex("\"exp\"\\s*:\\s*(\\d+)")
+  private val SUBJECT_CLAIM = Regex("\"sub\"\\s*:\\s*\"([^\"]+)\"")
 
   /** True if [token] has expired at [nowMillis], or isn't a readable JWT. */
   fun isExpired(token: String, nowMillis: Long = System.currentTimeMillis()): Boolean {
@@ -20,9 +21,14 @@ object SessionToken {
     return nowMillis >= expirySeconds * MILLIS_PER_SECOND
   }
 
-  private fun expirySeconds(token: String): Long? {
+  /** The signed-in user's id, or null if [token] isn't a readable JWT. */
+  fun userId(token: String): String? = claim(token, SUBJECT_CLAIM)
+
+  private fun expirySeconds(token: String): Long? = claim(token, EXPIRY_CLAIM)?.toLongOrNull()
+
+  private fun claim(token: String, pattern: Regex): String? {
     val payload = token.split('.').getOrNull(1) ?: return null
     val json = runCatching { String(Base64.getUrlDecoder().decode(payload), Charsets.UTF_8) }.getOrNull()
-    return json?.let { EXPIRY_CLAIM.find(it) }?.groupValues?.get(1)?.toLongOrNull()
+    return json?.let { pattern.find(it) }?.groupValues?.get(1)
   }
 }
