@@ -37,11 +37,12 @@ class OutfitsScreenTest {
     private val sneakers = ClothingItem("3", "White Sneakers", ClothingCategory.Shoes, "white", "casual")
     private val closet = listOf(hoodie, jeans, sneakers)
     private val weekend = Outfit("o1", "Weekend", listOf(hoodie, jeans))
+    private lateinit var viewModel: OutfitsViewModel
 
     private fun showOutfits(outfits: List<Outfit> = emptyList(), listError: String? = null): FakeOutfitRepository {
         val repository = FakeOutfitRepository(outfits, closet)
         repository.listError = listError
-        val viewModel = OutfitsViewModel(repository)
+        viewModel = OutfitsViewModel(repository)
         composeRule.setContent { OutfitsScreen(viewModel, closet) }
         return repository
     }
@@ -185,6 +186,46 @@ class OutfitsScreenTest {
         gate.complete(Unit)
         composeRule.onNodeWithText("No outfits yet").assertIsDisplayed()
         assertEquals(0, repository.outfits.size)
+    }
+
+    // The buttons are disabled during a request, so these call the view model directly.
+    @Test
+    fun secondRequestIsIgnoredWhileSaving() {
+        val gate = CompletableDeferred<Unit>()
+        val repository = showOutfits(listOf(weekend))
+        repository.saveGate = gate
+
+        composeRule.onNodeWithText("Weekend").performClick()
+        composeRule.onNodeWithTag(SAVE_OUTFIT_BUTTON_TAG).performClick()
+        composeRule.runOnIdle {
+            viewModel.saveDraft()
+            viewModel.deleteOutfit(weekend.id)
+        }
+        gate.complete(Unit)
+
+        composeRule.onNodeWithText("My Outfits").assertIsDisplayed()
+        assertEquals(1, repository.saveCalls)
+        assertEquals(0, repository.deleteCalls)
+    }
+
+    @Test
+    fun secondRequestIsIgnoredWhileDeleting() {
+        val gate = CompletableDeferred<Unit>()
+        val repository = showOutfits(listOf(weekend))
+        repository.deleteGate = gate
+
+        composeRule.onNodeWithText("Weekend").performClick()
+        composeRule.onNodeWithText("Delete outfit").performClick()
+        composeRule.onNodeWithText("Delete").performClick()
+        composeRule.runOnIdle {
+            viewModel.deleteOutfit(weekend.id)
+            viewModel.saveDraft()
+        }
+        gate.complete(Unit)
+
+        composeRule.onNodeWithText("No outfits yet").assertIsDisplayed()
+        assertEquals(1, repository.deleteCalls)
+        assertEquals(0, repository.saveCalls)
     }
 
     @Test

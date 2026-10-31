@@ -17,6 +17,8 @@ class FakeOutfitRepository(
     private val closet: List<ClothingItem> = emptyList(),
 ) : OutfitRepository {
     val outfits = initialOutfits.toMutableList()
+    var saveCalls = 0
+    var deleteCalls = 0
 
     var listError: String? = null
     var saveError: String? = null
@@ -31,12 +33,14 @@ class FakeOutfitRepository(
     }
 
     override suspend fun createOutfit(changes: OutfitChanges): Outfit {
+        saveCalls++
         saveGate?.await()
         saveError?.let { throw ClothingRepositoryException(it) }
         return Outfit("new-${nextId++}", changes.name, itemsFor(changes)).also { outfits.add(0, it) }
     }
 
     override suspend fun updateOutfit(id: String, changes: OutfitChanges): Outfit {
+        saveCalls++
         saveGate?.await()
         saveError?.let { throw ClothingRepositoryException(it) }
         val index = outfits.indexOfFirst { it.id == id }
@@ -46,6 +50,7 @@ class FakeOutfitRepository(
     }
 
     override suspend fun deleteOutfit(id: String) {
+        deleteCalls++
         deleteGate?.await()
         deleteError?.let { throw ClothingRepositoryException(it) }
         outfits.removeAll { it.id == id }
