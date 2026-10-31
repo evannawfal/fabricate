@@ -8,7 +8,7 @@ import {
   startTestDatabase,
   stopTestDatabase,
 } from '../helpers/database.js';
-import { authHeader, createUser, makeFriends } from '../helpers/fixtures.js';
+import { authHeader, createUser, makeFriends, UNKNOWN_ID } from '../helpers/fixtures.js';
 
 const app = createApp();
 
@@ -147,5 +147,59 @@ describe('Unmocked: DELETE /friends/:id', () => {
 
     expect(response.status).toBe(status);
     expect(response.body.error).toEqual(expect.any(String));
+  });
+});
+
+// Interfaces GET /friends, POST /friends and DELETE /friends/:id
+describe('Unmocked: friend endpoints without sign-in', () => {
+  // Input: no Authorization header
+  // Expected status code: 401
+  // Expected behavior: the request is rejected before the handler runs
+  // Expected output: { error: "Missing token" }
+  test.each([
+    ['get', '/friends'],
+    ['post', '/friends'],
+    ['delete', `/friends/${UNKNOWN_ID}`],
+  ] as const)('%s %s requires sign-in', async (method, path) => {
+    const response = await request(app)[method](path).send({ email: 'a@b.c' });
+
+    expect(response.status).toBe(401);
+  });
+});
+
+// A friendship that only reached one of the two lists, e.g. after a database error part way through.
+describe('Unmocked: half-saved friendships', () => {
+  async function halfFriends() {
+    const user = await createUser();
+    const friend = await createUser();
+    await User.updateOne({ _id: friend._id }, { $addToSet: { friends: user._id } });
+    return { user, friend };
+  }
+
+  // Input: POST /friends with the email of a user whose list has the user, but not the other way round
+  // Expected status code: 201
+  // Expected behavior: the missing side is added, so both lists have each other
+  // Expected output: the friend
+  test('Adding again completes the friendship', async () => {
+    const { user, friend } = await halfFriends();
+
+    const response = await request(app).post('/friends').set('Authorization', authHeader(user.id)).send({ email: friend.email });
+
+    expect(response.status).toBe(201);
+    expect(await friendIdsOf(user.id)).toEqual([friend.id]);
+    expect(await friendIdsOf(friend.id)).toEqual([user.id]);
+  });
+
+  // Input: DELETE /friends/:id for that user
+  // Expected status code: 204
+  // Expected behavior: the remaining side is removed
+  // Expected output: empty body
+  test('Removing clears the remaining side', async () => {
+    const { user, friend } = await halfFriends();
+
+    const response = await request(app).delete(`/friends/${friend.id}`).set('Authorization', authHeader(user.id));
+
+    expect(response.status).toBe(204);
+    expect(await friendIdsOf(friend.id)).toEqual([]);
   });
 });
