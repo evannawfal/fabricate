@@ -1,7 +1,9 @@
 package com.example.cpen321application
 
 import com.example.cpen321application.auth.SessionToken
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Base64
@@ -45,5 +47,12 @@ class SessionTokenTest {
         assertTrue(SessionToken.isExpired("not-a-jwt", now))
         assertTrue(SessionToken.isExpired("header.%%%.signature", now))
         assertTrue(SessionToken.isExpired("", now))
+    }
+
+    @Test
+    fun userId_readsTheSubjectClaim() {
+        assertEquals("abc123", SessionToken.userId(token("""{"sub":"abc123","exp":$nowSeconds}""")))
+        assertNull(SessionToken.userId(token("""{"exp":$nowSeconds}""")))
+        assertNull(SessionToken.userId("not-a-jwt"))
     }
 }

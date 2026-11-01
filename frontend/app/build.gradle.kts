@@ -95,6 +95,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.okhttp)
     implementation(libs.coil.compose)
+    implementation(libs.socketio.client)
     implementation("io.github.sceneview:sceneview:2.3.0")
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services)
