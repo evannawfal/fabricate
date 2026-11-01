@@ -6,36 +6,31 @@ import com.example.cpen321application.data.ClothingRepository
 import com.example.cpen321application.data.ClothingRepositoryException
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONException
 import org.json.JSONObject
-import java.io.IOException
-import java.net.HttpURLConnection
 import java.util.concurrent.TimeUnit
 
 /**
- * The closet on the back-end (`/clothing`). Every request is sent with the access
- * token from [tokenProvider], which returns null while the user isn't signed in.
- * [onUnauthorized] runs when the back-end rejects the token, e.g. after it expired.
+ * The closet on the back-end (`/clothing`). Requests are sent as the signed-in user;
+ * see [AuthorizedClient] for [tokenProvider] and [onUnauthorized].
  */
 class BackendClothingRepository(
-    private val tokenProvider: suspend () -> String?,
-    private val onUnauthorized: suspend () -> Unit = {},
+    tokenProvider: suspend () -> String?,
+    onUnauthorized: suspend () -> Unit = {},
     baseUrl: String = BuildConfig.API_BASE_URL,
-    private val client: OkHttpClient = defaultClient,
+    client: OkHttpClient = defaultClient,
 ) : ClothingRepository {
+    private val http = AuthorizedClient(tokenProvider, onUnauthorized, client)
     private val clothingUrl = "${baseUrl.trimEnd('/')}/clothing"
 
     override suspend fun listItems(): List<ClothingItem> {
         val body = send(Request.Builder().url(clothingUrl).get())
-        val items = parse { JSONObject(body).getJSONArray("items") }
-        return (0 until items.length()).mapNotNull { parse { parseClothingItem(items.getJSONObject(it)) } }
+        val items = parseResponse { JSONObject(body).getJSONArray("items") }
+        return (0 until items.length()).mapNotNull { parseResponse { parseClothingItem(items.getJSONObject(it)) } }
     }
 
     override suspend fun uploadPhoto(jpeg: ByteArray): ClothingItem {
@@ -60,36 +55,10 @@ class BackendClothingRepository(
         send(Request.Builder().url("$clothingUrl/$id").delete())
     }
 
-    private suspend fun send(request: Request.Builder): String = withContext(Dispatchers.IO) {
-        val token = tokenProvider() ?: throw ClothingRepositoryException(NOT_SIGNED_IN)
-        try {
-            client.newCall(request.header("Authorization", "Bearer $token").build()).execute().use { response ->
-                val body = response.body?.string().orEmpty()
-                if (response.code == HttpURLConnection.HTTP_UNAUTHORIZED) {
-                    onUnauthorized()
-                }
-                if (!response.isSuccessful) {
-                    throw ClothingRepositoryException(
-                        errorMessageFor(response.code, serverError(body)),
-                        canRetry = response.code >= 500,
-                    )
-                }
-                body
-            }
-        } catch (e: IOException) {
-            throw ClothingRepositoryException(NETWORK_ERROR, e, canRetry = true)
-        }
-    }
+    private suspend fun send(request: Request.Builder): String = http.send(request, ::errorMessageFor)
 
     private fun parseItem(body: String): ClothingItem =
-        parse { parseClothingItem(JSONObject(body)) } ?: throw ClothingRepositoryException(UNEXPECTED_RESPONSE)
-
-    private fun <T> parse(block: () -> T): T =
-        try {
-            block()
-        } catch (e: JSONException) {
-            throw ClothingRepositoryException(UNEXPECTED_RESPONSE, e)
-        }
+        parseResponse { parseClothingItem(JSONObject(body)) } ?: throw ClothingRepositoryException(UNEXPECTED_RESPONSE)
 
     private companion object {
         val JPEG = "image/jpeg".toMediaType()
@@ -117,13 +86,6 @@ internal fun errorMessageFor(status: Int, serverError: String?): String = when (
     503 -> "Adding clothing isn't available right now. Try again later."
     else -> "Something went wrong (error $status). Try again."
 }
-
-private fun serverError(body: String): String? =
-    try {
-        JSONObject(body).optString("error").ifBlank { null }
-    } catch (e: JSONException) {
-        null
-    }
 
 internal fun parseClothingItem(json: JSONObject): ClothingItem? {
     val category = ClothingCategory.fromApiValue(json.getString("category")) ?: return null
