@@ -16,3 +16,23 @@ export const SHOULDER_WIDTH_RANGE = { min: 0.25, max: 0.6 };
 export const CHEST_WIDTH_RANGE = { min: 0.1, max: 1.0 };
 export const WAIST_WIDTH_RANGE = { min: 0.1, max: 2.0 };
 export const HIP_WIDTH_RANGE = { min: 0.1, max: 1.5 };
+
+// A closet this small is too thin for shares to mean much, so only empty categories count as gaps.
+export const MIN_ITEMS_FOR_CLOSET_SHARES = 10;
+export const MIN_CATEGORY_SHARES = { top: 0.2, bottom: 0.2, shoes: 0.15, outerwear: 0.05 } as const;
+export const MIN_VERSATILE_PAIRINGS = 2;
+export const MAX_PAIRED_ITEMS = 6;
+export const COLOR_FAMILIES = {
+  neutral: ['black', 'white', 'grey', 'gray', 'beige', 'cream', 'tan', 'khaki', 'brown', 'navy', 'denim', 'charcoal', 'ivory', 'camel'],
+  warm: ['red', 'orange', 'yellow', 'pink', 'coral', 'burgundy', 'maroon', 'gold', 'mustard', 'rust'],
+  cool: ['blue', 'green', 'purple', 'teal', 'turquoise', 'olive', 'mint', 'lavender', 'silver'],
+} as const;
+export const STYLE_PAIRINGS = {
+  casual: ['casual', 'streetwear', 'sporty', 'outdoor', 'loungewear'],
+  formal: ['formal', 'business'],
+  business: ['business', 'formal', 'casual'],
+  sporty: ['sporty', 'casual', 'streetwear', 'outdoor'],
+  streetwear: ['streetwear', 'casual', 'sporty'],
+  loungewear: ['loungewear', 'casual'],
+  outdoor: ['outdoor', 'casual', 'sporty'],
+} as const;
