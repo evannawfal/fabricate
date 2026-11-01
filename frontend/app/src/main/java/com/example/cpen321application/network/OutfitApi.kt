@@ -3,7 +3,11 @@ package com.example.cpen321application.network
 import com.example.cpen321application.BuildConfig
 import com.example.cpen321application.data.OutfitChanges
 import com.example.cpen321application.data.OutfitRepository
+import com.example.cpen321application.model.Coordinates
+import com.example.cpen321application.model.GeneratedOutfit
 import com.example.cpen321application.model.Outfit
+import com.example.cpen321application.model.OutfitOccasion
+import com.example.cpen321application.model.Weather
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -11,6 +15,7 @@ import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 
 /**
  * The user's outfits on the back-end (`/outfits`). Requests are sent as the signed-in
@@ -20,7 +25,7 @@ class BackendOutfitRepository(
     tokenProvider: suspend () -> String?,
     onUnauthorized: suspend () -> Unit = {},
     baseUrl: String = BuildConfig.API_BASE_URL,
-    client: OkHttpClient = OkHttpClient(),
+    client: OkHttpClient = defaultClient,
 ) : OutfitRepository {
     private val http = AuthorizedClient(tokenProvider, onUnauthorized, client)
     private val outfitsUrl = "${baseUrl.trimEnd('/')}/outfits"
@@ -29,6 +34,17 @@ class BackendOutfitRepository(
         val body = send(Request.Builder().url(outfitsUrl).get())
         val outfits = parseResponse { JSONObject(body).getJSONArray("outfits") }
         return (0 until outfits.length()).map { parseResponse { parseOutfit(outfits.getJSONObject(it)) } }
+    }
+
+    override suspend fun generateOutfit(occasion: OutfitOccasion, coordinates: Coordinates): GeneratedOutfit {
+        val body = JSONObject()
+            .put("occasion", occasion.apiValue)
+            .put("latitude", coordinates.latitude)
+            .put("longitude", coordinates.longitude)
+            .toString()
+            .toRequestBody(JSON)
+        val response = send(Request.Builder().url("$outfitsUrl/generate").post(body))
+        return parseResponse { parseGeneratedOutfit(JSONObject(response), occasion) }
     }
 
     override suspend fun createOutfit(changes: OutfitChanges): Outfit =
@@ -49,11 +65,17 @@ class BackendOutfitRepository(
         JSONObject()
             .put("name", name)
             .put("items", JSONArray(itemIds))
+            .putOpt("occasion", occasion?.apiValue)
             .toString()
             .toRequestBody(JSON)
 
     private companion object {
         val JSON = "application/json".toMediaType()
+
+        // The back-end can spend over 90 s on generation: Claude's timeout, retried twice.
+        val defaultClient: OkHttpClient = OkHttpClient.Builder()
+            .readTimeout(2, TimeUnit.MINUTES)
+            .build()
     }
 }
 
@@ -76,3 +98,21 @@ internal fun parseOutfit(json: JSONObject): Outfit {
         occasion = json.optString("occasion"),
     )
 }
+
+internal fun parseGeneratedOutfit(json: JSONObject, occasion: OutfitOccasion): GeneratedOutfit {
+    val outfit = json.getJSONObject("outfit")
+    val items = outfit.getJSONArray("items")
+    return GeneratedOutfit(
+        name = outfit.getString("name"),
+        occasion = occasion,
+        items = (0 until items.length()).mapNotNull { parseClothingItem(items.getJSONObject(it)) },
+        weather = if (json.isNull("weather")) null else parseWeather(json.getJSONObject("weather")),
+    )
+}
+
+private fun parseWeather(json: JSONObject): Weather =
+    Weather(
+        temperatureC = json.getInt("temperatureC"),
+        condition = json.getString("condition"),
+        description = json.getString("description"),
+    )
