@@ -11,6 +11,7 @@ import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.cpen321application.fakes.FakeClothingRepository
 import com.example.cpen321application.fakes.FakeOutfitRepository
+import com.example.cpen321application.fakes.FakeProfileRepository
 import com.example.cpen321application.fakes.FakeRoomsRepository
 import com.example.cpen321application.screens.MainScreen
 import org.junit.Assert.assertEquals
@@ -31,6 +32,7 @@ class MainScreenTest {
                 clothingRepository = FakeClothingRepository(emptyList()),
                 outfitRepository = FakeOutfitRepository(),
                 roomsRepository = FakeRoomsRepository(),
+                profileRepository = FakeProfileRepository(),
                 onSignOut = { signOutCalls++ },
             )
         }

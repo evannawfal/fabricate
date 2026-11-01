@@ -2,9 +2,11 @@ import http from 'node:http';
 import { createApp } from './app.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
 import { env } from './config/env.js';
+import { attachRoomSockets } from './sockets/rooms.js';
 
 const app = createApp();
 const server = http.createServer(app);
+const io = attachRoomSockets(server);
 
 try {
   await connectDatabase(env.mongodbUri);
@@ -17,9 +19,10 @@ server.listen(env.port, () => {
 });
 
 // Once the server and the database connection are closed, nothing keeps Node running, so it exits.
+// io.close() also closes the HTTP server, after disconnecting the room sockets that would keep it open.
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
-    server.close(() => {
+    void io.close(() => {
       disconnectDatabase().catch((err: unknown) => {
         console.error('Failed to disconnect from MongoDB:', err);
         process.exitCode = 1;
