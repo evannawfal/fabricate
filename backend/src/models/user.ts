@@ -12,6 +12,7 @@ const userSchema = new Schema(
       type: String,
       default: null,
     },
+    friends: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   },
   { timestamps: true }
 );
@@ -19,3 +20,12 @@ const userSchema = new Schema(
 export type UserDocument = InferSchemaType<typeof userSchema>;
 
 export const User = model('User', userSchema);
+
+export function displayName(user: { givenName?: string | null; familyName?: string | null; email?: string | null }): string {
+  return [user.givenName, user.familyName].filter(Boolean).join(' ') || user.email || 'Unknown user';
+}
+
+export async function getFriendIds(userId: string): Promise<string[]> {
+  const user = await User.findById(userId, { friends: 1 });
+  return user?.friends.map((id) => id.toString()) ?? [];
+}

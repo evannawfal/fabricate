@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { connectDatabase, disconnectDatabase } from '../../src/config/database.js';
 import '../../src/models/clothingItem.js';
 import '../../src/models/outfit.js';
+import '../../src/models/room.js';
 import '../../src/models/user.js';
 
 // Starts a real, throwaway MongoDB for a test file. The first run downloads a MongoDB binary.

@@ -31,6 +31,10 @@ export type OutfitDocument = HydratedDocument<InferSchemaType<typeof outfitSchem
 
 export const Outfit = model('Outfit', outfitSchema);
 
+export function saveOutfit(ownerId: string, name: string, itemIds: string[]): Promise<OutfitDocument> {
+  return Outfit.create({ owner: ownerId, name, items: itemIds, source: 'manual' });
+}
+
 export interface OutfitResponse {
   id: string;
   name: string;
