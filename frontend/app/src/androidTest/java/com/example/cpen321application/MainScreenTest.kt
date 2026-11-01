@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.cpen321application.fakes.FakeClothingRepository
+import com.example.cpen321application.fakes.FakeOutfitRepository
 import com.example.cpen321application.fakes.FakeProfileRepository
 import com.example.cpen321application.fakes.FakeRoomsRepository
 import com.example.cpen321application.screens.MainScreen
@@ -29,6 +30,7 @@ class MainScreenTest {
         composeRule.setContent {
             MainScreen(
                 clothingRepository = FakeClothingRepository(emptyList()),
+                outfitRepository = FakeOutfitRepository(),
                 roomsRepository = FakeRoomsRepository(),
                 profileRepository = FakeProfileRepository(),
                 onSignOut = { signOutCalls++ },
@@ -50,6 +52,17 @@ class MainScreenTest {
         composeRule.onNodeWithText("Avatar").performClick()
         // A fresh test install has no saved avatar yet.
         composeRule.onNodeWithText("Update avatar").assertIsDisplayed()
+
+        pressBack()
+        composeRule.onNodeWithText("My Closet").assertIsDisplayed()
+    }
+
+    @Test
+    fun switchesToOutfitsAndBackReturnsToCloset() {
+        showMainScreen()
+
+        composeRule.onNodeWithText("Outfits").performClick()
+        composeRule.onNodeWithText("My Outfits").assertIsDisplayed()
 
         pressBack()
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()

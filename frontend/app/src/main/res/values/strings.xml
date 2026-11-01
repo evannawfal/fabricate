@@ -8,6 +8,7 @@
     <string name="login_error_network">Can\'t reach the server. Check your connection and try again.</string>
     <string name="login_error_rejected">Your Google account couldn\'t be verified. Please try again.</string>
     <string name="tab_closet">Closet</string>
+    <string name="tab_outfits">Outfits</string>
     <string name="tab_avatar">Avatar</string>
     <string name="tab_rooms">Rooms</string>
     <string name="tab_profile">Profile</string>
