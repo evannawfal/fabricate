@@ -31,6 +31,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cpen321application.R
 import com.example.cpen321application.data.ClothingRepository
+import com.example.cpen321application.data.LocationProvider
 import com.example.cpen321application.data.OutfitRepository
 import com.example.cpen321application.data.ProfileRepository
 import com.example.cpen321application.data.RoomsRepository
@@ -56,6 +57,7 @@ enum class Tab(@StringRes val labelRes: Int, val icon: ImageVector) {
 fun MainScreen(
   clothingRepository: ClothingRepository,
   outfitRepository: OutfitRepository,
+  locationProvider: LocationProvider,
   roomsRepository: RoomsRepository,
   profileRepository: ProfileRepository,
   onSignOut: () -> Unit,
@@ -64,7 +66,7 @@ fun MainScreen(
   var tab by rememberSaveable { mutableStateOf(Tab.Closet) }
   var confirmingSignOut by rememberSaveable { mutableStateOf(false) }
   val closetViewModel: ClosetViewModel = viewModel { ClosetViewModel(clothingRepository) }
-  val outfitsViewModel: OutfitsViewModel = viewModel { OutfitsViewModel(outfitRepository) }
+  val outfitsViewModel: OutfitsViewModel = viewModel { OutfitsViewModel(outfitRepository, locationProvider) }
 
   // Back from another tab returns to the Closet tab before leaving the app.
   BackHandler(enabled = tab != Tab.Closet) { tab = Tab.Closet }

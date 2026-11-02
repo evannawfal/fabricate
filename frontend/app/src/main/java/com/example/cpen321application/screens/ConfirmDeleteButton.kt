@@ -29,12 +29,13 @@ fun ConfirmDeleteButton(
     message: String,
     onDelete: () -> Unit,
     isDeleting: Boolean = false,
+    enabled: Boolean = true,
 ) {
     var confirmingDelete by remember { mutableStateOf(false) }
 
     OutlinedButton(
         onClick = { confirmingDelete = true },
-        enabled = !isDeleting,
+        enabled = enabled && !isDeleting,
         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
         modifier = Modifier.fillMaxWidth(),
     ) {
