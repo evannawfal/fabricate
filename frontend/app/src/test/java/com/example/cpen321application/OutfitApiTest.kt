@@ -4,6 +4,7 @@ import com.example.cpen321application.data.ClothingRepositoryException
 import com.example.cpen321application.data.OutfitChanges
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.network.BackendOutfitRepository
+import com.example.cpen321application.network.OUTFITS_UNAVAILABLE
 import com.example.cpen321application.network.OUTFIT_NOT_FOUND
 import com.example.cpen321application.network.UNEXPECTED_RESPONSE
 import kotlinx.coroutines.runBlocking
@@ -129,6 +130,13 @@ class OutfitApiTest {
         respond(404, """{"error":"Outfit not found"}""")
 
         assertFailsWith(OUTFIT_NOT_FOUND) { repository.deleteOutfit("o1") }
+    }
+
+    @Test
+    fun unavailableServer_saysOutfitsAreUnavailable() {
+        respond(503, """{"error":"Outfit generation is not available right now"}""")
+
+        assertFailsWith(OUTFITS_UNAVAILABLE) { repository.listOutfits() }
     }
 
     @Test

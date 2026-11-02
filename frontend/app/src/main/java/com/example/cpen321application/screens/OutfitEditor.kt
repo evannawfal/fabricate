@@ -70,7 +70,7 @@ internal fun OutfitEditor(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = viewModel::closeDraft) {
+            IconButton(onClick = viewModel::closeDraft, enabled = !state.isBusy) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
             Text(if (isNew) "New outfit" else "Edit outfit", style = MaterialTheme.typography.headlineSmall)
@@ -80,6 +80,7 @@ internal fun OutfitEditor(
             onValueChange = viewModel::rename,
             label = { Text("Name") },
             singleLine = true,
+            enabled = !state.isBusy,
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(OUTFIT_NAME_FIELD_TAG),
@@ -88,10 +89,16 @@ internal fun OutfitEditor(
             Text("Your closet is empty. Add clothing in the Closet tab first.")
         }
         choices.forEach { (category, items) ->
-            ItemChoiceRow(category.label, items, draft, onToggle = viewModel::toggleItem)
+            ItemChoiceRow(category.label, items, draft, enabled = !state.isBusy, onToggle = viewModel::toggleItem)
         }
         state.saveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        SaveOutfitButton(isNew, draft.canSave, state.isSaving, onSave = viewModel::saveDraft)
+        SaveOutfitButton(
+            isNew = isNew,
+            canSave = draft.canSave,
+            isSaving = state.isSaving,
+            enabled = !state.isBusy,
+            onSave = viewModel::saveDraft,
+        )
         if (!isNew) {
             ConfirmDeleteButton(
                 label = "Delete outfit",
@@ -99,6 +106,7 @@ internal fun OutfitEditor(
                 message = "Its clothes stay in your closet.",
                 onDelete = { draft.outfitId?.let(viewModel::deleteOutfit) },
                 isDeleting = state.isDeleting,
+                enabled = !state.isBusy,
             )
         }
     }
@@ -119,26 +127,27 @@ private fun ItemChoiceRow(
     label: String,
     items: List<ClothingItem>,
     draft: OutfitDraft,
+    enabled: Boolean,
     onToggle: (ClothingItem) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(label, style = MaterialTheme.typography.titleSmall)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(items, key = { it.id }) { item ->
-                ItemChoice(item, selected = draft.contains(item), onClick = { onToggle(item) })
+                ItemChoice(item, selected = draft.contains(item), enabled = enabled, onClick = { onToggle(item) })
             }
         }
     }
 }
 
 @Composable
-private fun ItemChoice(item: ClothingItem, selected: Boolean, onClick: () -> Unit) {
+private fun ItemChoice(item: ClothingItem, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Column(
         modifier = Modifier
             .width(96.dp)
             .clip(shape)
-            .selectable(selected = selected, role = Role.Checkbox, onClick = onClick)
+            .selectable(selected = selected, enabled = enabled, role = Role.Checkbox, onClick = onClick)
             .testTag(OUTFIT_ITEM_CHOICE_TAG),
     ) {
         Box {
@@ -169,11 +178,17 @@ private fun ItemChoice(item: ClothingItem, selected: Boolean, onClick: () -> Uni
 }
 
 @Composable
-private fun SaveOutfitButton(isNew: Boolean, canSave: Boolean, isSaving: Boolean, onSave: () -> Unit) {
+private fun SaveOutfitButton(
+    isNew: Boolean,
+    canSave: Boolean,
+    isSaving: Boolean,
+    enabled: Boolean,
+    onSave: () -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Button(
             onClick = onSave,
-            enabled = canSave && !isSaving,
+            enabled = canSave && enabled,
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(SAVE_OUTFIT_BUTTON_TAG),

@@ -11,7 +11,11 @@ import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.cpen321application.fakes.FakeClothingRepository
 import com.example.cpen321application.fakes.FakeOutfitRepository
+import com.example.cpen321application.model.ClothingCategory
+import com.example.cpen321application.model.ClothingItem
+import com.example.cpen321application.model.Outfit
 import com.example.cpen321application.screens.MainScreen
+import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -24,11 +28,11 @@ class MainScreenTest {
 
     private var signOutCalls = 0
 
-    private fun showMainScreen() {
+    private fun showMainScreen(outfitRepository: FakeOutfitRepository = FakeOutfitRepository()) {
         composeRule.setContent {
             MainScreen(
                 clothingRepository = FakeClothingRepository(emptyList()),
-                outfitRepository = FakeOutfitRepository(),
+                outfitRepository = outfitRepository,
                 onSignOut = { signOutCalls++ },
             )
         }
@@ -62,6 +66,24 @@ class MainScreenTest {
 
         pressBack()
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()
+    }
+
+    @Test
+    fun systemBackStaysInTheOutfitEditorWhileSaving() {
+        val hoodie = ClothingItem("1", "Grey Hoodie", ClothingCategory.Top, "grey", "casual")
+        val gate = CompletableDeferred<Unit>()
+        val outfits = FakeOutfitRepository(listOf(Outfit("o1", "Weekend", listOf(hoodie))), listOf(hoodie))
+        outfits.saveGate = gate
+        showMainScreen(outfits)
+
+        composeRule.onNodeWithText("Outfits").performClick()
+        composeRule.onNodeWithText("Weekend").performClick()
+        composeRule.onNodeWithText("Save changes").performClick()
+        pressBack()
+        composeRule.onNodeWithText("Edit outfit").assertIsDisplayed()
+
+        gate.complete(Unit)
+        composeRule.onNodeWithText("My Outfits").assertIsDisplayed()
     }
 
     @Test
