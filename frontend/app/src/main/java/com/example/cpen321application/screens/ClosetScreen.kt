@@ -300,9 +300,14 @@ internal fun ClothingThumbnail(item: ClothingItem, modifier: Modifier = Modifier
 }
 
 @Composable
-internal fun EmptyState(title: String, message: String, action: (@Composable () -> Unit)? = null) {
+internal fun EmptyState(
+    title: String,
+    message: String,
+    modifier: Modifier = Modifier,
+    action: (@Composable () -> Unit)? = null,
+) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .padding(32.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
