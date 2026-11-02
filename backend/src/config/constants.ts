@@ -50,7 +50,3 @@ export const STYLE_PAIRINGS = {
   loungewear: ['loungewear', 'casual'],
   outdoor: ['outdoor', 'casual', 'sporty'],
 } as const;
-
-// Closet analysis time NFR (Requirements_and_Design.md section 3.7), checked by tests/nfr/.
-export const CLOSET_ANALYSIS_TIME_LIMIT_MS = 2_000;
-export const CLOSET_ANALYSIS_MAX_ITEMS = 500;

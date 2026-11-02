@@ -167,7 +167,7 @@ The tests need **Node.js 22** and npm 10. They do not need a `.env` file, a Mong
 
 `.github/workflows/backend.yml`
 
-The **Backend tests** job runs on every pull request and every push to `main`. It installs the dependencies, type-checks and builds the back-end, then runs `npm test`, which runs every test in `backend/tests` (mock, no-mock, unit and NFR). The coverage report is uploaded as the `backend-coverage` artifact of each run. The job is a required check before a pull request can be merged into `main`.
+The **Backend tests** job runs on every pull request and every push to `main`. It installs the dependencies, type-checks and builds the back-end, then runs `npm test`, which runs every test in `backend/tests` (mock, no-mock and unit). The coverage report is uploaded as the `backend-coverage` artifact of each run. The job is a required check before a pull request can be merged into `main`.
 
 ### 2.3. Jest Coverage Report Screenshots With Mocks
 
@@ -214,23 +214,18 @@ In the interface tests alone, `middleware/errorHandler.ts` (25-26) is also uncov
 
 ## 3. Tests of Non-Functional Requirements
 
-Two of the three non-functional requirements in `Requirements_and_Design.md` will be tested automatically: [room update latency](Requirements_and_Design.md#nfr1) and [closet analysis time](Requirements_and_Design.md#nfr3). Their tests are in `backend/tests/nfr/`. Run them with `scripts/run-backend-nfr-tests.sh` (or `.ps1`); CI also runs them on every pull request as part of `npm test`. The room update latency test will be added with the live rooms back-end.
+Two of the three non-functional requirements in `Requirements_and_Design.md` will be tested automatically: [room update latency](Requirements_and_Design.md#nfr1) and [closet analysis time](Requirements_and_Design.md#nfr3). Both measure features that are still being built (the rooms back-end and the closet gap analysis), so their tests will be in `backend/tests/nfr/` and documented here once those features are merged.
 
 ### 3.1. Test Locations in Git
 
 | **Non-Functional Requirement** | **Location in Git** |
 | ------------------------------ | ------------------- |
 | Room updates reach members within 1 second | `backend/tests/nfr/` (with the rooms back-end) |
-| Closet gap analysis finishes within 2 seconds for 500 items | [`backend/tests/nfr/closetAnalysisTime.test.ts`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/nfr/closetAnalysisTime.test.ts) |
+| Closet gap analysis finishes within 2 seconds for 500 items | `backend/tests/nfr/` (with the gap analysis) |
 
 ### 3.2. Test Verification and Logs
 
-- **Closet gap analysis finishes within 2 seconds for 500 items**
-  - **Verification:** The test seeds a 500-item closet in a test MongoDB database. The closet has every category above its minimum share and every colour and style, so the analysis also runs its slowest step, the search for a versatile item. Each run times what the Recommendation Engine does for a request: it loads the closet with one indexed query and finds the gaps in memory. The test does 10 runs, including the first one before Node has warmed up, and fails if any run takes 2 seconds or longer. It logs the slowest and mean times and every run.
-  - **Log Output**
-    ```
-    Closet analysis of 500 items over 10 runs (limit 2000 ms): max 19.5 ms, mean 10.6 ms, runs [19.5, 13.7, 11.9, 9.2, 8.9, 9.4, 11.3, 7.9, 7.7, 6.8] ms, 0 gap(s) found
-    ```
+To be added with the tests.
 
 ---
 
