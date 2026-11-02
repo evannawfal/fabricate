@@ -53,36 +53,54 @@ describe('Closet gap analysis', () => {
   });
 
   describe('Shares of the closet', () => {
-    // Input: 10 items with 1 bottom, 1 pair of shoes and no outerwear
+    // Input: 20 items with 2 bottoms, 1 pair of shoes and no outerwear
     // Expected behavior: empty categories come before thin ones, and no versatile item is added
     // even though every category has been reported, so a tops-heavy closet isn't told to buy more tops
     // Expected output: outerwear, then bottoms, then shoes
     test('Orders gaps from most to least important', () => {
-      const closet = [...items(8, 'top'), item('bottom'), item('shoes')];
+      const closet = [...items(17, 'top'), ...items(2, 'bottom'), item('shoes')];
 
       expect(reasons(closet)).toEqual([
         'No outerwear in your closet',
-        'Not many bottoms for a closet of 10 items',
-        'Not many pairs of shoes for a closet of 10 items',
+        'Not many bottoms compared to the rest of your closet',
+        'Not many pairs of shoes compared to the rest of your closet',
       ]);
     });
 
-    // Input: a 10-item closet exactly at every minimum share
+    // Input: 100 items with bottoms, shoes and outerwear exactly at their minimum shares
     // Expected behavior: a category at its minimum isn't underrepresented
     // Expected output: no "Not many" gaps
     test('Accepts a category exactly at its minimum share', () => {
-      const closet = [...items(5, 'top'), ...items(2, 'bottom'), ...items(2, 'shoes'), item('outerwear')];
+      const closet = [...items(72, 'top'), ...items(15, 'bottom'), ...items(8, 'shoes'), ...items(5, 'outerwear')];
 
       expect(reasons(closet).join()).not.toContain('Not many');
     });
 
-    // Input: 20 items, 2 of them bottoms (10%)
-    // Expected behavior: the share is of the whole closet, including accessories
-    // Expected output: bottoms are underrepresented
-    test('Measures shares against the whole closet', () => {
-      const closet = [...items(6, 'top'), ...items(2, 'bottom'), ...items(3, 'shoes'), item('outerwear'), ...items(8, 'accessory')];
+    // Input: the same closet with one fewer pair of shoes
+    // Expected behavior: just under the minimum counts as thin
+    // Expected output: a shoes gap
+    test('Flags a category just under its minimum share', () => {
+      const closet = [...items(73, 'top'), ...items(15, 'bottom'), ...items(7, 'shoes'), ...items(5, 'outerwear')];
 
-      expect(reasons(closet)[0]).toBe('Not many bottoms for a closet of 20 items');
+      expect(reasons(closet)).toEqual(['Not many pairs of shoes compared to the rest of your closet']);
+    });
+
+    // Input: 12 wearable items in good balance, plus 14 accessories
+    // Expected behavior: accessories aren't part of the total, so they don't make the rest look thin
+    // Expected output: no "Not many" gaps
+    test('Leaves accessories out of the shares', () => {
+      const closet = [...items(6, 'top'), ...items(3, 'bottom'), ...items(2, 'shoes'), item('outerwear'), ...items(14, 'accessory')];
+
+      expect(reasons(closet).join()).not.toContain('Not many');
+    });
+
+    // Input: 9 wearable items, mostly tops, plus 14 accessories
+    // Expected behavior: accessories don't push a small closet over the cutoff for using shares
+    // Expected output: no "Not many" gaps
+    test('Leaves accessories out of the closet size cutoff', () => {
+      const closet = [...items(8, 'top'), item('bottom'), ...items(14, 'accessory')];
+
+      expect(reasons(closet).join()).not.toContain('Not many');
     });
 
     // Input: dresses, shoes and outerwear, but no tops or bottoms
@@ -178,6 +196,19 @@ describe('Closet gap analysis', () => {
       const closet = [...items(10, 'top'), ...items(10, 'bottom')];
 
       expect(analyzeClosetGaps(closet)[0]?.pairsWith).toHaveLength(MAX_PAIRED_ITEMS);
+    });
+
+    // Input: 10 tops listed before 2 bottoms, with no shoes
+    // Expected behavior: pairings come from each category in turn, not just the first in the closet
+    // Expected output: the first two pairings are a top and a bottom, and both bottoms are included
+    test('Spreads the pairings across categories', () => {
+      const tops = items(10, 'top');
+      const bottoms = items(2, 'bottom');
+
+      const pairsWith = analyzeClosetGaps([...tops, ...bottoms])[0]?.pairsWith ?? [];
+
+      expect(pairsWith.slice(0, 2)).toEqual([tops[0]?.id, bottoms[0]?.id]);
+      expect(pairsWith).toContain(bottoms[1]?.id);
     });
   });
 

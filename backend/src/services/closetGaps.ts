@@ -41,7 +41,7 @@ interface Look {
 
 interface MatchedLook {
   look: Look;
-  matchIds: string[];
+  matches: ClassifiedItem[];
 }
 
 const CORE_CATEGORIES = Object.keys(MIN_CATEGORY_SHARES) as CoreCategory[];
@@ -100,13 +100,27 @@ function looksFor(category: CoreCategory): Look[] {
 function bestLook(looks: Look[], closet: ClassifiedItem[]): MatchedLook | undefined {
   let best: MatchedLook | undefined;
   for (const look of looks) {
-    const matchIds = closet.filter((item) => goesWith(look, item)).map((item) => item.id);
+    const matches = closet.filter((item) => goesWith(look, item));
     // Strictly more, so ties always go to the same look.
-    if (matchIds.length > (best?.matchIds.length ?? 0)) {
-      best = { look, matchIds };
+    if (matches.length > (best?.matches.length ?? 0)) {
+      best = { look, matches };
     }
   }
   return best;
+}
+
+// Takes from each category in turn, or the cap would fill up with whichever category comes first.
+function pickPairings(matches: ClassifiedItem[]): string[] {
+  const seenPerCategory = new Map<string, number>();
+  const ranked = matches.map(({ id, category }) => {
+    const rank = seenPerCategory.get(category) ?? 0;
+    seenPerCategory.set(category, rank + 1);
+    return { id, rank };
+  });
+  return ranked
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, MAX_PAIRED_ITEMS)
+    .map(({ id }) => id);
 }
 
 function toGap(category: CoreCategory, reason: string, match: MatchedLook | undefined): ClosetGap {
@@ -114,7 +128,7 @@ function toGap(category: CoreCategory, reason: string, match: MatchedLook | unde
     return { category, reason, pairsWith: [] };
   }
   const { colorFamily, style } = match.look;
-  return { category, colorFamily, style, reason, pairsWith: match.matchIds.slice(0, MAX_PAIRED_ITEMS) };
+  return { category, colorFamily, style, reason, pairsWith: pickPairings(match.matches) };
 }
 
 function countFor(category: CoreCategory, closet: ClassifiedItem[]): number {
@@ -131,18 +145,19 @@ function findVersatileGap(closet: ClassifiedItem[]): ClosetGap | undefined {
         item.category === look.category && item.colorFamily === look.colorFamily && item.style === look.style
     );
   const best = bestLook(CORE_CATEGORIES.flatMap(looksFor).filter((look) => !isOwned(look)), closet);
-  if (best === undefined || best.matchIds.length < MIN_VERSATILE_PAIRINGS) {
+  if (best === undefined || best.matches.length < MIN_VERSATILE_PAIRINGS) {
     return undefined;
   }
   const { category, colorFamily, style } = best.look;
   const piece = `${colorFamily} ${style} ${CATEGORY_WORDS[category].one}`;
-  return toGap(category, `A ${piece} would go with ${best.matchIds.length} of your items`, best);
+  return toGap(category, `A ${piece} would go with ${best.matches.length} of your items`, best);
 }
 
 /** Empty categories, then thin ones. Only a closet with neither gets a versatile suggestion, so it's never padding. */
 export function analyzeClosetGaps(items: GapAnalysisItem[]): ClosetGap[] {
   const closet = items.map(classify);
-  const total = closet.length;
+  // Accessories don't make an outfit, so a big collection shouldn't make everything else look thin.
+  const wearable = closet.filter((item) => item.category !== 'accessory').length;
   const missing: ClosetGap[] = [];
   const underrepresented: ClosetGap[] = [];
 
@@ -151,8 +166,8 @@ export function analyzeClosetGaps(items: GapAnalysisItem[]): ClosetGap[] {
     const best = bestLook(looksFor(category), closet);
     if (count === 0) {
       missing.push(toGap(category, `No ${CATEGORY_WORDS[category].none} in your closet`, best));
-    } else if (total >= MIN_ITEMS_FOR_CLOSET_SHARES && count / total < MIN_CATEGORY_SHARES[category]) {
-      underrepresented.push(toGap(category, `Not many ${CATEGORY_WORDS[category].few} for a closet of ${total} items`, best));
+    } else if (wearable >= MIN_ITEMS_FOR_CLOSET_SHARES && count / wearable < MIN_CATEGORY_SHARES[category]) {
+      underrepresented.push(toGap(category, `Not many ${CATEGORY_WORDS[category].few} compared to the rest of your closet`, best));
     }
   }
 
