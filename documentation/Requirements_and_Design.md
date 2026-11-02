@@ -8,6 +8,7 @@
 | 2026-10-30 | 3.1, 3.2, 3.4, 3.5 (use case names) | Reorganized the features to match the app we are building: Manage Closet, Customize Avatar, Create Outfit, Recommend Clothes to Buy, and Friends and Social. CP1 TA feedback: the use cases were at very different levels of abstraction, major and minor use cases were not separated, and the closet and outfit use cases were not separated. The use case diagram was redrawn so every use case is one user action, and 3.4 now lists the same use cases with the same names, marking the five with formal specifications as major and the rest as minor. |
 | 2026-10-30 | 4.1, 4.2, 4.3, 4.4, 4.5 | Split the back-end into the six components of the redrawn design diagram: User Manager, Closet, Outfit, Avatar, Recommendation Engine, and Social & Rooms. CP1 TA feedback: Closet and Outfit are now separate components with their own interfaces in the text and in every diagram. Interfaces updated to match the code: `POST /auth/google` returns `{ accessToken }`, the avatar is generated with `POST /avatar` (replacing `PUT /users/me/avatar`), outfits use `items` and `occasion`, and rooms use `GET /rooms/{id}` and a Socket.IO connection per room with `room:message`, `room:outfitUpdate` and `room:memberLeft`. Daily outfits are generated with the Claude API instead of Gemini. Added `GET`/`PATCH /users/me`, `DELETE /friends/{id}`, Firebase Cloud Messaging, the avatar generation method, Three.js and SceneView. |
 | 2026-10-30 | 4.6, 4.7 | Sequence diagrams and NFR designs use the new component names, and the room sequence diagram shows the membership check and the broadcast before the database write. |
+| 2026-11-01 | 4.1, 4.2, 4.3, 4.6 | Chose Serper for the online store search and documented it. `GET /recommendations` gains `country` and `department`, because results depend on the user's country and searches without a department came back mostly women's. Search results are cached in MongoDB to stay within the search credits. |
 
 ---
 
@@ -273,8 +274,8 @@ Not included for CP1.
    - **Interfaces**:
      1. `POST /outfits/generate`, body `{ occasion: String, latitude: Double, longitude: Double }`, returns `{ outfit: { name, occasion, items }, weather: Weather? }`
         - **Purpose**: Generates an outfit from the user's clean clothes for the occasion (`casual`, `work`, `formal` or `workout`) and the current weather, without saving it; the app saves it with `POST /outfits` if the user keeps it. Returns 400 listing the missing categories if the clean clothes don't include a top and a bottom, and 503 if generation is unavailable.
-     2. `GET /recommendations`, returns `{ gaps: List<String>, items: List<StoreItem> }`
-        - **Purpose**: Analyzes the user's closet for gaps and returns matching items from online catalogs, each with the closet items it pairs with.
+     2. `GET /recommendations?country={code}&department={department}`, returns `{ gaps: List<String>, items: List<StoreItem> }`, where a `StoreItem` has `name`, `price`, `imageUrl`, `link` and `store`
+        - **Purpose**: Analyzes the user's closet for gaps and returns matching items from online catalogs, each with the closet items it pairs with. `country` is a two-letter code from the device's region and defaults to `ca`. `department` is `mens` or `womens`, chosen on the Shop screen; leaving it out searches all clothing.
 
 6. **Social & Rooms**
    - **Purpose**: Manages daily outfit posts, ratings and rooms, and delivers chat messages and shared outfit changes to room members in real time.
@@ -301,7 +302,7 @@ Not included for CP1.
 ### **4.2. Databases**
 
 1. **MongoDB**
-   - **Purpose**: Stores users (Google ID, email, name, avatar and friend list), clothing items, outfits, posts, ratings, rooms and chat messages. A document database fits because clothing items and outfits have flexible attributes such as tags, and MongoDB is one of the two databases the course allows.
+   - **Purpose**: Stores users (Google ID, email, name, avatar and friend list), clothing items, outfits, posts, ratings, rooms, chat messages and cached store search results. A document database fits because clothing items and outfits have flexible attributes such as tags, and MongoDB is one of the two databases the course allows.
 
 ### **4.3. External Modules**
 
@@ -313,8 +314,9 @@ Not included for CP1.
    - **Purpose**: Renders realistic images of the user's avatar wearing an outfit with the Nano Banana 2.1 image model (`gemini-nano-banana-2.1`).
 4. **OpenWeather API**
    - **Purpose**: Provides the current weather at the user's location for daily outfit generation. Chosen because it is widely used and its free plan (1,000,000 calls a month) is far more than the project needs.
-5. **Online Stores / Catalogs**
-   - **Purpose**: Provide product listings (photo, price, category and store link) that the Recommendation Engine searches for items that fill the user's closet gaps.
+5. **Online Stores / Catalogs (Serper)**
+   - **Purpose**: Provide product listings (name, price, photo, store and link) that the Recommendation Engine searches for items that fill the user's closet gaps. The search goes through the Serper API, which returns Google Shopping results for a country, so one search covers many stores. Each result's link opens its Google Shopping page, which leads to the store.
+   - **Reason**: Store APIs don't fit a class project: Amazon's requires recent sales, eBay's needs approval, Etsy's only covers handmade goods, and ASOS and Zalando have no public API. Serper's free plan has 2,500 credits with no credit card, and a search costs 2 credits. The back-end caches each search in MongoDB for 7 days, so usage depends on how many different searches there are rather than how many users open the Shop screen. If a search fails, it shows older cached results when it has them.
 6. **Azure Blob Storage**
    - **Purpose**: Stores clothing photos, avatar models and generated outfit images, and gives the app time-limited links to download them.
 7. **Firebase Cloud Messaging**
@@ -460,13 +462,13 @@ sequenceDiagram
     participant ST as Online Stores / Catalogs
 
     U->>FE: Open Shop screen
-    FE->>OU: GET /recommendations
+    FE->>OU: GET /recommendations?country&department
     OU->>US: requireAuth(request)
     US-->>OU: userId
     OU->>CL: getItemsForUser(userId, cleanOnly = false)
     CL-->>OU: List<ClothingItem>
     OU->>OU: Analyze closet gaps
-    OU->>ST: search items for each gap
+    OU->>ST: search items for each gap not cached in the last 7 days
     ST-->>OU: matching store items
     OU-->>FE: 200 { gaps, items }
     FE-->>U: Show recommended items and pairings

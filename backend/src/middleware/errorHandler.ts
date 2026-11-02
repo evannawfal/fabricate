@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { MulterError } from 'multer';
+import { CatalogNotConfiguredError, CatalogUnavailableError } from '../services/catalog.js';
 import { ClassifierNotConfiguredError, ClassifierUnavailableError, MAX_IMAGE_BYTES } from '../services/classifier.js';
 import { OutfitGeneratorNotConfiguredError, OutfitGeneratorUnavailableError } from '../services/outfitGenerator.js';
 import { StorageNotConfiguredError } from '../services/storage.js';
@@ -40,6 +41,12 @@ export function errorHandler(err: unknown, _req: Request, res: Response, next: N
       console.error('Outfit generation failed:', err.cause ?? err.message);
     }
     return res.status(503).json({ error: 'Outfit generation is not available right now' });
+  }
+  if (err instanceof CatalogNotConfiguredError || err instanceof CatalogUnavailableError) {
+    if (err instanceof CatalogUnavailableError) {
+      console.error('Store search failed:', err.cause ?? err.message);
+    }
+    return res.status(503).json({ error: 'Store search is not available right now' });
   }
   // Problems with an uploaded file (too large, wrong field name, more than one file, ...)
   if (err instanceof MulterError) {

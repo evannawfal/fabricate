@@ -1,6 +1,7 @@
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { connectDatabase, disconnectDatabase } from '../../src/config/database.js';
+import '../../src/models/cachedCatalogSearch.js';
 import '../../src/models/clothingItem.js';
 import '../../src/models/outfit.js';
 import '../../src/models/room.js';

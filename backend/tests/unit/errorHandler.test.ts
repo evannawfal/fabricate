@@ -3,6 +3,7 @@ import type { Response } from 'express';
 import { MulterError } from 'multer';
 
 import { errorHandler } from '../../src/middleware/errorHandler.js';
+import { CatalogNotConfiguredError, CatalogUnavailableError } from '../../src/services/catalog.js';
 
 function mockResponse(headersSent = false) {
   const json = jest.fn();
@@ -22,6 +23,36 @@ describe('Error handler', () => {
 
     expect(next).toHaveBeenCalledWith(error);
     expect(status).not.toHaveBeenCalled();
+  });
+
+  // Input: store search failing, which is logged
+  // Expected status code: 503
+  // Expected output: an error that doesn't give the cause away
+  test('Store search unavailable', () => {
+    const log = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { res, status, json } = mockResponse();
+    const cause = new Error('Serper responded with status 403');
+
+    errorHandler(new CatalogUnavailableError('Could not search the stores', { cause }), {} as never, res, () => undefined);
+
+    expect(status).toHaveBeenCalledWith(503);
+    expect(json).toHaveBeenCalledWith({ error: 'Store search is not available right now' });
+    expect(log).toHaveBeenCalledWith('Store search failed:', cause);
+    log.mockRestore();
+  });
+
+  // Input: store search without an API key, a known setup state
+  // Expected status code: 503
+  // Expected behavior: nothing is logged
+  test('Store search not configured', () => {
+    const log = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { res, status } = mockResponse();
+
+    errorHandler(new CatalogNotConfiguredError(), {} as never, res, () => undefined);
+
+    expect(status).toHaveBeenCalledWith(503);
+    expect(log).not.toHaveBeenCalled();
+    log.mockRestore();
   });
 
   // Input: an upload error that isn't about a single form field (e.g. too many parts)

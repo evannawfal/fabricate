@@ -1,6 +1,17 @@
 export const OPENWEATHER_URL = 'https://api.openweathermap.org/data/2.5/weather';
 // Outfit generation waits for the weather, so give up quickly rather than keep the user waiting.
 export const WEATHER_REQUEST_TIMEOUT_MS = 5_000;
+export const SERPER_SHOPPING_URL = 'https://google.serper.dev/shopping';
+export const CATALOG_REQUEST_TIMEOUT_MS = 8_000;
+export const CATALOG_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+export const DEFAULT_CATALOG_COUNTRY = 'ca';
+export const MAX_CATALOG_ITEMS = 8;
+export const MAX_CATALOG_ITEMS_PER_STORE = 2;
+export const CATALOG_CATEGORY_WORDS = { top: 'shirt', bottom: 'pants', shoes: 'shoes', outerwear: 'jacket' } as const;
+// Searches need a real colour: Google reads "warm" as cozy and ignores "cool".
+export const CATALOG_COLOR_WORDS = { neutral: 'black', warm: 'burgundy', cool: 'blue' } as const;
+// Searches with neither word come back mostly women's.
+export const CATALOG_DEPARTMENT_WORDS = { mens: "men's", womens: "women's" } as const;
 
 export const OUTFIT_MODEL = 'claude-sonnet-5-5';
 // Generation takes a few seconds, so a request still running after this is treated as unavailable.
