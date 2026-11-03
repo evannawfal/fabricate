@@ -9,6 +9,7 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -32,27 +33,31 @@ import com.example.cpen321application.R
 import com.example.cpen321application.data.ClothingRepository
 import com.example.cpen321application.data.LocationProvider
 import com.example.cpen321application.data.OutfitRepository
+import com.example.cpen321application.data.RecommendationRepository
 import com.example.cpen321application.data.RoomsRepository
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
 import com.example.cpen321application.viewmodel.ClosetViewModel
 import com.example.cpen321application.viewmodel.OutfitsViewModel
+import com.example.cpen321application.viewmodel.ShopViewModel
 
 /** Top-level tabs reachable from the bottom navigation bar. */
 enum class Tab(@StringRes val labelRes: Int, val icon: ImageVector) {
   Closet(R.string.tab_closet, Icons.AutoMirrored.Filled.List),
   Outfits(R.string.tab_outfits, Icons.Filled.Star),
+  Shop(R.string.tab_shop, Icons.Filled.ShoppingCart),
   Avatar(R.string.tab_avatar, Icons.Filled.Face),
   Rooms(R.string.tab_rooms, Icons.Filled.Person),
 }
 
 /**
- * The app's main screen after sign-in: the Closet, Outfits and Avatar tabs, and a sign-out
- * option that asks for confirmation before calling [onSignOut].
+ * The app's main screen after sign-in: the Closet, Outfits, Shop, Avatar and Rooms tabs, and a
+ * sign-out option that asks for confirmation before calling [onSignOut].
  */
 @Composable
 fun MainScreen(
   clothingRepository: ClothingRepository,
   outfitRepository: OutfitRepository,
+  recommendationRepository: RecommendationRepository,
   locationProvider: LocationProvider,
   roomsRepository: RoomsRepository,
   onSignOut: () -> Unit,
@@ -62,6 +67,7 @@ fun MainScreen(
   var confirmingSignOut by rememberSaveable { mutableStateOf(false) }
   val closetViewModel: ClosetViewModel = viewModel { ClosetViewModel(clothingRepository) }
   val outfitsViewModel: OutfitsViewModel = viewModel { OutfitsViewModel(outfitRepository, locationProvider) }
+  val shopViewModel: ShopViewModel = viewModel { ShopViewModel(recommendationRepository) }
 
   // Back from another tab returns to the Closet tab before leaving the app.
   BackHandler(enabled = tab != Tab.Closet) { tab = Tab.Closet }
@@ -88,12 +94,11 @@ fun MainScreen(
     },
   ) { innerPadding ->
     val contentModifier = Modifier.padding(innerPadding)
+    val closet by closetViewModel.uiState.collectAsState()
     when (tab) {
       Tab.Closet -> ClosetScreen(closetViewModel, contentModifier)
-      Tab.Outfits -> {
-        val closet by closetViewModel.uiState.collectAsState()
-        OutfitsScreen(outfitsViewModel, closet.items, contentModifier)
-      }
+      Tab.Outfits -> OutfitsScreen(outfitsViewModel, closet.items, contentModifier)
+      Tab.Shop -> ShopScreen(shopViewModel, closet.items, contentModifier)
       Tab.Avatar -> AvatarRoute(contentModifier)
       Tab.Rooms -> RoomsRoute(roomsRepository, clothingRepository, contentModifier)
     }
