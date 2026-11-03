@@ -8,6 +8,7 @@
 | 2026-10-24 | 2.1.1, 2.5 | Added the mocked `describe` groups for the `/outfits` interfaces. `controllers/outfits.ts` is now fully covered: the mocked tests reach the update-after-concurrent-delete case, and an unreachable check was removed. |
 | 2026-10-25 | 4 | Implemented the Upload Clothing Item end-to-end test (`UploadClothingTest.kt`) and added its logs. Each scenario is now a separate test so they don't depend on each other, and "the closet is unchanged" is checked against the back-end and the first card instead of by counting cards, since a large closet doesn't fit on screen. The test adds its photos to the photo library itself and removes them and any item it added afterwards. |
 | 2026-10-29 | 2, 3 | Updated for CP2. Added `POST /avatar` and `POST /outfits/generate` to the back-end test table and the mocked components, and pointed every test link at the current line. Updated the commit hash, the run instructions and the coverage screenshots, added a report of every back-end test together with the reasons each file below 100% can't be fully covered, and covered the error handler's branches listed for CP2. Section 3 now names the two non-functional requirements that are tested automatically; their tests come with the features they measure. |
+| 2026-11-03 | 2.1.1, 2.3, 2.5 | Updated the Clothing upload test documentation for required front and back photos. Added the front-photo upload failure case and documented cleanup attempts for both generated storage keys. Coverage totals and screenshots should be refreshed from the latest test run. |
 
 ---
 
@@ -49,7 +50,7 @@ How the external components are mocked:
 
 Each test in the code is annotated with its input, expected status code, expected behavior and expected output (and the mock's behavior for mocked tests). All requests use a valid signed-in user unless the input says otherwise. The table below summarizes them.
 
-**POST /clothing** (multipart form with a `photo` file)
+**POST /clothing** (multipart form with required `photo` (front) and `backPhoto` (back) files)
 
 | **Group** | **Test** | **Input** | **Status** | **Expected behavior and output** |
 | --------- | -------- | --------- | ---------- | -------------------------------- |
@@ -64,9 +65,12 @@ Each test in the code is annotated with its input, expected status code, expecte
 | Mocked | Photo is not clothing | Classifier rejects the photo | 422 | Photo is not stored, nothing is saved; `{ error: "The photo does not show a clothing item" }` |
 | Mocked | Classifier unavailable | Classifier is rate limited or down | 503 | Photo is not stored, nothing is saved |
 | Mocked | Storage not configured | No storage settings | 503 | Classifier is not called (no API cost), nothing is saved |
-| Mocked | Storage upload fails | Storage throws | 500 | Nothing is saved; `{ error: "Internal server error" }` |
-| Mocked | Database error removes the stored photo | `ClothingItem.create` throws | 500 | The stored photo is deleted so no orphaned file is left |
-| Mocked | Clean-up failure is logged, not reported | `ClothingItem.create` and `deleteFile` both throw | 500 | The database error is reported; the clean-up failure is only logged |
+
+| Mocked | Front photo upload fails | Storage rejects the front-photo upload | 500 | Nothing is saved; the controller attempts to delete both generated photo keys (front and back) to prevent orphaned files |
+
+| Mocked | Database error removes the stored photos | `ClothingItem.create` throws after both uploads | 500 | Both generated photo keys are passed to storage cleanup so no orphaned front or back photo is left |
+
+| Mocked | Clean-up failure is logged, not reported | `ClothingItem.create` and a `deleteFile` call throw | 500 | Cleanup is attempted for both generated photo keys; a cleanup failure is only logged and the original database error is reported |
 
 **GET /clothing** (`?category=` and `?clean=` filters)
 

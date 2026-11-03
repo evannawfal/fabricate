@@ -33,6 +33,8 @@ export interface ClothingItemOverrides {
   tags?: string[];
   isClean?: boolean;
   isArchived?: boolean;
+  imageKey?: string;
+  backImageKey?: string | null;
 }
 
 export async function createClothingItem(ownerId: string, overrides: ClothingItemOverrides = {}) {
