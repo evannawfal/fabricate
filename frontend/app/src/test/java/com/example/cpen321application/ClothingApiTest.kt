@@ -30,7 +30,15 @@ class ClothingApiTest {
         BackendClothingRepository(tokenProvider = { token }, baseUrl = server.url("/").toString())
     }
 
-    private fun itemJson(id: String = "abc123", category: String = "outerwear", imageUrl: String? = null) =
+    private val front = byteArrayOf(1, 2, 3)
+    private val back = byteArrayOf(4, 5, 6)
+
+    private fun itemJson(
+        id: String = "abc123",
+        category: String = "outerwear",
+        imageUrl: String? = null,
+        backImageUrl: String? = null,
+    ) =
         JSONObject()
             .put("id", id)
             .put("name", "Navy Wool Coat")
@@ -41,6 +49,7 @@ class ClothingApiTest {
             .put("isClean", true)
             .put("isArchived", false)
             .put("imageUrl", imageUrl ?: JSONObject.NULL)
+            .put("backImageUrl", backImageUrl ?: JSONObject.NULL)
 
     private fun respond(status: Int, body: String = "") =
         server.enqueue(MockResponse().setResponseCode(status).setBody(body))
@@ -70,7 +79,13 @@ class ClothingApiTest {
     @Test
     fun listItems_sendsTokenAndParsesItems() {
         val items = JSONArray()
-            .put(itemJson(id = "1", imageUrl = "https://storage.example/photo.jpg?sig=x"))
+            .put(
+                itemJson(
+                    id = "1",
+                    imageUrl = "https://storage.example/photo.jpg?sig=x",
+                    backImageUrl = "https://storage.example/back.jpg?sig=y",
+                ),
+            )
             .put(itemJson(id = "2", category = "hat"))
         respond(200, JSONObject().put("items", items).toString())
 
@@ -86,13 +101,27 @@ class ClothingApiTest {
         assertEquals(ClothingCategory.Outerwear, item.category)
         assertEquals(listOf("winter"), item.tags)
         assertEquals("https://storage.example/photo.jpg?sig=x", item.imageUrl)
+        assertEquals("https://storage.example/back.jpg?sig=y", item.backImageUrl)
     }
 
     @Test
-    fun uploadPhoto_sendsPhotoAsMultipartField() {
-        respond(201, itemJson().toString())
+    fun listItems_acceptsItemsWithoutABackPhoto() {
+        // Items added before back photos existed have a null or missing backImageUrl.
+        val withoutKey = itemJson(id = "1", imageUrl = "https://storage.example/photo.jpg").also { it.remove("backImageUrl") }
+        val withNull = itemJson(id = "2", imageUrl = "https://storage.example/photo2.jpg")
+        respond(200, JSONObject().put("items", JSONArray().put(withoutKey).put(withNull)).toString())
 
-        val item = runBlocking { repository.uploadPhoto(byteArrayOf(1, 2, 3)) }
+        val result = runBlocking { repository.listItems() }
+
+        assertEquals(listOf("1", "2"), result.map { it.id })
+        result.forEach { assertNull(it.backImageUrl) }
+    }
+
+    @Test
+    fun uploadPhotos_sendsFrontAndBackAsMultipartFields() {
+        respond(201, itemJson(backImageUrl = "https://storage.example/back.jpg").toString())
+
+        val item = runBlocking { repository.uploadPhotos(front, back) }
 
         val request = server.takeRequest()
         assertEquals("POST", request.method)
@@ -100,36 +129,39 @@ class ClothingApiTest {
         assertTrue(request.getHeader("Content-Type").orEmpty().startsWith("multipart/form-data"))
         val body = request.body.readUtf8()
         assertTrue(body.contains("name=\"photo\""))
-        assertTrue(body.contains("Content-Type: image/jpeg"))
+        assertTrue(body.contains("name=\"backPhoto\""))
+        // One JPEG part for each photo.
+        assertEquals(2, body.split("Content-Type: image/jpeg").size - 1)
         assertEquals("Navy Wool Coat", item.name)
         assertNull(item.imageUrl)
+        assertEquals("https://storage.example/back.jpg", item.backImageUrl)
     }
 
     @Test
-    fun uploadPhoto_reportsWhyItFailed() {
+    fun uploadPhotos_reportsWhyItFailed() {
         respond(422, """{"error":"The photo does not show a clothing item"}""")
-        assertFailsWith(errorMessageFor(422, null)) { repository.uploadPhoto(byteArrayOf(1)) }
+        assertFailsWith(errorMessageFor(422, null)) { repository.uploadPhotos(front, back) }
 
         respond(413, """{"error":"The photo must be at most 5 MB"}""")
-        assertFailsWith(errorMessageFor(413, null)) { repository.uploadPhoto(byteArrayOf(1)) }
+        assertFailsWith(errorMessageFor(413, null)) { repository.uploadPhotos(front, back) }
 
         respond(503, """{"error":"Photo classification is not available right now"}""")
-        assertFailsWith(errorMessageFor(503, null)) { repository.uploadPhoto(byteArrayOf(1)) }
+        assertFailsWith(errorMessageFor(503, null)) { repository.uploadPhotos(front, back) }
     }
 
     @Test
-    fun uploadPhoto_onlyServerAndConnectionProblemsCanBeRetried() {
+    fun uploadPhotos_onlyServerAndConnectionProblemsCanBeRetried() {
         respond(422, """{"error":"The photo does not show a clothing item"}""")
         val notClothing = assertFailsWith("This photo doesn't show a clothing item. Try another photo.") {
-            repository.uploadPhoto(byteArrayOf(1))
+            repository.uploadPhotos(front, back)
         }
         assertFalse(notClothing.canRetry)
 
         respond(503)
-        assertTrue(assertFailsWith(errorMessageFor(503, null)) { repository.uploadPhoto(byteArrayOf(1)) }.canRetry)
+        assertTrue(assertFailsWith(errorMessageFor(503, null)) { repository.uploadPhotos(front, back) }.canRetry)
 
         server.shutdown()
-        assertTrue(assertFailsWith(NETWORK_ERROR) { repository.uploadPhoto(byteArrayOf(1)) }.canRetry)
+        assertTrue(assertFailsWith(NETWORK_ERROR) { repository.uploadPhotos(front, back) }.canRetry)
     }
 
     @Test

@@ -28,25 +28,31 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.cpen321application.data.cameraPhotoUri
+import com.example.cpen321application.model.PhotoSide
 
 const val UPLOAD_PROGRESS_TAG = "upload_progress"
 
 class PhotoPicker(val takePhoto: () -> Unit, val chooseFromGallery: () -> Unit)
 
 /**
- * A [PhotoPicker] that calls [onPhoto] with the photo the user took or picked, or
- * [onCameraUnavailable] if the device has no camera app. Choosing from the gallery
- * uses the system photo picker, so neither option needs a permission.
+ * A [PhotoPicker] that calls [onPhoto] with the photo the user took or picked,
+ * [onCancelled] if they backed out without choosing one, or [onCameraUnavailable]
+ * if the device has no camera app. Choosing from the gallery uses the system photo
+ * picker, so neither option needs a permission.
  */
 @Composable
-fun rememberPhotoPicker(onPhoto: (Uri) -> Unit, onCameraUnavailable: () -> Unit): PhotoPicker {
+fun rememberPhotoPicker(
+    onPhoto: (Uri) -> Unit,
+    onCameraUnavailable: () -> Unit,
+    onCancelled: () -> Unit = {},
+): PhotoPicker {
     val context = LocalContext.current
     val cameraUri = remember { cameraPhotoUri(context) }
     val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
-        if (saved) onPhoto(cameraUri)
+        if (saved) onPhoto(cameraUri) else onCancelled()
     }
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) onPhoto(uri)
+        if (uri != null) onPhoto(uri) else onCancelled()
     }
     return PhotoPicker(
         takePhoto = {
@@ -62,22 +68,31 @@ fun rememberPhotoPicker(onPhoto: (Uri) -> Unit, onCameraUnavailable: () -> Unit)
     )
 }
 
+/** Asks where the photo of [side] should come from. Each item needs a front and a back photo. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PhotoSourceSheet(onTakePhoto: () -> Unit, onChooseFromGallery: () -> Unit, onDismiss: () -> Unit) {
+fun PhotoSourceSheet(
+    side: PhotoSide,
+    onTakePhoto: () -> Unit,
+    onChooseFromGallery: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
         Column(modifier = Modifier.padding(bottom = 24.dp)) {
             Text(
-                "Add to your closet",
+                when (side) {
+                    PhotoSide.Front -> "Step 1 of 2: the front"
+                    PhotoSide.Back -> "Step 2 of 2: the back"
+                },
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
             ListItem(
                 headlineContent = { Text("Take photo") },
-                supportingContent = { Text("Photograph one item on a plain background") },
+                supportingContent = { Text("Photograph the ${side.label} of one item on a plain background") },
                 modifier = Modifier.clickable(onClick = onTakePhoto),
             )
             ListItem(
@@ -102,7 +117,7 @@ fun UploadingDialog() {
             ) {
                 CircularProgressIndicator(modifier = Modifier.testTag(UPLOAD_PROGRESS_TAG))
                 Column {
-                    Text("Classifying your photo…", style = MaterialTheme.typography.titleMedium)
+                    Text("Classifying your photos…", style = MaterialTheme.typography.titleMedium)
                     Text(
                         "Detecting its type, colour and style",
                         style = MaterialTheme.typography.bodyMedium,
