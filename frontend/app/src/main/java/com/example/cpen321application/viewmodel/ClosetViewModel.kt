@@ -7,6 +7,7 @@ import com.example.cpen321application.data.ClothingRepository
 import com.example.cpen321application.data.ClothingRepositoryException
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
+import com.example.cpen321application.model.PhotoSide
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +25,8 @@ data class ClosetUiState(
     val openItemId: String? = null,
     val newItemId: String? = null,
     val isUploading: Boolean = false,
+    /** Which photo is being asked for while adding clothing; null when not adding. */
+    val captureSide: PhotoSide? = null,
     val editingItemId: String? = null,
     val isSaving: Boolean = false,
     val editError: String? = null,
@@ -37,7 +40,11 @@ class ClosetViewModel(private val repository: ClothingRepository) : ViewModel() 
     private val _uiState = MutableStateFlow(ClosetUiState())
     val uiState: StateFlow<ClosetUiState> = _uiState.asStateFlow()
 
-    private var failedPhoto: ByteArray? = null
+    // The front photo, held while the user takes the back photo.
+    private var frontPhoto: ByteArray? = null
+
+    // Both photos of the last upload that failed in a way worth retrying.
+    private var failedPhotos: Pair<ByteArray, ByteArray>? = null
 
     init {
         loadItems()
@@ -61,35 +68,74 @@ class ClosetViewModel(private val repository: ClothingRepository) : ViewModel() 
 
     fun closeItem() = _uiState.update { it.copy(openItemId = null, newItemId = null) }
 
-    fun addPhoto(readPhoto: suspend () -> ByteArray) {
+    /** Starts adding an item: the front photo is asked for first, then the back. */
+    fun startAddingClothing() {
         if (_uiState.value.isUploading) return
-        _uiState.update { it.copy(isUploading = true, error = null) }
+        frontPhoto = null
+        _uiState.update { it.copy(captureSide = PhotoSide.Front, error = null) }
+    }
+
+    /** Abandons adding an item, discarding any photo already taken. */
+    fun cancelAddingClothing() {
+        frontPhoto = null
+        _uiState.update { it.copy(captureSide = null) }
+    }
+
+    /**
+     * Called with each photo the user takes or picks: the front first, then the back.
+     * The item is uploaded once both photos are in.
+     */
+    fun addPhoto(readPhoto: suspend () -> ByteArray) {
+        val state = _uiState.value
+        val side = state.captureSide ?: return
+        if (state.isUploading) return
+        if (side == PhotoSide.Back) _uiState.update { it.copy(isUploading = true, error = null) }
         viewModelScope.launch {
             try {
-                upload(readPhoto())
+                val photo = readPhoto()
+                when (side) {
+                    PhotoSide.Front -> {
+                        frontPhoto = photo
+                        _uiState.update { it.copy(captureSide = PhotoSide.Back) }
+                    }
+                    PhotoSide.Back -> {
+                        val front = frontPhoto
+                        if (front == null) {
+                            // Shouldn't happen; start over.
+                            _uiState.update { it.copy(captureSide = PhotoSide.Front) }
+                            finishUpload(null)
+                        } else {
+                            _uiState.update { it.copy(captureSide = null) }
+                            upload(front, photo)
+                        }
+                    }
+                }
             } catch (e: IOException) {
-                finishUpload(ClosetError("Couldn't read that photo. Try another photo."))
+                frontPhoto = null
+                _uiState.update { it.copy(captureSide = null) }
+                finishUpload(ClosetError("Couldn't read that photo. Try again."))
             }
         }
     }
 
     fun retryUpload() {
-        val photo = failedPhoto ?: return
+        val (front, back) = failedPhotos ?: return
         if (_uiState.value.isUploading) return
         _uiState.update { it.copy(isUploading = true, error = null) }
-        viewModelScope.launch { upload(photo) }
+        viewModelScope.launch { upload(front, back) }
     }
 
-    private suspend fun upload(photo: ByteArray) {
+    private suspend fun upload(front: ByteArray, back: ByteArray) {
         try {
-            val item = repository.uploadPhoto(photo)
-            failedPhoto = null
+            val item = repository.uploadPhotos(front, back)
+            failedPhotos = null
+            frontPhoto = null
             _uiState.update {
                 it.copy(items = listOf(item) + it.items, newItemId = item.id, selectedCategory = null)
             }
             finishUpload(null)
         } catch (e: ClothingRepositoryException) {
-            failedPhoto = photo.takeIf { e.canRetry }
+            failedPhotos = (front to back).takeIf { e.canRetry }
             finishUpload(
                 if (e.canRetry) ClosetError(UPLOAD_FAILED, canRetry = true) else ClosetError(e.message),
             )
@@ -137,7 +183,7 @@ class ClosetViewModel(private val repository: ClothingRepository) : ViewModel() 
     fun showError(error: ClosetError) = _uiState.update { it.copy(error = error) }
 
     fun dismissError() {
-        failedPhoto = null
+        failedPhotos = null
         _uiState.update { it.copy(error = null) }
     }
 
