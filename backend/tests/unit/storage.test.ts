@@ -11,9 +11,10 @@ import {
   StorageNotConfiguredError,
   type FileStorage,
 } from '../../src/services/storage.js';
-import { avatarModelKey, clothingImageKey, CONTENT_TYPES } from '../../src/services/storageKeys.js';
+import { avatarModelKey, clothingImageKey, CONTENT_TYPES, garmentModelKey } from '../../src/services/storageKeys.js';
 
 const USER_ID = '0123456789abcdef01234567';
+const ITEM_ID = '89abcdef0123456789abcdef';
 // Fake account: signing URLs works offline, and every network call below is intercepted.
 const CONFIG = {
   connectionString:
@@ -29,6 +30,7 @@ function createStorage(): FileStorage {
 function mockBlobCalls() {
   const uploads: { blob: string; data: unknown; options: unknown }[] = [];
   const deletes: string[] = [];
+  const downloads: string[] = [];
   const createContainer = jest
     .spyOn(ContainerClient.prototype, 'createIfNotExists')
     .mockResolvedValue({ succeeded: true } as never);
@@ -40,16 +42,21 @@ function mockBlobCalls() {
     uploads.push({ blob: this.name, data, options });
     return Promise.resolve({} as never);
   } as never);
+  const download = jest.spyOn(BlobClient.prototype, 'downloadToBuffer').mockImplementation(function (this: BlobClient) {
+    downloads.push(this.name);
+    return Promise.resolve(Buffer.from([4, 5, 6]));
+  } as never);
   jest.spyOn(BlobClient.prototype, 'deleteIfExists').mockImplementation(function (this: BlobClient) {
     deletes.push(this.name);
     return Promise.resolve({ succeeded: true } as never);
   } as never);
-  return { uploads, deletes, createContainer, upload };
+  return { uploads, deletes, downloads, createContainer, upload, download };
 }
 
 function fakeStorage(): FileStorage & { uploadFile: jest.Mock; getDownloadUrl: jest.Mock } {
   return {
     uploadFile: jest.fn(() => Promise.resolve()),
+    downloadFile: jest.fn(() => Promise.resolve(new Uint8Array())),
     getDownloadUrl: jest.fn(() => Promise.resolve('https://signed.example/avatar.glb')),
     deleteFile: jest.fn(() => Promise.resolve()),
   } as unknown as FileStorage & { uploadFile: jest.Mock; getDownloadUrl: jest.Mock };
@@ -127,6 +134,30 @@ describe('Azure Blob file storage', () => {
     );
   });
 
+  // Mocked behavior: Azure returns the blob's bytes
+  // Input: key
+  // Expected behavior: that blob is downloaded
+  // Expected output: its bytes as a Uint8Array
+  test('downloadFile returns the file bytes', async () => {
+    const calls = mockBlobCalls();
+
+    const bytes = await createStorage().downloadFile('clothing/u/a.jpg');
+
+    expect(bytes).toBeInstanceOf(Uint8Array);
+    expect(Array.from(bytes)).toEqual([4, 5, 6]);
+    expect(calls.downloads).toEqual(['clothing/u/a.jpg']);
+  });
+
+  // Mocked behavior: Azure rejects the download (e.g. the blob doesn't exist)
+  // Input: key
+  // Expected behavior: the error is passed on to the caller
+  test('downloadFile reports storage errors', async () => {
+    const calls = mockBlobCalls();
+    calls.download.mockRejectedValue(new Error('BlobNotFound') as never);
+
+    await expect(createStorage().downloadFile('clothing/u/missing.jpg')).rejects.toThrow('BlobNotFound');
+  });
+
   // Mocked behavior: Azure accepts the request
   // Input: key
   // Expected behavior: that blob is deleted (no error if it was already gone)
@@ -179,9 +210,11 @@ describe('Azure Blob file storage', () => {
     const storage = createStorage();
 
     await expect(storage.uploadFile(key, new Uint8Array([1]), CONTENT_TYPES.glb)).rejects.toThrow('Invalid storage key');
+    await expect(storage.downloadFile(key)).rejects.toThrow('Invalid storage key');
     await expect(storage.deleteFile(key)).rejects.toThrow('Invalid storage key');
     await expect(storage.getDownloadUrl(key)).rejects.toThrow('Invalid storage key');
     expect(calls.uploads).toHaveLength(0);
+    expect(calls.downloads).toHaveLength(0);
     expect(calls.deletes).toHaveLength(0);
   });
 });
@@ -220,6 +253,18 @@ describe('Storage keys', () => {
     expect(second).not.toBe(first);
     expect(clothingImageKey(USER_ID, 'png')).toMatch(/^clothing\/[0-9a-f]{24}\/[0-9a-f-]{36}\.png$/);
     expect(clothingImageKey(USER_ID, 'png').startsWith(`clothing/${USER_ID}/`)).toBe(true);
+  });
+
+  // Input: a user id and a clothing item id
+  // Expected behavior: a garment model is stored under the user's and the item's folders, and a
+  //   regenerated model never reuses the old key
+  test('Garment model keys are grouped by user and item, and unique per upload', () => {
+    const first = garmentModelKey(USER_ID, ITEM_ID);
+    const second = garmentModelKey(USER_ID, ITEM_ID);
+
+    expect(first).toMatch(/^garments\/[0-9a-f]{24}\/[0-9a-f]{24}\/[0-9a-f-]{36}\.glb$/);
+    expect(first.startsWith(`garments/${USER_ID}/${ITEM_ID}/`)).toBe(true);
+    expect(second).not.toBe(first);
   });
 });
 

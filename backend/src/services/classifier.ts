@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { env } from '../config/env.js';
 import { CLOTHING_CATEGORIES, CLOTHING_LIMITS, type ClothingCategory } from '../models/clothingItem.js';
+import { MESHES_CATEGORIES } from '../config/constants.js';
 
 // Classifies a clothing item's photos into the fields of a closet item using Claude's vision.
 export interface ClothingClassification {
@@ -64,8 +65,7 @@ export class UnclassifiablePhotoError extends Error {
 const SYSTEM_PROMPT = `You catalogue clothing for a digital wardrobe app. Each request is one photo of a single item a user wants to add to their closet. It may also include a second photo showing the back of the same item.
 
 Describe the main item in the photo:
-- name: a short, natural item name a person would use, e.g. "Navy wool overcoat" or "White leather sneakers" (at most ${CLOTHING_LIMITS.nameLength} characters).
-- category: the one category that fits best. Use "dress" for one-piece garments such as dresses and jumpsuits, "outerwear" for jackets, coats and blazers worn over other clothes, and "accessory" for bags, hats, belts, scarves, jewellery and similar.
+- name: a short, natural item name a person would use, e.g. "Navy wool overcoat" or "White leather sneakers" (at most ${CLOTHING_LIMITS.nameLength} characters). If the item is one of these garment types, use that exact word in the name: ${Object.keys(MESHES_CATEGORIES).join(', ')}. For example "Blue cotton t-shirt", "Black denim shorts" or "Grey zip-up hoodie".- category: the one category that fits best. Use "dress" for one-piece garments such as dresses and jumpsuits, "outerwear" for jackets, coats and blazers worn over other clothes, and "accessory" for bags, hats, belts, scarves, jewellery and similar. Use "top" for shirts, t-shirts, sweaters and hoodies, "bottom" for pants, jeans, shorts and skirts, and "shoes" for footwear.
 - color: the dominant colour as a simple lowercase name, e.g. "navy" or "light grey"; use "multicolor" when no single colour dominates.
 - style: one or two lowercase words for how the item is typically worn, e.g. "casual", "formal", "business", "sporty", "streetwear", "loungewear" or "outdoor".
 

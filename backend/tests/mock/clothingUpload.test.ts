@@ -47,6 +47,7 @@ function mockStorage(options: { failUploadNumber?: number; deleteError?: Error }
       uploads += 1;
       return uploads === options.failUploadNumber ? Promise.reject(new Error('Forced storage error')) : Promise.resolve();
     }),
+    downloadFile: jest.fn<FileStorage['downloadFile']>(() => Promise.resolve(new Uint8Array())),
     getDownloadUrl: jest.fn<FileStorage['getDownloadUrl']>((key) => Promise.resolve(`https://storage.test/${key}?sig=test`)),
     deleteFile: jest.fn<FileStorage['deleteFile']>(() =>
       options.deleteError ? Promise.reject(options.deleteError) : Promise.resolve()

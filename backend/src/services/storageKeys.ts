@@ -18,3 +18,7 @@ export function clothingImageKey(userId: string, extension: ImageExtension): str
 export function avatarModelKey(userId: string): string {
   return `avatars/${userId}/${randomUUID()}.glb`;
 }
+
+export function garmentModelKey(userId: string, itemId: string): string {
+  return `garments/${userId}/${itemId}/${randomUUID()}.glb`;
+}
