@@ -4,9 +4,10 @@ import { ClothingItem } from '../models/clothingItem.js';
 import { getClothingClassifier, InvalidImageError } from '../services/classifier.js';
 import { toClothingItemResponsesWithImages, toClothingItemResponseWithImage } from '../services/clothingImages.js';
 import { getFileStorage } from '../services/storage.js';
-import { clothingImageKey, type ImageExtension } from '../services/storageKeys.js';
 import { validateClothingItemFilter, validateClothingItemUpdate } from '../validation/clothing.js';
 import { isObjectId } from '../validation/common.js';
+import { generateGarmentModel, meshTypeFor, UnsupportedGarmentError } from '../services/garmentMesh.js';
+import { CONTENT_TYPES, clothingImageKey, garmentModelKey, type ImageExtension } from '../services/storageKeys.js';
 
 const INVALID_ID = { error: 'Invalid clothing item id' };
 const NOT_FOUND = { error: 'Clothing item not found' };
@@ -142,11 +143,70 @@ export async function deleteClothingItem(req: AuthedRequest, res: Response) {
   res.status(204).end();
 }
 
-// POST /clothing/generate/:id — generates a mesh for the clothing item and stored related data about the item
+// POST /clothing/:id/generate — builds the item's 3D model from a base mesh tinted with the front photo's
+// colour, stores it and saves its key on the item. Generating again replaces the previous model.
 export async function generateClothingItemMesh(req: AuthedRequest, res: Response) {
   const { id } = req.params;
   if (!isObjectId(id)) {
     return res.status(400).json(INVALID_ID);
   }
-  // TODO: Implement this logic
+  // Checked first, so a missing configuration fails fast (503) instead of after the slow part.
+  const storage = getFileStorage();
+  const userId = getUserId(req);
+  const item = await ClothingItem.findOne({ _id: id, owner: userId, isArchived: false });
+  if (!item) {
+    return res.status(404).json(NOT_FOUND);
+  }
+  const meshType = meshTypeFor(item);
+  if (meshType === undefined) {
+    throw new UnsupportedGarmentError(`3D models aren't available for ${item.category} items yet`);
+  }
+
+  const glb = await generateGarmentModel(await storage.downloadFile(item.imageKey), meshType);
+  const key = garmentModelKey(userId, id);
+  await storage.uploadFile(key, glb, CONTENT_TYPES.glb);
+
+  let previous;
+  try {
+    // Returns the item as it was before the update, which gives us the old model's key.
+    previous = await ClothingItem.findOneAndUpdate(
+      { _id: id, owner: userId, isArchived: false },
+      { $set: { modelKey: key } }
+    );
+  } catch (err) {
+    await deleteQuietly(storage, key, 'orphaned garment model');
+    throw err;
+  }
+  if (!previous) {
+    // Archived or deleted while the model was being generated.
+    await deleteQuietly(storage, key, 'orphaned garment model');
+    return res.status(404).json(NOT_FOUND);
+  }
+  if (previous.modelKey) {
+    await deleteQuietly(storage, previous.modelKey, 'old garment model');
+  }
+  res.status(201).json({ downloadUrl: await storage.getDownloadUrl(key), contentType: CONTENT_TYPES.glb, meshType });
+}
+
+// GET /clothing/:id/model — short-lived download link for the item's 3D model.
+// Archived items still work, since past outfits keep showing them.
+export async function getClothingItemModel(req: AuthedRequest, res: Response) {
+  const { id } = req.params;
+  if (!isObjectId(id)) {
+    return res.status(400).json(INVALID_ID);
+  }
+  const item = await ClothingItem.findOne({ _id: id, owner: getUserId(req) });
+  if (!item) {
+    return res.status(404).json(NOT_FOUND);
+  }
+  if (!item.modelKey) {
+    return res.status(404).json({ error: 'No 3D model has been generated for this item yet' });
+  }
+  res.json({ downloadUrl: await getFileStorage().getDownloadUrl(item.modelKey), contentType: CONTENT_TYPES.glb });
+}
+
+function deleteQuietly(storage: ReturnType<typeof getFileStorage>, key: string, what: string): Promise<void> {
+  return storage.deleteFile(key).catch((err: unknown) => {
+    console.error(`Could not delete ${what} ${key}:`, err);
+  });
 }

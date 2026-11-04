@@ -3,12 +3,11 @@ import path from "node:path";
 
 interface SolidColourOptions {
   inputPath: string;
-  outputPath: string;
   colour: string;
 }
 
 /**
- * Converts a hex colour string (e.g. "#FF0000") to normalized RGBA array.
+ * Converts a hex colour string to normalized RGBA array.
  */
 function hexToRgba(hex: string): [number, number, number, number] {
   let c = hex.replace("#", "");
@@ -30,9 +29,8 @@ function hexToRgba(hex: string): [number, number, number, number] {
  */
 export async function applySolidColour({
   inputPath,
-  outputPath,
   colour,
-}: SolidColourOptions): Promise<Buffer> {
+}: SolidColourOptions): Promise<Uint8Array> {
   const buffer = await fs.readFile(inputPath);
 
   // Validate GLB header
@@ -136,12 +134,5 @@ export async function applySolidColour({
     writeOffset += binChunkBuffer.length;
   }
 
-  // Save to output destination
-  await fs.mkdir(path.dirname(outputPath), { recursive: true });
-  await fs.writeFile(outputPath, outputBuffer);
-
-  console.log(`Applied solid colour ${colour} to ${materialCount} materials.`);
-  console.log(`Saved GLB instantly to ${outputPath}`);
-
-  return outputBuffer;
+  return new Uint8Array(outputBuffer);
 }

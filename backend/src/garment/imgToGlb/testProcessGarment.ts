@@ -24,7 +24,6 @@ async function main() {
       frontImageBuffer,
       category,
       baseMeshesDir: path.join(baseDir, "baseMeshes"),
-      outputPath,
     });
 
     console.log("Success!", result);

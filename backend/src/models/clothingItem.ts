@@ -29,6 +29,8 @@ const clothingItemSchema = new Schema(
     // Removed items are archived, not deleted, so past outfits that used them still show them.
     isArchived: { type: Boolean, default: false },
     archivedAt: { type: Date, default: null },
+    // Storage key of the generated 3D model (.glb); null until one is generated.
+    modelKey: { type: String, default: null },
   },
   { timestamps: true }
 );

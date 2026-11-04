@@ -7,6 +7,7 @@ import {
   updateClothingItem,
   uploadClothingItem,
   generateClothingItemMesh,
+  getClothingItemModel
 } from '../controllers/clothing.js';
 import { requireAuth } from '../middleware/middleware.js';
 import { MAX_IMAGE_BYTES } from '../services/classifier.js';
@@ -28,4 +29,5 @@ clothingRouter.get('/', listClothingItems);
 clothingRouter.get('/:id', getClothingItem);
 clothingRouter.patch('/:id', updateClothingItem);
 clothingRouter.delete('/:id', deleteClothingItem);
-clothingRouter.post('/generate/:id', generateClothingItemMesh);
+clothingRouter.post('/:id/generate', generateClothingItemMesh);
+clothingRouter.get('/:id/model', getClothingItemModel);

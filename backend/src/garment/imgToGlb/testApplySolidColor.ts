@@ -12,8 +12,6 @@ async function main() {
 
   const inputPath = path.join(projectRoot, "backend/src/garment/baseMeshes/hoodie.glb");
   const outputPath = path.join(projectRoot, "backend/src/garment/imgToGlb/output/blue_hoodie.glb");
-
-
   console.log("Checking input file at:", inputPath);
   
   try {
@@ -27,7 +25,6 @@ async function main() {
   console.log("Applying solid color...");
   await applySolidColour({
     inputPath,
-    outputPath,
     colour: "#0000FF",
   });
   console.log("...");

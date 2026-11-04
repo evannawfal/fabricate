@@ -14,7 +14,6 @@ interface ProcessGarmentOptions {
   frontImageBuffer: Buffer;
   category: GarmentType;
   baseMeshesDir: string;
-  outputPath: string;
 }
 
 /**
@@ -103,8 +102,7 @@ export async function processAndApplyGarment({
   frontImageBuffer,
   category,
   baseMeshesDir,
-  outputPath,
-}: ProcessGarmentOptions): Promise<{ category: GarmentType; colour: string; outputPath: string }> {
+}: ProcessGarmentOptions): Promise<Uint8Array> {
 
   const meshFilename = MESHES_CATEGORIES[category];
   if (!meshFilename) {
@@ -114,13 +112,9 @@ export async function processAndApplyGarment({
   const inputPath = path.join(baseMeshesDir, meshFilename);
 
   const colour = await extractPrimaryColourFromBuffer(frontImageBuffer);
-  console.log(`[Pipeline] Extracted primary color ${colour} for category '${category}'`);
 
-  await applySolidColour({
+  return await applySolidColour({
     inputPath,
-    outputPath,
     colour,
   });
-
-  return { category, colour, outputPath };
 }
