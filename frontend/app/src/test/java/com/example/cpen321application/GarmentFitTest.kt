@@ -43,6 +43,15 @@ class GarmentFitTest {
     }
 
     @Test
+    fun resizingAGarmentKeepsItsTopEdgeInPlace() {
+        val normal = placeGarment(ClothingCategory.Bottom, pantsMillimetres, avatar)
+        val larger = placeGarment(ClothingCategory.Bottom, pantsMillimetres, avatar, size = 1.2f)
+
+        assertEquals(normal.scale * 1.2f, larger.scale, 0.0001f)
+        assertEquals(waist, larger.position.y + pantsMillimetres.top * larger.scale, 0.001f)
+    }
+
+    @Test
     fun garmentsAreCentredOnTheBody() {
         val placement = placeGarment(ClothingCategory.Top, tShirtMetres, avatar)
 

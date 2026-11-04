@@ -83,7 +83,7 @@ class AvatarScreenTest {
 
     private fun showTryOn(uiState: AvatarUiState): MutableList<ClothingItem> {
         val toggled = mutableListOf<ClothingItem>()
-        composeRule.setContent { TryOnRow(uiState) { toggled += it } }
+        composeRule.setContent { TryOnRow(uiState, onToggle = { toggled += it }) }
         return toggled
     }
 
@@ -100,6 +100,23 @@ class AvatarScreenTest {
         composeRule.onNodeWithText("Black Jeans").assertIsNotSelected().performClick()
 
         assertEquals(listOf(jeans), toggled)
+    }
+
+    @Test
+    fun tryOn_eachWornGarmentHasASizeSlider() {
+        composeRule.setContent {
+            TryOnRow(
+                AvatarUiState(
+                    wardrobe = listOf(shirt, jeans),
+                    worn = mapOf(ClothingCategory.Top to WornGarment(shirt.id, File("shirt.glb"))),
+                ),
+                onToggle = {},
+            )
+        }
+
+        composeRule.onNodeWithText("Blue Shirt size").assertIsDisplayed()
+        composeRule.onNodeWithTag("avatar_garment_size_${shirt.id}").assertIsDisplayed()
+        composeRule.onNodeWithText("Black Jeans size").assertDoesNotExist()
     }
 
     @Test

@@ -13,6 +13,7 @@ import com.example.cpen321application.model.AvatarMeasurements
 import com.example.cpen321application.model.BodyMeasurement
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
+import com.example.cpen321application.model.GarmentSizeRange
 import com.example.cpen321application.model.supportsModel
 import com.example.cpen321application.network.BackendApi
 import com.example.cpen321application.network.HttpException
@@ -47,11 +48,12 @@ data class AvatarUiState(
   val tryOnError: String? = null,
 ) {
   val garmentModels: Map<ClothingCategory, File> get() = worn.mapValues { it.value.model }
+  val garmentSizes: Map<ClothingCategory, Float> get() = worn.mapValues { it.value.size }
 
   fun isWorn(item: ClothingItem) = worn[item.category]?.itemId == item.id
 }
 
-data class WornGarment(val itemId: String, val model: File)
+data class WornGarment(val itemId: String, val model: File, val size: Float = 1f)
 
 /**
  * Avatar customization: loads the saved avatar when the screen opens, and on
@@ -112,6 +114,13 @@ class AvatarViewModel(
       } catch (e: ClothingRepositoryException) {
         _uiState.update { it.copy(tryingOnId = null, tryOnError = e.message) }
       }
+    }
+  }
+
+  fun setGarmentSize(category: ClothingCategory, size: Float) {
+    _uiState.update { state ->
+      val garment = state.worn[category] ?: return@update state
+      state.copy(worn = state.worn + (category to garment.copy(size = size.coerceIn(GarmentSizeRange))))
     }
   }
 

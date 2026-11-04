@@ -21,6 +21,8 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -41,13 +43,13 @@ import com.example.cpen321application.model.BodyMeasurement
 import com.example.cpen321application.model.ClothingItem
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.Bounds
+import com.example.cpen321application.model.GarmentSizeRange
 import com.example.cpen321application.model.placeGarment
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
 import com.example.cpen321application.viewmodel.AvatarSaveState
 import com.example.cpen321application.viewmodel.AvatarUiState
 import com.example.cpen321application.viewmodel.AvatarViewModel
 import io.github.sceneview.Scene
-import io.github.sceneview.loaders.ModelLoader
 import io.github.sceneview.math.Position
 import io.github.sceneview.math.Scale
 import io.github.sceneview.node.ModelNode
@@ -82,6 +84,7 @@ fun AvatarRoute(clothingRepository: ClothingRepository, modifier: Modifier = Mod
         onMeasurementChange = avatarViewModel::setMeasurement,
         onSave = avatarViewModel::save,
         onToggleGarment = avatarViewModel::toggleGarment,
+        onGarmentSizeChange = avatarViewModel::setGarmentSize,
         modifier = modifier,
     )
 }
@@ -97,6 +100,7 @@ fun AvatarScreen(
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
     onToggleGarment: (ClothingItem) -> Unit = {},
+    onGarmentSizeChange: (ClothingCategory, Float) -> Unit = { _, _ -> },
 ) {
     val saving = uiState.saveState is AvatarSaveState.Saving
 
@@ -109,8 +113,10 @@ fun AvatarScreen(
         ) {
             val modelFile = uiState.modelFile
             if (modelFile != null) {
-                // A new model replaces the whole scene, so the viewer reloads it.
-                key(uiState.modelVersion, uiState.garmentModels) { AvatarViewer(modelFile, uiState.garmentModels) }
+                // A new model replaces the whole scene, so the viewer reloads it. Size changes don't.
+                key(uiState.modelVersion, uiState.garmentModels) {
+                    AvatarViewer(modelFile, uiState.garmentModels, uiState.garmentSizes)
+                }
             } else {
                 Text(
                     text = stringResource(R.string.avatar_not_created),
@@ -124,7 +130,7 @@ fun AvatarScreen(
             }
         }
         if (uiState.modelFile != null) {
-            TryOnRow(uiState, onToggleGarment)
+            TryOnRow(uiState, onToggleGarment, onGarmentSizeChange)
         }
         AvatarControls(
             uiState = uiState,
@@ -174,7 +180,11 @@ private fun AvatarControls(
 }
 
 @Composable
-internal fun TryOnRow(uiState: AvatarUiState, onToggle: (ClothingItem) -> Unit) {
+internal fun TryOnRow(
+    uiState: AvatarUiState,
+    onToggle: (ClothingItem) -> Unit,
+    onSizeChange: (ClothingCategory, Float) -> Unit = { _, _ -> },
+) {
     Column(Modifier.padding(horizontal = ScreenPadding)) {
         Text(stringResource(R.string.avatar_try_on), style = MaterialTheme.typography.labelLarge)
         if (uiState.wardrobe.isEmpty()) {
@@ -198,6 +208,16 @@ internal fun TryOnRow(uiState: AvatarUiState, onToggle: (ClothingItem) -> Unit) 
                     modifier = Modifier.testTag("avatar_garment_${item.id}"),
                 )
             }
+        }
+        uiState.worn.forEach { (category, garment) ->
+            val name = uiState.wardrobe.firstOrNull { it.id == garment.itemId }?.name ?: return@forEach
+            Text(stringResource(R.string.avatar_garment_size, name), style = MaterialTheme.typography.labelMedium)
+            Slider(
+                value = garment.size,
+                onValueChange = { onSizeChange(category, it) },
+                valueRange = GarmentSizeRange,
+                modifier = Modifier.testTag("avatar_garment_size_${garment.itemId}"),
+            )
         }
         uiState.tryOnError?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
@@ -247,7 +267,7 @@ private fun SavingOverlay() {
 }
 
 @Composable
-private fun AvatarViewer(modelFile: File, garments: Map<ClothingCategory, File>) {
+private fun AvatarViewer(modelFile: File, garments: Map<ClothingCategory, File>, sizes: Map<ClothingCategory, Float>) {
     // Shows the model in 3D; the user can drag to rotate it.
     val engine = rememberEngine()
     val modelLoader = rememberModelLoader(engine)
@@ -256,6 +276,7 @@ private fun AvatarViewer(modelFile: File, garments: Map<ClothingCategory, File>)
         position = Position(z = CAMERA_DISTANCE)
     }
 
+    val garmentNodes = remember { mutableMapOf<ClothingCategory, ModelNode>() }
     val childNodes = rememberNodes {
         add(
             ModelNode(
@@ -270,10 +291,24 @@ private fun AvatarViewer(modelFile: File, garments: Map<ClothingCategory, File>)
                     z = -center.z * scale.z,
                 )
                 // As children, garments take the avatar's scale and position.
-                val avatarBounds = Bounds(center, halfExtent)
-                garments.forEach { (category, file) -> addChildNode(garmentNode(modelLoader, category, file, avatarBounds)) }
+                garments.forEach { (category, file) ->
+                    garmentNodes[category] = ModelNode(modelInstance = modelLoader.createModelInstance(file)).also(::addChildNode)
+                }
             },
         )
+    }
+    val avatar = childNodes.first() as ModelNode
+    SideEffect {
+        garmentNodes.forEach { (category, node) ->
+            val placement = placeGarment(
+                category,
+                Bounds(node.center, node.halfExtent),
+                Bounds(avatar.center, avatar.halfExtent),
+                sizes[category] ?: 1f,
+            )
+            node.scale = Scale(placement.scale)
+            node.position = placement.position
+        }
     }
 
     Scene(
@@ -289,13 +324,6 @@ private fun AvatarViewer(modelFile: File, garments: Map<ClothingCategory, File>)
         ),
     )
 }
-
-private fun garmentNode(modelLoader: ModelLoader, category: ClothingCategory, file: File, avatar: Bounds) =
-    ModelNode(modelInstance = modelLoader.createModelInstance(file)).apply {
-        val placement = placeGarment(category, Bounds(center, halfExtent), avatar)
-        scale = Scale(placement.scale)
-        position = placement.position
-    }
 
 @Preview(showBackground = true, name = "No avatar yet")
 @Composable
