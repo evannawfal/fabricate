@@ -75,49 +75,55 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
     }
 
     composable(Routes.HOME) {
-      val scope = rememberCoroutineScope()
-      val clothingRepository = remember {
-        BackendClothingRepository(
-          tokenProvider = { sessionStore.token.first() },
-          onUnauthorized = { endRejectedSession(sessionStore, navController) },
-        )
-      }
-      val outfitRepository = remember {
-        BackendOutfitRepository(
-          tokenProvider = { sessionStore.token.first() },
-          onUnauthorized = { endRejectedSession(sessionStore, navController) },
-        )
-      }
-      val recommendationRepository = remember {
-        BackendRecommendationRepository(
-          tokenProvider = { sessionStore.token.first() },
-          onUnauthorized = { endRejectedSession(sessionStore, navController) },
-        )
-      }
-      val roomsRepository = remember {
-        BackendRoomsRepository(
-          tokenProvider = { sessionStore.token.first() },
-          onUnauthorized = { endRejectedSession(sessionStore, navController) },
-        )
-      }
-      MainScreen(
-        clothingRepository = clothingRepository,
-        outfitRepository = outfitRepository,
-        recommendationRepository = recommendationRepository,
-        locationProvider = remember { DeviceLocationProvider(context) },
-        roomsRepository = roomsRepository,
-        onSignOut = {
-          scope.launch {
-            sessionStore.clearToken()
-            GoogleAuthClient().signOut(context)
-            navController.navigate(Routes.LOGIN) {
-              popUpTo(Routes.HOME) { inclusive = true }
-            }
-          }
-        },
-      )
+      HomeDestination(sessionStore, navController)
     }
   }
+}
+
+@Composable
+private fun HomeDestination(sessionStore: SessionStore, navController: NavHostController) {
+  val context = LocalContext.current
+  val scope = rememberCoroutineScope()
+  val clothingRepository = remember {
+    BackendClothingRepository(
+      tokenProvider = { sessionStore.token.first() },
+      onUnauthorized = { endRejectedSession(sessionStore, navController) },
+    )
+  }
+  val outfitRepository = remember {
+    BackendOutfitRepository(
+      tokenProvider = { sessionStore.token.first() },
+      onUnauthorized = { endRejectedSession(sessionStore, navController) },
+    )
+  }
+  val recommendationRepository = remember {
+    BackendRecommendationRepository(
+      tokenProvider = { sessionStore.token.first() },
+      onUnauthorized = { endRejectedSession(sessionStore, navController) },
+    )
+  }
+  val roomsRepository = remember {
+    BackendRoomsRepository(
+      tokenProvider = { sessionStore.token.first() },
+      onUnauthorized = { endRejectedSession(sessionStore, navController) },
+    )
+  }
+  MainScreen(
+    clothingRepository = clothingRepository,
+    outfitRepository = outfitRepository,
+    recommendationRepository = recommendationRepository,
+    locationProvider = remember { DeviceLocationProvider(context) },
+    roomsRepository = roomsRepository,
+    onSignOut = {
+      scope.launch {
+        sessionStore.clearToken()
+        GoogleAuthClient().signOut(context)
+        navController.navigate(Routes.LOGIN) {
+          popUpTo(Routes.HOME) { inclusive = true }
+        }
+      }
+    },
+  )
 }
 
 // The back-end rejected the session token, e.g. it expired while the app was open.
