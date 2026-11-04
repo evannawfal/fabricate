@@ -148,5 +148,5 @@ export async function generateClothingItemMesh(req: AuthedRequest, res: Response
   if (!isObjectId(id)) {
     return res.status(400).json(INVALID_ID);
   }
-  
+  // TODO: Implement this logic
 }
