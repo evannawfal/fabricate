@@ -110,26 +110,15 @@ fun ClosetScreen(viewModel: ClosetViewModel, modifier: Modifier = Modifier) {
             modifier = modifier,
         )
     } else {
-        Box(modifier = modifier.fillMaxSize()) {
-            ClosetGrid(
-                state = state,
-                onSelectCategory = viewModel::selectCategory,
-                onOpenItem = { viewModel.openItem(it.id) },
-                onRetry = viewModel::loadItems,
-            )
-            ExtendedFloatingActionButton(
-                onClick = {
-                    viewModel.startAddingClothing()
-                    choosingPhotoSource = true
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp),
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = null)
-                Text("Add clothing", modifier = Modifier.padding(start = 12.dp))
-            }
-        }
+        ClosetBrowser(
+            state = state,
+            viewModel = viewModel,
+            onAddClothing = {
+                viewModel.startAddingClothing()
+                choosingPhotoSource = true
+            },
+            modifier = modifier,
+        )
     }
 
     val captureSide = state.captureSide
@@ -151,6 +140,32 @@ fun ClosetScreen(viewModel: ClosetViewModel, modifier: Modifier = Modifier) {
         )
     }
     ClosetDialogs(state, viewModel)
+}
+
+@Composable
+private fun ClosetBrowser(
+    state: ClosetUiState,
+    viewModel: ClosetViewModel,
+    onAddClothing: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier.fillMaxSize()) {
+        ClosetGrid(
+            state = state,
+            onSelectCategory = viewModel::selectCategory,
+            onOpenItem = { viewModel.openItem(it.id) },
+            onRetry = viewModel::loadItems,
+        )
+        ExtendedFloatingActionButton(
+            onClick = onAddClothing,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = null)
+            Text("Add clothing", modifier = Modifier.padding(start = 12.dp))
+        }
+    }
 }
 
 // The dialogs that can show over the closet: uploading, editing an item, and errors.
@@ -384,23 +399,7 @@ private fun ClothingItemDetail(
             NewItemNotice()
         }
 
-        // Items added before back photos existed only have a front photo.
-        if (item.backImageUrl == null) {
-            ClothingThumbnail(item, Modifier.fillMaxWidth())
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                PhotoSide.entries.forEach { side ->
-                    Column(modifier = Modifier.weight(1f)) {
-                        ClothingThumbnail(item, Modifier.fillMaxWidth(), side)
-                        Text(
-                            side.label.replaceFirstChar(Char::uppercase),
-                            style = MaterialTheme.typography.labelMedium,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                }
-            }
-        }
+        ItemPhotos(item)
 
         DetailRow("Type", item.category.label)
         DetailRow("Colour", item.color.replaceFirstChar(Char::uppercase))
@@ -426,6 +425,27 @@ private fun ClothingItemDetail(
             message = "It will be removed from your closet.",
             onDelete = onDelete,
         )
+    }
+}
+
+@Composable
+private fun ItemPhotos(item: ClothingItem) {
+    // Items added before back photos existed only have a front photo.
+    if (item.backImageUrl == null) {
+        ClothingThumbnail(item, Modifier.fillMaxWidth())
+    } else {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            PhotoSide.entries.forEach { side ->
+                Column(modifier = Modifier.weight(1f)) {
+                    ClothingThumbnail(item, Modifier.fillMaxWidth(), side)
+                    Text(
+                        side.label.replaceFirstChar(Char::uppercase),
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+        }
     }
 }
 
