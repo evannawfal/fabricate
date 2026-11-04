@@ -21,6 +21,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
     "@azure/storage-blob": "^12.34.0",
+    "@imgly/background-removal-node": "^1.4.5",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "google-auth-library": "^10.9.1",

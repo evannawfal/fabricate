@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { env } from '../config/env.js';
 import { CLOTHING_CATEGORIES, CLOTHING_LIMITS, type ClothingCategory } from '../models/clothingItem.js';
+import { MESHES_CATEGORIES } from '../config/constants.js';
 
 // Classifies a clothing item's photos into the fields of a closet item using Claude's vision.
 export interface ClothingClassification {
@@ -65,7 +66,7 @@ const SYSTEM_PROMPT = `You catalogue clothing for a digital wardrobe app. Each r
 
 Describe the main item in the photo:
 - name: a short, natural item name a person would use, e.g. "Navy wool overcoat" or "White leather sneakers" (at most ${CLOTHING_LIMITS.nameLength} characters).
-- category: the one category that fits best. Use "dress" for one-piece garments such as dresses and jumpsuits, "outerwear" for jackets, coats and blazers worn over other clothes, and "accessory" for bags, hats, belts, scarves, jewellery and similar.
+- category: the one category that fits best. Use "dress" for one-piece garments such as dresses and jumpsuits, "outerwear" for jackets, coats and blazers worn over other clothes, and "accessory" for bags, hats, belts, scarves, jewellery and similar. Otherwise, classify garments into these categories: ${Object.keys(MESHES_CATEGORIES)}.
 - color: the dominant colour as a simple lowercase name, e.g. "navy" or "light grey"; use "multicolor" when no single colour dominates.
 - style: one or two lowercase words for how the item is typically worn, e.g. "casual", "formal", "business", "sporty", "streetwear", "loungewear" or "outdoor".
 

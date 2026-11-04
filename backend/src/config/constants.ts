@@ -58,3 +58,12 @@ export const STYLE_PAIRINGS = {
 // Closet analysis time NFR (Requirements_and_Design.md section 3.7), checked by tests/nfr/.
 export const CLOSET_ANALYSIS_TIME_LIMIT_MS = 2_000;
 export const CLOSET_ANALYSIS_MAX_ITEMS = 500;
+
+export const MESHES_CATEGORIES : Record<string, string> = {
+    "t-shirt": "t_shirt.glb",
+    "shirt": "shirt.glb",
+    "hoodie": "hoodie.glb",
+    "pants": "pants.glb",
+    "skirt": "skirt.glb",
+    "shorts": "shorts.glb",
+  };

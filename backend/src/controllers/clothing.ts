@@ -141,3 +141,12 @@ export async function deleteClothingItem(req: AuthedRequest, res: Response) {
   }
   res.status(204).end();
 }
+
+// POST /clothing/generate/:id — generates a mesh for the clothing item and stored related data about the item
+export async function generateClothingItemMesh(req: AuthedRequest, res: Response) {
+  const { id } = req.params;
+  if (!isObjectId(id)) {
+    return res.status(400).json(INVALID_ID);
+  }
+  
+}
