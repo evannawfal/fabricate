@@ -185,7 +185,13 @@ export async function generateClothingItemMesh(req: AuthedRequest, res: Response
   if (previous.modelKey) {
     await deleteQuietly(storage, previous.modelKey, 'old garment model');
   }
-  res.status(201).json({ downloadUrl: await storage.getDownloadUrl(key), contentType: CONTENT_TYPES.glb, meshType });
+  
+  res.status(201).json({
+    downloadUrl: await storage.getDownloadUrl(key),
+    contentType: CONTENT_TYPES.glb,
+    meshType,
+    hasModel: true,
+  });
 }
 
 // GET /clothing/:id/model — short-lived download link for the item's 3D model.
