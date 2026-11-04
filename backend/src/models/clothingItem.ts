@@ -50,6 +50,7 @@ export interface ClothingItemResponse {
   tags: string[];
   isClean: boolean;
   isArchived: boolean;
+  hasModel: boolean;
   // Short-lived download link for the item's front photo, or null when it can't be provided.
   imageUrl: string | null;
   // Same for the back photo; also null for items that were added without one.
@@ -73,6 +74,7 @@ export function toClothingItemResponse(
     tags: [...item.tags],
     isClean: item.isClean,
     isArchived: item.isArchived,
+    hasModel: item.modelKey !== null && item.modelKey !== undefined,
     imageUrl,
     backImageUrl,
     createdAt: item.createdAt,
