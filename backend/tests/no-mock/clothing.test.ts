@@ -262,6 +262,7 @@ describe('Unmocked: GET /clothing', () => {
         'id',
         'imageUrl',
         'isArchived',
+        'hasModel',
         'isClean',
         'name',
         'style',

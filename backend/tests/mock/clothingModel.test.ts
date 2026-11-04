@@ -108,6 +108,7 @@ describe('Mocked: POST /clothing/:id/generate', () => {
       downloadUrl: `https://storage.test/${key}?sig=test`,
       contentType: 'model/gltf-binary',
       meshType: 'hoodie',
+      hasModel: true,
     });
     expect(await modelKeyOf(item.id)).toBe(key);
     expect(storage.deleteFile).not.toHaveBeenCalled();
