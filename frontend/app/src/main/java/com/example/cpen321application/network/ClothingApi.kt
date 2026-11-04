@@ -6,12 +6,18 @@ import com.example.cpen321application.data.ClothingRepository
 import com.example.cpen321application.data.ClothingRepositoryException
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.File
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.concurrent.TimeUnit
 
 /**
@@ -22,7 +28,8 @@ class BackendClothingRepository(
     tokenProvider: suspend () -> String?,
     onUnauthorized: suspend () -> Unit = {},
     baseUrl: String = BuildConfig.API_BASE_URL,
-    client: OkHttpClient = defaultClient,
+    private val client: OkHttpClient = defaultClient,
+    private val modelDir: File = File(System.getProperty("java.io.tmpdir"), "garment_models"),
 ) : ClothingRepository {
     private val http = AuthorizedClient(tokenProvider, onUnauthorized, client)
     private val clothingUrl = "${baseUrl.trimEnd('/')}/clothing"
@@ -54,6 +61,41 @@ class BackendClothingRepository(
 
     override suspend fun deleteItem(id: String) {
         send(Request.Builder().url("$clothingUrl/$id").delete())
+    }
+
+    override suspend fun generateModel(id: String): File {
+        val request = Request.Builder().url("$clothingUrl/$id/generate").post(ByteArray(0).toRequestBody())
+        return downloadModel(id, http.send(request, ::modelErrorMessageFor))
+    }
+
+    override suspend fun modelFile(id: String): File {
+        val cached = File(modelDir, "$id.glb")
+        if (cached.exists()) return cached
+        return downloadModel(id, http.send(Request.Builder().url("$clothingUrl/$id/model").get(), ::modelErrorMessageFor))
+    }
+
+    private suspend fun downloadModel(id: String, linkResponse: String): File {
+        val url = parseResponse { JSONObject(linkResponse).getString("downloadUrl") }
+        val file = File(modelDir, "$id.glb")
+        withContext(Dispatchers.IO) {
+            try {
+                // The link is already signed, so it's fetched without the session token.
+                client.newCall(Request.Builder().url(url).build()).execute().use { response ->
+                    val body = response.body
+                    if (!response.isSuccessful || body == null) {
+                        throw ClothingRepositoryException(errorMessageFor(response.code, null), canRetry = true)
+                    }
+                    modelDir.mkdirs()
+                    // Written to a temporary file first so a failed download never leaves half a model.
+                    val temp = File(modelDir, "$id.glb.tmp")
+                    temp.outputStream().use { body.byteStream().copyTo(it) }
+                    Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
+            } catch (e: IOException) {
+                throw ClothingRepositoryException(NETWORK_ERROR, e, canRetry = true)
+            }
+        }
+        return file
     }
 
     private suspend fun send(request: Request.Builder): String = http.send(request, ::errorMessageFor)
@@ -88,6 +130,13 @@ internal fun errorMessageFor(status: Int, serverError: String?): String = when (
     else -> "Something went wrong (error $status). Try again."
 }
 
+/** A message for the user explaining a failed request for an item's 3D model. */
+internal fun modelErrorMessageFor(status: Int, serverError: String?): String = when (status) {
+    422 -> serverError ?: "3D models aren't available for this item yet."
+    503 -> "3D models aren't available right now. Try again later."
+    else -> errorMessageFor(status, serverError)
+}
+
 internal fun parseClothingItem(json: JSONObject): ClothingItem? {
     val category = ClothingCategory.fromApiValue(json.getString("category")) ?: return null
     val tags = json.optJSONArray("tags")
@@ -101,5 +150,6 @@ internal fun parseClothingItem(json: JSONObject): ClothingItem? {
         isClean = json.optBoolean("isClean", true),
         imageUrl = if (json.isNull("imageUrl")) null else json.getString("imageUrl"),
         backImageUrl = if (json.isNull("backImageUrl")) null else json.getString("backImageUrl"),
+        hasModel = json.optBoolean("hasModel", false),
     )
 }

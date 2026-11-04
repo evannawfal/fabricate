@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -65,6 +66,7 @@ import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
 import com.example.cpen321application.model.PhotoSide
 import com.example.cpen321application.model.filterByCategory
+import com.example.cpen321application.model.supportsModel
 import com.example.cpen321application.viewmodel.ClosetError
 import com.example.cpen321application.viewmodel.ClosetUiState
 import com.example.cpen321application.viewmodel.ClosetViewModel
@@ -107,6 +109,14 @@ fun ClosetScreen(viewModel: ClosetViewModel, modifier: Modifier = Modifier) {
             onBack = viewModel::closeItem,
             onEdit = { viewModel.startEditing(openItem.id) },
             onDelete = { viewModel.deleteItem(openItem.id) },
+            modelButton = {
+                ModelButton(
+                    item = openItem,
+                    isGenerating = state.generatingModelId == openItem.id,
+                    error = state.modelError,
+                    onGenerate = { viewModel.generateModel(openItem.id) },
+                )
+            },
             modifier = modifier,
         )
     } else {
@@ -374,6 +384,7 @@ private fun ClothingItemDetail(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    modelButton: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -419,12 +430,34 @@ private fun ClothingItemDetail(
             Icon(Icons.Filled.Edit, contentDescription = null)
             Text("Edit details", modifier = Modifier.padding(start = 8.dp))
         }
+        modelButton()
         ConfirmDeleteButton(
             label = "Delete item",
             title = "Delete ${item.name}?",
             message = "It will be removed from your closet.",
             onDelete = onDelete,
         )
+    }
+}
+
+@Composable
+private fun ModelButton(item: ClothingItem, isGenerating: Boolean, error: String?, onGenerate: () -> Unit) {
+    if (!item.category.supportsModel) return
+    OutlinedButton(onClick = onGenerate, enabled = !isGenerating, modifier = Modifier.fillMaxWidth()) {
+        if (isGenerating) {
+            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+        }
+        Text(
+            when {
+                isGenerating -> "Creating 3D model…"
+                item.hasModel -> "Recreate 3D model"
+                else -> "Create 3D model"
+            },
+            modifier = Modifier.padding(start = 8.dp),
+        )
+    }
+    if (error != null) {
+        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

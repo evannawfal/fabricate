@@ -20,15 +20,27 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 
 class ClothingApiTest {
+    @get:Rule
+    val modelDir = TemporaryFolder()
+
     private lateinit var server: MockWebServer
     private var token: String? = "test-token"
 
     private val repository by lazy {
-        BackendClothingRepository(tokenProvider = { token }, baseUrl = server.url("/").toString())
+        BackendClothingRepository(
+            tokenProvider = { token },
+            baseUrl = server.url("/").toString(),
+            modelDir = modelDir.root,
+        )
     }
+
+    private fun respondWithModelLink() =
+        respond(200, JSONObject().put("downloadUrl", server.url("/files/model.glb").toString()).toString())
 
     private val front = byteArrayOf(1, 2, 3)
     private val back = byteArrayOf(4, 5, 6)
@@ -199,6 +211,69 @@ class ClothingApiTest {
         val request = server.takeRequest()
         assertEquals("DELETE", request.method)
         assertEquals("/clothing/abc123", request.path)
+    }
+
+    @Test
+    fun generateModel_buildsTheModelAndSavesItOnTheDevice() {
+        respondWithModelLink()
+        respond(200, "glb-bytes")
+
+        val file = runBlocking { repository.generateModel("abc123") }
+
+        val generate = server.takeRequest()
+        assertEquals("POST", generate.method)
+        assertEquals("/clothing/abc123/generate", generate.path)
+        assertEquals("Bearer test-token", generate.getHeader("Authorization"))
+        val download = server.takeRequest()
+        assertEquals("/files/model.glb", download.path)
+        // The link is already signed, so the session token isn't sent to file storage.
+        assertNull(download.getHeader("Authorization"))
+        assertEquals("glb-bytes", file.readText())
+    }
+
+    @Test
+    fun generateModel_replacesTheSavedModel() {
+        respondWithModelLink()
+        respond(200, "old")
+        runBlocking { repository.modelFile("abc123") }
+        respondWithModelLink()
+        respond(200, "new")
+
+        val file = runBlocking { repository.generateModel("abc123") }
+
+        assertEquals("new", file.readText())
+    }
+
+    @Test
+    fun modelFile_downloadsOnceThenUsesTheSavedCopy() {
+        respondWithModelLink()
+        respond(200, "glb-bytes")
+
+        val first = runBlocking { repository.modelFile("abc123") }
+        val second = runBlocking { repository.modelFile("abc123") }
+
+        assertEquals("/clothing/abc123/model", server.takeRequest().path)
+        assertEquals(2, server.requestCount)
+        assertEquals(first, second)
+        assertEquals("glb-bytes", second.readText())
+    }
+
+    @Test
+    fun generateModel_explainsWhyItFailed() {
+        respond(422, """{"error":"3D models aren't available for shoes items yet"}""")
+        assertFailsWith("3D models aren't available for shoes items yet") { repository.generateModel("abc123") }
+
+        respond(503)
+        assertFailsWith("3D models aren't available right now. Try again later.") { repository.generateModel("abc123") }
+    }
+
+    @Test
+    fun failedModelDownload_leavesNoModelBehind() {
+        respondWithModelLink()
+        respond(403)
+
+        assertFailsWith(errorMessageFor(403, null)) { repository.modelFile("abc123") }
+        assertTrue(modelDir.root.listFiles().orEmpty().none { it.name == "abc123.glb" })
     }
 
     @Test

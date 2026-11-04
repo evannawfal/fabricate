@@ -7,8 +7,13 @@ import androidx.lifecycle.viewModelScope
 import com.example.cpen321application.R
 import com.example.cpen321application.auth.SessionStore
 import com.example.cpen321application.data.AvatarStore
+import com.example.cpen321application.data.ClothingRepository
+import com.example.cpen321application.data.ClothingRepositoryException
 import com.example.cpen321application.model.AvatarMeasurements
 import com.example.cpen321application.model.BodyMeasurement
+import com.example.cpen321application.model.ClothingCategory
+import com.example.cpen321application.model.ClothingItem
+import com.example.cpen321application.model.supportsModel
 import com.example.cpen321application.network.BackendApi
 import com.example.cpen321application.network.HttpException
 import java.io.File
@@ -36,7 +41,17 @@ data class AvatarUiState(
   /** Changes every time a new model is saved, so the viewer reloads it. */
   val modelVersion: Int = 0,
   val saveState: AvatarSaveState = AvatarSaveState.Idle,
-)
+  val wardrobe: List<ClothingItem> = emptyList(),
+  val worn: Map<ClothingCategory, WornGarment> = emptyMap(),
+  val tryingOnId: String? = null,
+  val tryOnError: String? = null,
+) {
+  val garmentFiles: List<File> get() = worn.values.map { it.model }
+
+  fun isWorn(item: ClothingItem) = worn[item.category]?.itemId == item.id
+}
+
+data class WornGarment(val itemId: String, val model: File)
 
 /**
  * Avatar customization: loads the saved avatar when the screen opens, and on
@@ -46,6 +61,7 @@ data class AvatarUiState(
 class AvatarViewModel(
   private val sessionStore: SessionStore,
   private val avatarStore: AvatarStore,
+  private val clothing: ClothingRepository,
 ) : ViewModel() {
 
   private val _uiState = MutableStateFlow(AvatarUiState())
@@ -59,6 +75,42 @@ class AvatarViewModel(
           measurements = saved ?: state.measurements,
           modelFile = avatarStore.modelFile.takeIf { it.exists() },
         )
+      }
+    }
+  }
+
+  fun loadWardrobe() {
+    viewModelScope.launch {
+      try {
+        val items = clothing.listItems().filter { it.category.supportsModel }
+        _uiState.update { it.copy(wardrobe = items, tryOnError = null) }
+      } catch (e: ClothingRepositoryException) {
+        _uiState.update { it.copy(tryOnError = e.message) }
+      }
+    }
+  }
+
+  /** Puts [item] on the avatar in place of anything else in its category, or takes it off if it's on. */
+  fun toggleGarment(item: ClothingItem) {
+    val state = _uiState.value
+    if (state.tryingOnId != null) return
+    if (state.isWorn(item)) {
+      _uiState.update { it.copy(worn = it.worn - item.category) }
+      return
+    }
+    _uiState.update { it.copy(tryingOnId = item.id, tryOnError = null) }
+    viewModelScope.launch {
+      try {
+        val model = if (item.hasModel) clothing.modelFile(item.id) else clothing.generateModel(item.id)
+        _uiState.update { s ->
+          s.copy(
+            worn = s.worn + (item.category to WornGarment(item.id, model)),
+            wardrobe = s.wardrobe.map { if (it.id == item.id) it.copy(hasModel = true) else it },
+            tryingOnId = null,
+          )
+        }
+      } catch (e: ClothingRepositoryException) {
+        _uiState.update { it.copy(tryingOnId = null, tryOnError = e.message) }
       }
     }
   }

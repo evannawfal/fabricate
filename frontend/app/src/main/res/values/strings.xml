@@ -24,6 +24,9 @@
     <string name="avatar_hips">Hip width</string>
     <string name="avatar_cm">%1$d cm</string>
     <string name="avatar_save">Update avatar</string>
+    <string name="avatar_try_on">Try on</string>
+    <string name="avatar_try_on_empty">Add tops, bottoms or outerwear to your closet to try them on.</string>
+    <string name="avatar_creating_model">Creating 3D model…</string>
     <string name="avatar_saving">Creating your avatar…</string>
     <string name="avatar_error_generic">Couldn\'t update your avatar. Please try again.</string>
     <string name="avatar_error_network">Can\'t reach the server. Check your connection and try again.</string>
