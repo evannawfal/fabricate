@@ -39,12 +39,17 @@ import com.example.cpen321application.data.AvatarStore
 import com.example.cpen321application.data.ClothingRepository
 import com.example.cpen321application.model.BodyMeasurement
 import com.example.cpen321application.model.ClothingItem
+import com.example.cpen321application.model.ClothingCategory
+import com.example.cpen321application.model.Bounds
+import com.example.cpen321application.model.placeGarment
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
 import com.example.cpen321application.viewmodel.AvatarSaveState
 import com.example.cpen321application.viewmodel.AvatarUiState
 import com.example.cpen321application.viewmodel.AvatarViewModel
 import io.github.sceneview.Scene
+import io.github.sceneview.loaders.ModelLoader
 import io.github.sceneview.math.Position
+import io.github.sceneview.math.Scale
 import io.github.sceneview.node.ModelNode
 import io.github.sceneview.rememberCameraManipulator
 import io.github.sceneview.rememberCameraNode
@@ -105,7 +110,7 @@ fun AvatarScreen(
             val modelFile = uiState.modelFile
             if (modelFile != null) {
                 // A new model replaces the whole scene, so the viewer reloads it.
-                key(uiState.modelVersion, uiState.garmentFiles) { AvatarViewer(modelFile, uiState.garmentFiles) }
+                key(uiState.modelVersion, uiState.garmentModels) { AvatarViewer(modelFile, uiState.garmentModels) }
             } else {
                 Text(
                     text = stringResource(R.string.avatar_not_created),
@@ -242,7 +247,7 @@ private fun SavingOverlay() {
 }
 
 @Composable
-private fun AvatarViewer(modelFile: File, garments: List<File>) {
+private fun AvatarViewer(modelFile: File, garments: Map<ClothingCategory, File>) {
     // Shows the model in 3D; the user can drag to rotate it.
     val engine = rememberEngine()
     val modelLoader = rememberModelLoader(engine)
@@ -264,8 +269,9 @@ private fun AvatarViewer(modelFile: File, garments: List<File>) {
                     y = -center.y * scale.y,
                     z = -center.z * scale.z,
                 )
-                // Garment models use the avatar's coordinates, so as children they take its scale and position.
-                garments.forEach { addChildNode(ModelNode(modelInstance = modelLoader.createModelInstance(it))) }
+                // As children, garments take the avatar's scale and position.
+                val avatarBounds = Bounds(center, halfExtent)
+                garments.forEach { (category, file) -> addChildNode(garmentNode(modelLoader, category, file, avatarBounds)) }
             },
         )
     }
@@ -283,6 +289,13 @@ private fun AvatarViewer(modelFile: File, garments: List<File>) {
         ),
     )
 }
+
+private fun garmentNode(modelLoader: ModelLoader, category: ClothingCategory, file: File, avatar: Bounds) =
+    ModelNode(modelInstance = modelLoader.createModelInstance(file)).apply {
+        val placement = placeGarment(category, Bounds(center, halfExtent), avatar)
+        scale = Scale(placement.scale)
+        position = placement.position
+    }
 
 @Preview(showBackground = true, name = "No avatar yet")
 @Composable

@@ -46,7 +46,7 @@ data class AvatarUiState(
   val tryingOnId: String? = null,
   val tryOnError: String? = null,
 ) {
-  val garmentFiles: List<File> get() = worn.values.map { it.model }
+  val garmentModels: Map<ClothingCategory, File> get() = worn.mapValues { it.value.model }
 
   fun isWorn(item: ClothingItem) = worn[item.category]?.itemId == item.id
 }
