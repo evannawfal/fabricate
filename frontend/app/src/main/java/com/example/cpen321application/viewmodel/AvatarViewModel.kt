@@ -118,10 +118,8 @@ class AvatarViewModel(
   }
 
   fun setGarmentSize(category: ClothingCategory, size: Float) {
-    _uiState.update { state ->
-      val garment = state.worn[category] ?: return@update state
-      state.copy(worn = state.worn + (category to garment.copy(size = size.coerceIn(GarmentSizeRange))))
-    }
+    val garment = _uiState.value.worn[category] ?: return
+    _uiState.update { it.copy(worn = it.worn + (category to garment.copy(size = size.coerceIn(GarmentSizeRange)))) }
   }
 
   fun setMeasurement(measurement: BodyMeasurement, cm: Int) {

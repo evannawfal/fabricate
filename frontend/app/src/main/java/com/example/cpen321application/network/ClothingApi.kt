@@ -64,19 +64,25 @@ class BackendClothingRepository(
     }
 
     override suspend fun generateModel(id: String): File {
+        val file = modelFileFor(id)
         val request = Request.Builder().url("$clothingUrl/$id/generate").post(ByteArray(0).toRequestBody())
-        return downloadModel(id, http.send(request, ::modelErrorMessageFor))
+        return downloadModel(file, http.send(request, ::modelErrorMessageFor))
     }
 
     override suspend fun modelFile(id: String): File {
-        val cached = File(modelDir, "$id.glb")
-        if (cached.exists()) return cached
-        return downloadModel(id, http.send(Request.Builder().url("$clothingUrl/$id/model").get(), ::modelErrorMessageFor))
+        val file = modelFileFor(id)
+        if (file.exists()) return file
+        return downloadModel(file, http.send(Request.Builder().url("$clothingUrl/$id/model").get(), ::modelErrorMessageFor))
     }
 
-    private suspend fun downloadModel(id: String, linkResponse: String): File {
+    // Item ids name files on the device, so anything other than a database id is refused instead of used as a path.
+    private fun modelFileFor(id: String): File {
+        if (!OBJECT_ID.matches(id)) throw ClothingRepositoryException(UNEXPECTED_RESPONSE)
+        return File(modelDir, "$id.glb")
+    }
+
+    private suspend fun downloadModel(file: File, linkResponse: String): File {
         val url = parseResponse { JSONObject(linkResponse).getString("downloadUrl") }
-        val file = File(modelDir, "$id.glb")
         withContext(Dispatchers.IO) {
             try {
                 // The link is already signed, so it's fetched without the session token.
@@ -87,7 +93,7 @@ class BackendClothingRepository(
                     }
                     modelDir.mkdirs()
                     // Written to a temporary file first so a failed download never leaves half a model.
-                    val temp = File(modelDir, "$id.glb.tmp")
+                    val temp = File(modelDir, "${file.name}.tmp")
                     temp.outputStream().use { body.byteStream().copyTo(it) }
                     Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
                 }
@@ -106,6 +112,7 @@ class BackendClothingRepository(
     private companion object {
         val JPEG = "image/jpeg".toMediaType()
         val JSON = "application/json".toMediaType()
+        val OBJECT_ID = Regex("[0-9a-f]{24}")
 
         val defaultClient: OkHttpClient = OkHttpClient.Builder()
             .readTimeout(2, TimeUnit.MINUTES)

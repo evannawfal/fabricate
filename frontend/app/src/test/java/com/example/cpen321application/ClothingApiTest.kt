@@ -43,6 +43,7 @@ class ClothingApiTest {
         respond(200, JSONObject().put("downloadUrl", server.url("/files/model.glb").toString()).toString())
 
     private val front = byteArrayOf(1, 2, 3)
+    private val modelItemId = "6ae8331688dc279e5beaf2ce"
     private val back = byteArrayOf(4, 5, 6)
 
     private fun itemJson(
@@ -218,11 +219,11 @@ class ClothingApiTest {
         respondWithModelLink()
         respond(200, "glb-bytes")
 
-        val file = runBlocking { repository.generateModel("abc123") }
+        val file = runBlocking { repository.generateModel(modelItemId) }
 
         val generate = server.takeRequest()
         assertEquals("POST", generate.method)
-        assertEquals("/clothing/abc123/generate", generate.path)
+        assertEquals("/clothing/$modelItemId/generate", generate.path)
         assertEquals("Bearer test-token", generate.getHeader("Authorization"))
         val download = server.takeRequest()
         assertEquals("/files/model.glb", download.path)
@@ -235,11 +236,11 @@ class ClothingApiTest {
     fun generateModel_replacesTheSavedModel() {
         respondWithModelLink()
         respond(200, "old")
-        runBlocking { repository.modelFile("abc123") }
+        runBlocking { repository.modelFile(modelItemId) }
         respondWithModelLink()
         respond(200, "new")
 
-        val file = runBlocking { repository.generateModel("abc123") }
+        val file = runBlocking { repository.generateModel(modelItemId) }
 
         assertEquals("new", file.readText())
     }
@@ -249,10 +250,10 @@ class ClothingApiTest {
         respondWithModelLink()
         respond(200, "glb-bytes")
 
-        val first = runBlocking { repository.modelFile("abc123") }
-        val second = runBlocking { repository.modelFile("abc123") }
+        val first = runBlocking { repository.modelFile(modelItemId) }
+        val second = runBlocking { repository.modelFile(modelItemId) }
 
-        assertEquals("/clothing/abc123/model", server.takeRequest().path)
+        assertEquals("/clothing/$modelItemId/model", server.takeRequest().path)
         assertEquals(2, server.requestCount)
         assertEquals(first, second)
         assertEquals("glb-bytes", second.readText())
@@ -261,10 +262,10 @@ class ClothingApiTest {
     @Test
     fun generateModel_explainsWhyItFailed() {
         respond(422, """{"error":"3D models aren't available for shoes items yet"}""")
-        assertFailsWith("3D models aren't available for shoes items yet") { repository.generateModel("abc123") }
+        assertFailsWith("3D models aren't available for shoes items yet") { repository.generateModel(modelItemId) }
 
         respond(503)
-        assertFailsWith("3D models aren't available right now. Try again later.") { repository.generateModel("abc123") }
+        assertFailsWith("3D models aren't available right now. Try again later.") { repository.generateModel(modelItemId) }
     }
 
     @Test
@@ -272,8 +273,14 @@ class ClothingApiTest {
         respondWithModelLink()
         respond(403)
 
-        assertFailsWith(errorMessageFor(403, null)) { repository.modelFile("abc123") }
-        assertTrue(modelDir.root.listFiles().orEmpty().none { it.name == "abc123.glb" })
+        assertFailsWith(errorMessageFor(403, null)) { repository.modelFile(modelItemId) }
+        assertTrue(modelDir.root.listFiles().orEmpty().none { it.name == "$modelItemId.glb" })
+    }
+
+    @Test
+    fun modelFile_refusesAnIdThatIsNotADatabaseId() {
+        assertFailsWith(UNEXPECTED_RESPONSE) { repository.modelFile("../avatar") }
+        assertEquals(0, server.requestCount)
     }
 
     @Test

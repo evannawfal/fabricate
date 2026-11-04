@@ -210,14 +210,16 @@ internal fun TryOnRow(
             }
         }
         uiState.worn.forEach { (category, garment) ->
-            val name = uiState.wardrobe.firstOrNull { it.id == garment.itemId }?.name ?: return@forEach
-            Text(stringResource(R.string.avatar_garment_size, name), style = MaterialTheme.typography.labelMedium)
-            Slider(
-                value = garment.size,
-                onValueChange = { onSizeChange(category, it) },
-                valueRange = GarmentSizeRange,
-                modifier = Modifier.testTag("avatar_garment_size_${garment.itemId}"),
-            )
+            val name = uiState.wardrobe.firstOrNull { it.id == garment.itemId }?.name
+            if (name != null) {
+                Text(stringResource(R.string.avatar_garment_size, name), style = MaterialTheme.typography.labelMedium)
+                Slider(
+                    value = garment.size,
+                    onValueChange = { onSizeChange(category, it) },
+                    valueRange = GarmentSizeRange,
+                    modifier = Modifier.testTag("avatar_garment_size_${garment.itemId}"),
+                )
+            }
         }
         uiState.tryOnError?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
