@@ -20,6 +20,7 @@ import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
 import com.example.cpen321application.model.Outfit
 import com.example.cpen321application.screens.MainScreen
+import com.example.cpen321application.screens.MainScreenRepositories
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -37,12 +38,14 @@ class MainScreenTest {
     private fun showMainScreen(outfitRepository: FakeOutfitRepository = FakeOutfitRepository()) {
         composeRule.setContent {
             MainScreen(
-                clothingRepository = FakeClothingRepository(emptyList()),
-                outfitRepository = outfitRepository,
-                recommendationRepository = recommendations,
-                locationProvider = FakeLocationProvider(),
-                roomsRepository = FakeRoomsRepository(),
-                profileRepository = FakeProfileRepository(),
+                repositories = MainScreenRepositories(
+                    clothing = FakeClothingRepository(emptyList()),
+                    outfits = outfitRepository,
+                    recommendations = recommendations,
+                    location = FakeLocationProvider(),
+                    rooms = FakeRoomsRepository(),
+                    profile = FakeProfileRepository(),
+                ),
                 onSignOut = { signOutCalls++ },
             )
         }
