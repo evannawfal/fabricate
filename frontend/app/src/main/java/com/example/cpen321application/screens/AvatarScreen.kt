@@ -42,8 +42,10 @@ import com.example.cpen321application.data.ClothingRepository
 import com.example.cpen321application.model.BodyMeasurement
 import com.example.cpen321application.model.ClothingItem
 import com.example.cpen321application.model.ClothingCategory
+import com.example.cpen321application.model.AvatarMeasurements
 import com.example.cpen321application.model.Bounds
 import com.example.cpen321application.model.GarmentSizeRange
+import com.example.cpen321application.model.bodyWidth
 import com.example.cpen321application.model.placeGarment
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
 import com.example.cpen321application.viewmodel.AvatarSaveState
@@ -51,7 +53,6 @@ import com.example.cpen321application.viewmodel.AvatarUiState
 import com.example.cpen321application.viewmodel.AvatarViewModel
 import io.github.sceneview.Scene
 import io.github.sceneview.math.Position
-import io.github.sceneview.math.Scale
 import io.github.sceneview.node.ModelNode
 import io.github.sceneview.rememberCameraManipulator
 import io.github.sceneview.rememberCameraNode
@@ -115,7 +116,7 @@ fun AvatarScreen(
             if (modelFile != null) {
                 // A new model replaces the whole scene, so the viewer reloads it. Size changes don't.
                 key(uiState.modelVersion, uiState.garmentModels) {
-                    AvatarViewer(modelFile, uiState.garmentModels, uiState.garmentSizes)
+                    AvatarViewer(modelFile, uiState.garmentModels, uiState.garmentSizes, uiState.measurements)
                 }
             } else {
                 Text(
@@ -269,7 +270,12 @@ private fun SavingOverlay() {
 }
 
 @Composable
-private fun AvatarViewer(modelFile: File, garments: Map<ClothingCategory, File>, sizes: Map<ClothingCategory, Float>) {
+private fun AvatarViewer(
+    modelFile: File,
+    garments: Map<ClothingCategory, File>,
+    sizes: Map<ClothingCategory, Float>,
+    measurements: AvatarMeasurements,
+) {
     // Shows the model in 3D; the user can drag to rotate it.
     val engine = rememberEngine()
     val modelLoader = rememberModelLoader(engine)
@@ -301,14 +307,16 @@ private fun AvatarViewer(modelFile: File, garments: Map<ClothingCategory, File>,
     }
     val avatar = childNodes.first() as ModelNode
     SideEffect {
+        val avatarBounds = Bounds(avatar.center, avatar.halfExtent)
         garmentNodes.forEach { (category, node) ->
             val placement = placeGarment(
                 category,
                 Bounds(node.center, node.halfExtent),
-                Bounds(avatar.center, avatar.halfExtent),
-                sizes[category] ?: 1f,
+                avatarBounds,
+                bodyWidth = bodyWidth(category, measurements, avatarBounds),
+                size = sizes[category] ?: 1f,
             )
-            node.scale = Scale(placement.scale)
+            node.scale = placement.scale
             node.position = placement.position
         }
     }
