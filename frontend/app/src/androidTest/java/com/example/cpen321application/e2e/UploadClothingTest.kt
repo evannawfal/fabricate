@@ -41,7 +41,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The Upload Clothing Item use case end to end (documentation/Testing.md, section 4): the app
+ * The Add Clothing Items use case end to end (documentation/Testing.md, section 4): the app
  * signed in as the tester, the system photo picker driven with UI Automator, and the real
  * back-end with its photo classifier. Each test adds the photo it picks to the device's gallery
  * and, when it finishes, removes that photo and any item it added to the tester's closet.
@@ -102,6 +102,7 @@ class UploadClothingTest {
         composeRule.onNodeWithText("Closet").performClick()
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()
         composeRule.onNodeWithText("Add clothing").performClick()
+        composeRule.onNodeWithText(FRONT_STEP).assertIsDisplayed()
         composeRule.onNodeWithText("Take photo").assertIsDisplayed()
         composeRule.onNodeWithText("Choose from gallery").assertIsDisplayed()
         composeRule.onNodeWithText("Choose from gallery").performClick()
@@ -116,15 +117,26 @@ class UploadClothingTest {
         )
     }
 
+    // Waits for the app to be back on screen: until then the Compose test rule can't see it.
+    private fun waitForAppAfterPicker() {
+        assertTrue(
+            "The app didn't return after closing the photo picker",
+            device.wait(Until.hasObject(By.pkg(context.packageName)), PICKER_TIMEOUT_MS),
+        )
+    }
+
     private fun pickNewestPhoto() {
         waitForPhotoPicker()
         device.findObject(PICKER_PHOTO).click()
+        // Newer versions of the picker only select the photo until "Done" is tapped.
+        device.wait(Until.findObject(PICKER_DONE), PICKER_DONE_TIMEOUT_MS)?.click()
+        waitForAppAfterPicker()
     }
 
-    // The same photo is used for the front and the back.
+    // The same photo is used for the front and the back: a plain T-shirt looks the same from behind.
     private fun pickFrontAndBack() {
         pickNewestPhoto()
-        waitForText("Step 2 of 2: the back", PICKER_TIMEOUT_MS)
+        waitForText(BACK_STEP, PICKER_TIMEOUT_MS)
         composeRule.onNodeWithText("Choose from gallery").performClick()
         pickNewestPhoto()
     }
@@ -177,6 +189,7 @@ class UploadClothingTest {
         val added = runBlocking { addedItems() }.single()
         assertEquals(ClothingCategory.Top, added.category)
         assertNotNull(added.imageUrl)
+        assertNotNull(added.backImageUrl)
         composeRule.onAllNodesWithTag(CLOSET_ITEM_TAG).onFirst().assert(hasText(added.name))
         // The photo is merged into the card's semantics, so it's only visible in the unmerged tree.
         composeRule.onAllNodesWithTag(CLOSET_ITEM_TAG, useUnmergedTree = true).onFirst()
@@ -202,10 +215,13 @@ class UploadClothingTest {
         waitForPhotoPicker()
         device.pressBack()
 
-        assertTrue(
-            "The app didn't return after closing the photo picker",
-            device.wait(Until.hasObject(By.pkg(context.packageName)), PICKER_TIMEOUT_MS),
-        )
+        waitForAppAfterPicker()
+        // The app asks again where the front photo should come from; closing that cancels.
+        waitForText(FRONT_STEP, PICKER_TIMEOUT_MS)
+        device.pressBack()
+        composeRule.waitUntil(PICKER_TIMEOUT_MS) {
+            composeRule.onAllNodesWithText(FRONT_STEP).fetchSemanticsNodes().isEmpty()
+        }
         composeRule.onNodeWithTag(UPLOAD_PROGRESS_TAG).assertDoesNotExist()
         assertClosetUnchanged()
     }
@@ -228,13 +244,17 @@ class UploadClothingTest {
     private companion object {
         const val SHIRT_PHOTO = "shirt.jpg"
         const val MUG_PHOTO = "mug.jpg"
+        const val FRONT_STEP = "Step 1 of 2: the front"
+        const val BACK_STEP = "Step 2 of 2: the back"
         const val NOT_CLOTHING_MESSAGE = "This photo doesn't show a clothing item. Try another photo."
         const val PICKER_TIMEOUT_MS = 10_000L
+        const val PICKER_DONE_TIMEOUT_MS = 2_000L
 
         // Classifying a photo calls the back-end's AI service, which can take a while.
         const val CLASSIFY_TIMEOUT_MS = 30_000L
 
         // A photo in the system photo picker's grid; the first match is the newest photo.
         val PICKER_PHOTO = By.descStartsWith("Photo taken on")
+        val PICKER_DONE = By.text("Done")
     }
 }
