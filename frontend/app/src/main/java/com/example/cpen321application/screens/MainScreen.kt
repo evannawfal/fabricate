@@ -99,7 +99,7 @@ fun MainScreen(
       Tab.Closet -> ClosetScreen(closetViewModel, contentModifier)
       Tab.Outfits -> OutfitsScreen(outfitsViewModel, closet.items, contentModifier)
       Tab.Shop -> ShopScreen(shopViewModel, closet.items, contentModifier)
-      Tab.Avatar -> AvatarRoute(contentModifier)
+      Tab.Avatar -> AvatarRoute(clothingRepository, contentModifier)
       Tab.Rooms -> RoomsRoute(roomsRepository, clothingRepository, contentModifier)
     }
   }

@@ -16,6 +16,10 @@ enum class ClothingCategory(val apiValue: String, val label: String) {
     }
 }
 
+/** Whether the back-end can build 3D models for items in this category. */
+val ClothingCategory.supportsModel: Boolean
+    get() = this == ClothingCategory.Top || this == ClothingCategory.Bottom || this == ClothingCategory.Outerwear
+
 /** Which side of a clothing item a photo shows. */
 enum class PhotoSide(val label: String) {
     Front("front"),
@@ -32,6 +36,7 @@ data class ClothingItem(
     val isClean: Boolean = true,
     val imageUrl: String? = null,
     val backImageUrl: String? = null,   // new
+    val hasModel: Boolean = false,
 )
 
 /** Items in [category], defaults to every item when [category] is null. */
