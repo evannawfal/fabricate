@@ -1,18 +1,8 @@
 import { Message, Room } from '../../src/models/room.js';
-import { createClothingItem, createRoom, createUser, makeFriends, UNKNOWN_ID } from '../helpers/fixtures.js';
+import { createClothingItem, createRoom, createUser, UNKNOWN_ID } from '../helpers/fixtures.js';
 import { nextEvent, tokenFor, useRoomSocketServer } from '../helpers/roomSockets.js';
 
-const { join } = useRoomSocketServer();
-
-async function roomWithTwoMembers() {
-  const user = await createUser();
-  const friend = await createUser();
-  await makeFriends(user.id, friend.id);
-  const room = await createRoom('Room', [user.id, friend.id]);
-  const userClient = await join({ token: tokenFor(user.id), roomId: room.id });
-  const friendClient = await join({ token: tokenFor(friend.id), roomId: room.id });
-  return { user, friend, room, userClient, friendClient };
-}
+const { join, roomWithTwoMembers } = useRoomSocketServer();
 
 // Interface Socket.IO connection (auth: { token, roomId })
 describe('Unmocked: room socket connection', () => {

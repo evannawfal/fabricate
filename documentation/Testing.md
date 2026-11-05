@@ -8,6 +8,7 @@
 | 2026-10-24 | 2.1.1, 2.5 | Added the mocked `describe` groups for the `/outfits` interfaces. `controllers/outfits.ts` is now fully covered: the mocked tests reach the update-after-concurrent-delete case, and an unreachable check was removed. |
 | 2026-10-25 | 4 | Implemented the Upload Clothing Item end-to-end test (`UploadClothingTest.kt`) and added its logs. Each scenario is now a separate test so they don't depend on each other, and "the closet is unchanged" is checked against the back-end and the first card instead of by counting cards, since a large closet doesn't fit on screen. The test adds its photos to the photo library itself and removes them and any item it added afterwards. |
 | 2026-10-29 | 2, 3 | Updated for CP2. Added `POST /avatar` and `POST /outfits/generate` to the back-end test table and the mocked components, and pointed every test link at the current line. Updated the commit hash, the run instructions and the coverage screenshots, added a report of every back-end test together with the reasons each file below 100% can't be fully covered, and covered the error handler's branches listed for CP2. Section 3 now names the two non-functional requirements that are tested automatically; their tests come with the features they measure. |
+| 2026-11-03 | 2.1.1, 2.3, 2.5 | Updated the Clothing upload test documentation for required front and back photos. Added the front-photo upload failure case and documented cleanup attempts for both generated storage keys. Coverage totals and screenshots should be refreshed from the latest test run. |
 
 ---
 
@@ -34,11 +35,13 @@ The back-end tests are documented in detail for all interfaces of the **Clothing
 | GET /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L217`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/outfits.test.ts#L217) | [`backend/tests/mock/outfits.test.ts#L158`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L158) | Outfit DB |
 | PATCH /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L279`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/outfits.test.ts#L279) | [`backend/tests/mock/outfits.test.ts#L178`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L178) | Outfit DB |
 | DELETE /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L434`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/outfits.test.ts#L434) | [`backend/tests/mock/outfits.test.ts#L246`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/outfits.test.ts#L246) | Outfit DB |
+| GET /recommendations | [`backend/tests/no-mock/recommendations.test.ts#L27`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/recommendations.test.ts#L27) | [`backend/tests/mock/recommendations.test.ts#L71`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/mock/recommendations.test.ts#L71) | Online store catalog (Serper), Clothing DB |
 | GET /health | [`backend/tests/no-mock/health.test.ts#L6`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/no-mock/health.test.ts#L6) | None needed (no external components) | None |
 
 How the external components are mocked:
 
 - **Clothing classifier (Claude API)**, **outfit generator (Claude API)**, **weather service (OpenWeather)** and **Azure Blob Storage**: the tests replace them with Jest stand-ins through `setClothingClassifier()`, `setOutfitGenerator()`, `setWeatherService()` and `setFileStorage()`. The stand-ins can return a result, throw an "unavailable" or "not clothing" error, report the weather as unavailable, or fail an upload. [`backend/tests/setupEnv.ts`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/setupEnv.ts) clears the services' credentials, so the tests never call the real services.
+- **Online store catalog (Serper)**: the unit tests give `createSerperProvider()` a stand-in for `fetch`, so no search is sent to Serper, and `setCatalogService()` replaces the whole service. The cache is tested against the real in-memory MongoDB server. `backend/tests/setupEnv.ts` blanks `SERPER_API_KEY`, so tests never spend search credits.
 - **Avatar generation**: `jest.unstable_mockModule()` replaces `exportAvatar()` so the mocked `POST /avatar` tests can return a model or fail without generating a mesh.
 - **Clothing DB / Outfit DB / User DB** (MongoDB): the tests without mocks use a real in-memory MongoDB server ([`backend/tests/helpers/database.ts`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/helpers/database.ts)). The mocked tests use `jest.spyOn()` on Mongoose model methods (for example `ClothingItem.create`, `find`, `findOne`, `findOneAndUpdate`, `exists` and the same `Outfit` methods) to make them throw a database error.
 - **Google Authentication API**: `jest.spyOn(OAuth2Client.prototype, 'verifyIdToken')` returns a chosen Google profile.
@@ -47,7 +50,7 @@ How the external components are mocked:
 
 Each test in the code is annotated with its input, expected status code, expected behavior and expected output (and the mock's behavior for mocked tests). All requests use a valid signed-in user unless the input says otherwise. The table below summarizes them.
 
-**POST /clothing** (multipart form with a `photo` file)
+**POST /clothing** (multipart form with required `photo` (front) and `backPhoto` (back) files)
 
 | **Group** | **Test** | **Input** | **Status** | **Expected behavior and output** |
 | --------- | -------- | --------- | ---------- | -------------------------------- |
@@ -62,9 +65,12 @@ Each test in the code is annotated with its input, expected status code, expecte
 | Mocked | Photo is not clothing | Classifier rejects the photo | 422 | Photo is not stored, nothing is saved; `{ error: "The photo does not show a clothing item" }` |
 | Mocked | Classifier unavailable | Classifier is rate limited or down | 503 | Photo is not stored, nothing is saved |
 | Mocked | Storage not configured | No storage settings | 503 | Classifier is not called (no API cost), nothing is saved |
-| Mocked | Storage upload fails | Storage throws | 500 | Nothing is saved; `{ error: "Internal server error" }` |
-| Mocked | Database error removes the stored photo | `ClothingItem.create` throws | 500 | The stored photo is deleted so no orphaned file is left |
-| Mocked | Clean-up failure is logged, not reported | `ClothingItem.create` and `deleteFile` both throw | 500 | The database error is reported; the clean-up failure is only logged |
+
+| Mocked | Front photo upload fails | Storage rejects the front-photo upload | 500 | Nothing is saved; the controller attempts to delete both generated photo keys (front and back) to prevent orphaned files |
+
+| Mocked | Database error removes the stored photos | `ClothingItem.create` throws after both uploads | 500 | Both generated photo keys are passed to storage cleanup so no orphaned front or back photo is left |
+
+| Mocked | Clean-up failure is logged, not reported | `ClothingItem.create` and a `deleteFile` call throw | 500 | Cleanup is attempted for both generated photo keys; a cleanup failure is only logged and the original database error is reported |
 
 **GET /clothing** (`?category=` and `?clean=` filters)
 
@@ -165,7 +171,7 @@ The tests need **Node.js 22** and npm 10. They do not need a `.env` file, a Mong
 
 `.github/workflows/backend.yml`
 
-The **Backend tests** job runs on every pull request and every push to `main`. It installs the dependencies, type-checks and builds the back-end, then runs `npm test`, which runs every test in `backend/tests` (mock, no-mock and unit). The coverage report is uploaded as the `backend-coverage` artifact of each run. The job is a required check before a pull request can be merged into `main`.
+The **Backend tests** job runs on every pull request and every push to `main`. It installs the dependencies, type-checks and builds the back-end, then runs `npm test`, which runs every test in `backend/tests` (mock, no-mock, unit and NFR). The coverage report is uploaded as the `backend-coverage` artifact of each run. The job is a required check before a pull request can be merged into `main`.
 
 ### 2.3. Jest Coverage Report Screenshots With Mocks
 
@@ -212,18 +218,32 @@ In the interface tests alone, `middleware/errorHandler.ts` (25-26) is also uncov
 
 ## 3. Tests of Non-Functional Requirements
 
-Two of the three non-functional requirements in `Requirements_and_Design.md` will be tested automatically: [room update latency](Requirements_and_Design.md#nfr1) and [closet analysis time](Requirements_and_Design.md#nfr3). Both measure features that are still being built (the rooms back-end and the closet gap analysis), so their tests will be in `backend/tests/nfr/` and documented here once those features are merged.
+Two of the three non-functional requirements in `Requirements_and_Design.md` will be tested automatically: [room update latency](Requirements_and_Design.md#nfr1) and [closet analysis time](Requirements_and_Design.md#nfr3). Their tests are in `backend/tests/nfr/`. Run them with `scripts/run-backend-nfr-tests.sh` (or `.ps1`); CI also runs them on every pull request as part of `npm test`.
 
 ### 3.1. Test Locations in Git
 
 | **Non-Functional Requirement** | **Location in Git** |
 | ------------------------------ | ------------------- |
-| Room updates reach members within 1 second | `backend/tests/nfr/` (with the rooms back-end) |
-| Closet gap analysis finishes within 2 seconds for 500 items | `backend/tests/nfr/` (with the gap analysis) |
+| Room updates reach members within 1 second | [`backend/tests/nfr/roomUpdateLatency.test.ts`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/nfr/roomUpdateLatency.test.ts) |
+| Closet gap analysis finishes within 2 seconds for 500 items | [`backend/tests/nfr/closetAnalysisTime.test.ts`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/nfr/closetAnalysisTime.test.ts) |
 
 ### 3.2. Test Verification and Logs
 
-To be added with the tests.
+- **Room updates reach members within 1 second**
+  - **Verification:** The test starts the back-end with its Socket.IO server and a test MongoDB database, and connects two room members as separate Socket.IO clients over WebSocket, as the app does. One member sends 50 chat messages, then 50 outfit board changes, one at a time. Each update is timed from when it's sent until the other member receives it, so the database write after the broadcast isn't counted. The test fails if fewer than 95% of the messages, or of the outfit updates, arrive within 1 second, and logs the 95th percentile, slowest and mean times for each. Both clients run on the same machine as the server, so this measures the back-end's share of the delay, not the mobile network.
+  - **Log Output**
+    ```
+    Room update latency, 50 of each update:
+    Chat messages: 50/50 within 1000 ms, p95 4.3 ms, max 8.0 ms, mean 2.4 ms
+    Outfit updates: 50/50 within 1000 ms, p95 8.0 ms, max 10.3 ms, mean 3.9 ms
+    ```
+
+- **Closet gap analysis finishes within 2 seconds for 500 items**
+  - **Verification:** The test seeds a 500-item closet in a test MongoDB database. The closet has every category above its minimum share and every colour and style, so the analysis also runs its slowest step, the search for a versatile item. Each run times what the Recommendation Engine does for a request: it loads the closet with one indexed query and finds the gaps in memory. The test does 10 runs, including the first one before Node has warmed up, and fails if any run takes 2 seconds or longer. It logs the slowest and mean times and every run.
+  - **Log Output**
+    ```
+    Closet analysis of 500 items over 10 runs (limit 2000 ms): max 19.5 ms, mean 10.6 ms, runs [19.5, 13.7, 11.9, 9.2, 8.9, 9.4, 11.3, 7.9, 7.7, 6.8] ms, 0 gap(s) found
+    ```
 
 ---
 

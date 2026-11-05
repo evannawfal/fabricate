@@ -33,10 +33,11 @@ class BackendClothingRepository(
         return (0 until items.length()).mapNotNull { parseResponse { parseClothingItem(items.getJSONObject(it)) } }
     }
 
-    override suspend fun uploadPhoto(jpeg: ByteArray): ClothingItem {
+    override suspend fun uploadPhotos(front: ByteArray, back: ByteArray): ClothingItem {
         val form = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("photo", "photo.jpg", jpeg.toRequestBody(JPEG))
+            .addFormDataPart("photo", "front.jpg", front.toRequestBody(JPEG))
+            .addFormDataPart("backPhoto", "back.jpg", back.toRequestBody(JPEG))
             .build()
         return parseItem(send(Request.Builder().url(clothingUrl).post(form)))
     }
@@ -99,5 +100,6 @@ internal fun parseClothingItem(json: JSONObject): ClothingItem? {
         tags = if (tags == null) emptyList() else (0 until tags.length()).map { tags.getString(it) },
         isClean = json.optBoolean("isClean", true),
         imageUrl = if (json.isNull("imageUrl")) null else json.getString("imageUrl"),
+        backImageUrl = if (json.isNull("backImageUrl")) null else json.getString("backImageUrl"),
     )
 }

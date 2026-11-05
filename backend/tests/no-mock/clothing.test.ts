@@ -17,6 +17,10 @@ afterEach(clearTestDatabase);
 afterAll(stopTestDatabase);
 
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+const FRONT = { filename: 'front.jpg', contentType: 'image/jpeg' };
+const BACK = { filename: 'back.jpg', contentType: 'image/jpeg' };
+const GIF = { filename: 'photo.gif', contentType: 'image/gif' };
+const TOO_LARGE = Buffer.alloc(5 * 1024 * 1024 + 1);
 
 // Interface POST /clothing
 // Photo classification and file storage aren't configured in these tests, so everything here is
@@ -27,7 +31,10 @@ describe('Unmocked: POST /clothing', () => {
   // Expected behavior: request is rejected; nothing is saved
   // Expected output: { error: "Missing token" }
   test('Missing token', async () => {
-    const response = await request(app).post('/clothing').attach('photo', JPEG, { filename: 'shirt.jpg', contentType: 'image/jpeg' });
+    const response = await request(app)
+      .post('/clothing')
+      .attach('photo', JPEG, FRONT)
+      .attach('backPhoto', JPEG, BACK);
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: 'Missing token' });
@@ -44,6 +51,37 @@ describe('Unmocked: POST /clothing', () => {
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/Missing photo/);
+    expect(await ClothingItem.countDocuments()).toBe(0);
+  });
+
+  // Input: only the back photo
+  // Expected status code: 400
+  // Expected behavior: nothing is saved
+  // Expected output: error explaining the "photo" form field
+  test('Missing front photo', async () => {
+    const user = await createUser();
+
+    const response = await request(app)
+      .post('/clothing')
+      .set('Authorization', authHeader(user.id))
+      .attach('backPhoto', JPEG, BACK);
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/Missing photo.*"photo"/);
+    expect(await ClothingItem.countDocuments()).toBe(0);
+  });
+
+  // Input: only the front photo
+  // Expected status code: 400
+  // Expected behavior: nothing is saved
+  // Expected output: error explaining the "backPhoto" form field
+  test('Missing back photo', async () => {
+    const user = await createUser();
+
+    const response = await request(app).post('/clothing').set('Authorization', authHeader(user.id)).attach('photo', JPEG, FRONT);
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/Missing back photo.*"backPhoto"/);
     expect(await ClothingItem.countDocuments()).toBe(0);
   });
 
@@ -64,41 +102,98 @@ describe('Unmocked: POST /clothing', () => {
     expect(await ClothingItem.countDocuments()).toBe(0);
   });
 
-  // Input: a GIF (unsupported image type)
+  // Input: two files under the same field name
   // Expected status code: 400
   // Expected behavior: nothing is saved
-  // Expected output: error listing the supported types
-  test('Unsupported image type', async () => {
+  // Expected output: error naming the unexpected field
+  test('More than one front photo', async () => {
     const user = await createUser();
 
     const response = await request(app)
       .post('/clothing')
       .set('Authorization', authHeader(user.id))
-      .attach('photo', Buffer.from('GIF89a'), { filename: 'shirt.gif', contentType: 'image/gif' });
+      .attach('photo', JPEG, FRONT)
+      .attach('photo', JPEG, FRONT)
+      .attach('backPhoto', JPEG, BACK);
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/Invalid upload/);
+    expect(await ClothingItem.countDocuments()).toBe(0);
+  });
+
+  // Input: a GIF (unsupported image type) as the front photo
+  // Expected status code: 400
+  // Expected behavior: nothing is saved
+  // Expected output: error listing the supported types
+  test('Unsupported front image type', async () => {
+    const user = await createUser();
+
+    const response = await request(app)
+      .post('/clothing')
+      .set('Authorization', authHeader(user.id))
+      .attach('photo', Buffer.from('GIF89a'), GIF)
+      .attach('backPhoto', JPEG, BACK);
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/Unsupported image type/);
     expect(await ClothingItem.countDocuments()).toBe(0);
   });
 
-  // Input: a photo larger than 5 MB
-  // Expected status code: 413
+  // Input: a GIF (unsupported image type) as the back photo
+  // Expected status code: 400
   // Expected behavior: nothing is saved
-  // Expected output: { error: "The photo must be at most 5 MB" }
-  test('Photo too large', async () => {
+  // Expected output: error naming the back image and listing the supported types
+  test('Unsupported back image type', async () => {
     const user = await createUser();
 
     const response = await request(app)
       .post('/clothing')
       .set('Authorization', authHeader(user.id))
-      .attach('photo', Buffer.alloc(5 * 1024 * 1024 + 1), { filename: 'huge.jpg', contentType: 'image/jpeg' });
+      .attach('photo', JPEG, FRONT)
+      .attach('backPhoto', Buffer.from('GIF89a'), GIF);
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/Unsupported back image type/);
+    expect(await ClothingItem.countDocuments()).toBe(0);
+  });
+
+  // Input: a front photo larger than 5 MB
+  // Expected status code: 413
+  // Expected behavior: nothing is saved
+  // Expected output: { error: "The photo must be at most 5 MB" }
+  test('Front photo too large', async () => {
+    const user = await createUser();
+
+    const response = await request(app)
+      .post('/clothing')
+      .set('Authorization', authHeader(user.id))
+      .attach('photo', TOO_LARGE, { filename: 'huge.jpg', contentType: 'image/jpeg' })
+      .attach('backPhoto', JPEG, BACK);
 
     expect(response.status).toBe(413);
     expect(response.body).toEqual({ error: 'The photo must be at most 5 MB' });
     expect(await ClothingItem.countDocuments()).toBe(0);
   });
 
-  // Input: a valid JPEG while photo classification isn't configured
+  // Input: a back photo larger than 5 MB
+  // Expected status code: 413
+  // Expected behavior: nothing is saved
+  // Expected output: { error: "The photo must be at most 5 MB" }
+  test('Back photo too large', async () => {
+    const user = await createUser();
+
+    const response = await request(app)
+      .post('/clothing')
+      .set('Authorization', authHeader(user.id))
+      .attach('photo', JPEG, FRONT)
+      .attach('backPhoto', TOO_LARGE, { filename: 'huge.jpg', contentType: 'image/jpeg' });
+
+    expect(response.status).toBe(413);
+    expect(response.body).toEqual({ error: 'The photo must be at most 5 MB' });
+    expect(await ClothingItem.countDocuments()).toBe(0);
+  });
+
+  // Input: a valid front and back JPEG while photo classification isn't configured
   // Expected status code: 503
   // Expected behavior: nothing is saved
   // Expected output: { error: "Photo classification is not available right now" }
@@ -108,7 +203,8 @@ describe('Unmocked: POST /clothing', () => {
     const response = await request(app)
       .post('/clothing')
       .set('Authorization', authHeader(user.id))
-      .attach('photo', JPEG, { filename: 'shirt.jpg', contentType: 'image/jpeg' });
+      .attach('photo', JPEG, FRONT)
+      .attach('backPhoto', JPEG, BACK);
 
     expect(response.status).toBe(503);
     expect(response.body).toEqual({ error: 'Photo classification is not available right now' });
@@ -145,12 +241,12 @@ describe('Unmocked: GET /clothing', () => {
   // Input: signed-in user with two items; another user also has an item
   // Expected status code: 200
   // Expected behavior: only the user's own items are returned, newest first
-  // Expected output: the user's two items, without internal fields (owner, imageKey)
+  // Expected output: the user's two items, without internal fields (owner, imageKey, backImageKey)
   test('Returns only own items, newest first', async () => {
     const user = await createUser();
     const otherUser = await createUser();
     await createClothingItem(user.id, { name: 'Old shirt' });
-    await createClothingItem(user.id, { name: 'New jeans', category: 'bottom' });
+    await createClothingItem(user.id, { name: 'New jeans', category: 'bottom', backImageKey: 'clothing/test-back.jpg' });
     await createClothingItem(otherUser.id, { name: 'Not mine' });
 
     const response = await request(app).get('/clothing').set('Authorization', authHeader(user.id));
@@ -158,10 +254,41 @@ describe('Unmocked: GET /clothing', () => {
     expect(response.status).toBe(200);
     expect(response.body.items.map((item: { name: string }) => item.name)).toEqual(['New jeans', 'Old shirt']);
     expect(Object.keys(response.body.items[0] as object).sort()).toEqual(
-      ['category', 'color', 'createdAt', 'id', 'imageUrl', 'isArchived', 'isClean', 'name', 'style', 'tags', 'updatedAt'].sort()
+      [
+        'backImageUrl',
+        'category',
+        'color',
+        'createdAt',
+        'id',
+        'imageUrl',
+        'isArchived',
+        'hasModel',
+        'isClean',
+        'name',
+        'style',
+        'tags',
+        'updatedAt',
+      ].sort()
     );
-    // File storage isn't configured in these tests, so there's no photo link
+    // File storage isn't configured in these tests, so there are no photo links
     expect(response.body.items[0].imageUrl).toBeNull();
+    expect(response.body.items[0].backImageUrl).toBeNull();
+  });
+
+  // Input: an item added before back photos existed, i.e. a document without a back photo key at all
+  // Expected status code: 200
+  // Expected behavior: the item still loads
+  // Expected output: the item with backImageUrl null
+  test('Item without a back photo', async () => {
+    const user = await createUser();
+    const item = await createClothingItem(user.id, { name: 'Old shirt' });
+    await ClothingItem.collection.updateOne({ _id: item._id }, { $unset: { backImageKey: '' } });
+
+    const response = await request(app).get('/clothing').set('Authorization', authHeader(user.id));
+
+    expect(response.status).toBe(200);
+    expect(response.body.items).toHaveLength(1);
+    expect(response.body.items[0]).toMatchObject({ name: 'Old shirt', backImageUrl: null });
   });
 
   // Input: signed-in user with one active and one archived item
@@ -260,6 +387,8 @@ describe('Unmocked: GET /clothing/:id', () => {
       tags: ['winter'],
       isClean: true,
       isArchived: false,
+      imageUrl: null,
+      backImageUrl: null,
     });
   });
 
@@ -347,6 +476,7 @@ describe('Unmocked: PATCH /clothing/:id', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({ name: 'Linen shirt', tags: ['summer', 'work'], isClean: false });
+    expect(response.body).toHaveProperty('backImageUrl', null);
     const saved = await ClothingItem.findById(item.id);
     expect(saved?.name).toBe('Linen shirt');
     expect(saved?.isClean).toBe(false);
@@ -371,6 +501,24 @@ describe('Unmocked: PATCH /clothing/:id', () => {
     const saved = await ClothingItem.findById(item.id);
     expect(saved?.color).toBe('olive green');
     expect(saved?.style).toBe('formal');
+  });
+
+  // Input: a request that tries to set the photo keys
+  // Expected status code: 400
+  // Expected behavior: photos can't be added or replaced through PATCH; the item is unchanged
+  // Expected output: { error: "Unknown field: backImageKey" }
+  test('Cannot change the photos', async () => {
+    const user = await createUser();
+    const item = await createClothingItem(user.id);
+
+    const response = await request(app)
+      .patch(`/clothing/${item.id}`)
+      .set('Authorization', authHeader(user.id))
+      .send({ backImageKey: 'clothing/other.jpg' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Unknown field: backImageKey' });
+    expect((await ClothingItem.findById(item.id))?.backImageKey).toBeNull();
   });
 
   // Input: empty object
@@ -542,6 +690,21 @@ describe('Unmocked: DELETE /clothing/:id', () => {
       ['Blue shirt', true],
       ['Jeans', false],
     ]);
+  });
+
+  // Input: id of an item that has a front and a back photo
+  // Expected status code: 204
+  // Expected behavior: the item is archived and keeps both photo keys, since past outfits still show it
+  // Expected output: empty body
+  test('Archiving keeps both photos', async () => {
+    const user = await createUser();
+    const item = await createClothingItem(user.id, { imageKey: 'clothing/front.jpg', backImageKey: 'clothing/back.jpg' });
+
+    const response = await request(app).delete(`/clothing/${item.id}`).set('Authorization', authHeader(user.id));
+
+    expect(response.status).toBe(204);
+    const saved = await ClothingItem.findById(item.id);
+    expect(saved).toMatchObject({ isArchived: true, imageKey: 'clothing/front.jpg', backImageKey: 'clothing/back.jpg' });
   });
 
   // Input: id of an item that is already archived

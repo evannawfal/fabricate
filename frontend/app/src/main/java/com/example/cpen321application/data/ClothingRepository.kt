@@ -16,10 +16,11 @@ class ClothingRepositoryException(
     val canRetry: Boolean = false,
 ) : Exception(message, cause)
 
+
 interface ClothingRepository {
     suspend fun listItems(): List<ClothingItem>
 
-    suspend fun uploadPhoto(jpeg: ByteArray): ClothingItem
+    suspend fun uploadPhotos(front: ByteArray, back: ByteArray): ClothingItem
 
     suspend fun updateItem(id: String, changes: ClothingItemChanges): ClothingItem
 

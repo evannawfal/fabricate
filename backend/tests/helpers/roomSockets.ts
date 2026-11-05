@@ -5,7 +5,7 @@ import { io as connect, type Socket } from 'socket.io-client';
 import { createApp } from '../../src/app.js';
 import { attachRoomSockets } from '../../src/sockets/rooms.js';
 import { clearTestDatabase, DATABASE_SETUP_TIMEOUT_MS, startTestDatabase, stopTestDatabase } from './database.js';
-import { authHeader } from './fixtures.js';
+import { authHeader, createRoom, createUser, makeFriends } from './fixtures.js';
 
 // Starts the app with room sockets for the calling test file, and disconnects every client after each test.
 export function useRoomSocketServer() {
@@ -38,7 +38,17 @@ export function useRoomSocketServer() {
     });
   }
 
-  return { join };
+  async function roomWithTwoMembers() {
+    const user = await createUser();
+    const friend = await createUser();
+    await makeFriends(user.id, friend.id);
+    const room = await createRoom('Room', [user.id, friend.id]);
+    const userClient = await join({ token: tokenFor(user.id), roomId: room.id });
+    const friendClient = await join({ token: tokenFor(friend.id), roomId: room.id });
+    return { user, friend, room, userClient, friendClient };
+  }
+
+  return { join, roomWithTwoMembers };
 }
 
 export function tokenFor(userId: string): string {

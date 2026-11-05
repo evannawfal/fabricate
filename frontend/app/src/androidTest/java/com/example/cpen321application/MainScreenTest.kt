@@ -13,6 +13,7 @@ import com.example.cpen321application.fakes.FakeClothingRepository
 import com.example.cpen321application.fakes.FakeLocationProvider
 import com.example.cpen321application.fakes.FakeOutfitRepository
 import com.example.cpen321application.fakes.FakeProfileRepository
+import com.example.cpen321application.fakes.FakeRecommendationRepository
 import com.example.cpen321application.fakes.FakeRoomsRepository
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
@@ -30,12 +31,14 @@ class MainScreenTest {
     val composeRule = createComposeRule()
 
     private var signOutCalls = 0
+    private val recommendations = FakeRecommendationRepository()
 
     private fun showMainScreen(outfitRepository: FakeOutfitRepository = FakeOutfitRepository()) {
         composeRule.setContent {
             MainScreen(
                 clothingRepository = FakeClothingRepository(emptyList()),
                 outfitRepository = outfitRepository,
+                recommendationRepository = recommendations,
                 locationProvider = FakeLocationProvider(),
                 roomsRepository = FakeRoomsRepository(),
                 profileRepository = FakeProfileRepository(),
@@ -69,6 +72,21 @@ class MainScreenTest {
 
         composeRule.onNodeWithText("Outfits").performClick()
         composeRule.onNodeWithText("My Outfits").assertIsDisplayed()
+
+        pressBack()
+        composeRule.onNodeWithText("My Closet").assertIsDisplayed()
+    }
+
+    @Test
+    fun loadsRecommendationsOnlyOnceTheShopTabOpens() {
+        showMainScreen()
+        composeRule.onNodeWithText("My Closet").assertIsDisplayed()
+        assertEquals(0, recommendations.requests.size)
+
+        composeRule.onNodeWithText("Shop").performClick()
+        composeRule.onNodeWithText("Recommended for you").assertIsDisplayed()
+        composeRule.waitForIdle()
+        assertEquals(1, recommendations.requests.size)
 
         pressBack()
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()

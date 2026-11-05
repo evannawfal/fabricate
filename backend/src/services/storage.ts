@@ -5,6 +5,7 @@ import { env } from '../config/env.js';
 // Files are never public: the app downloads them through short-lived signed URLs.
 export interface FileStorage {
   uploadFile(key: string, body: Uint8Array | ArrayBuffer, contentType: string): Promise<void>;
+  downloadFile(key: string): Promise<Uint8Array>;
   getDownloadUrl(key: string, expiresInSeconds?: number): Promise<string>;
   deleteFile(key: string): Promise<void>;
 }
@@ -71,6 +72,11 @@ export function createBlobFileStorage(config: BlobStorageConfig, containerClient
     async deleteFile(key) {
       assertValidKey(key);
       await container.getBlobClient(key).deleteIfExists();
+    },
+  
+    async downloadFile(key) {
+      assertValidKey(key);
+      return new Uint8Array(await container.getBlobClient(key).downloadToBuffer());
     },
   };
 }

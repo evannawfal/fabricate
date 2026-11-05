@@ -1,4 +1,5 @@
 import type { Response } from 'express';
+import { REQUIRED_CLOSET_CATEGORIES } from '../config/constants.js';
 import { getUserId, type AuthedRequest } from '../middleware/middleware.js';
 import { ClothingItem, type ClothingItemDocument, type ClothingItemResponse } from '../models/clothingItem.js';
 import { toClothingItemResponsesWithImages } from '../services/clothingImages.js';
@@ -11,7 +12,6 @@ import { validateGenerateOutfitInput, validateOutfitInput, validateOutfitUpdate 
 const INVALID_ID = { error: 'Invalid outfit id' };
 const NOT_FOUND = { error: 'Outfit not found' };
 const ITEMS_NOT_OWNED = { error: 'All items must be clothing items in your closet' };
-const REQUIRED_CATEGORIES = ['top', 'bottom'] as const;
 
 // Items must be in the user's closet. Archived items are only allowed if the outfit already had them.
 async function ownsAllItems(userId: string, itemIds: string[], existingItemIds: string[] = []): Promise<boolean> {
@@ -74,7 +74,7 @@ export async function generateOutfit(req: AuthedRequest, res: Response) {
   const userId = getUserId(req);
   // Newest first, so the same closet is always listed to Claude in the same order.
   const items = await ClothingItem.find({ owner: userId, isArchived: false, isClean: true }).sort({ createdAt: -1, _id: -1 });
-  const missing = REQUIRED_CATEGORIES.filter((category) => !items.some((item) => item.category === category));
+  const missing = REQUIRED_CLOSET_CATEGORIES.filter((category) => !items.some((item) => item.category === category));
   if (missing.length > 0) {
     const needed = missing.map((category) => `a ${category}`).join(' or ');
     return res.status(400).json({

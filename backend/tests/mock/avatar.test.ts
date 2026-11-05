@@ -29,6 +29,7 @@ function mockStorage(options: { uploadError?: Error; deleteError?: Error } = {})
     uploadFile: jest.fn<FileStorage['uploadFile']>(() =>
       options.uploadError ? Promise.reject(options.uploadError) : Promise.resolve()
     ),
+    downloadFile: jest.fn<FileStorage['downloadFile']>(() => Promise.resolve(new Uint8Array())),
     getDownloadUrl: jest.fn<FileStorage['getDownloadUrl']>((key) => Promise.resolve(`https://storage.test/${key}?sig=test`)),
     deleteFile: jest.fn<FileStorage['deleteFile']>(() =>
       options.deleteError ? Promise.reject(options.deleteError) : Promise.resolve()

@@ -22,11 +22,15 @@ const clothingItemSchema = new Schema(
     style: { type: String, required: true, trim: true, maxlength: CLOTHING_LIMITS.styleLength },
     tags: { type: [String], default: [] },
     isClean: { type: Boolean, default: true },
-    // Storage key of the item's photo (not a URL); download URLs are generated when needed.
+    // Storage key of the item's front photo (not a URL); download URLs are generated when needed.
     imageKey: { type: String, required: true },
+    // Storage key of the back photo. Optional: items created before back photos existed don't have one.
+    backImageKey: { type: String, default: null },
     // Removed items are archived, not deleted, so past outfits that used them still show them.
     isArchived: { type: Boolean, default: false },
     archivedAt: { type: Date, default: null },
+    // Storage key of the generated 3D model (.glb); null until one is generated.
+    modelKey: { type: String, default: null },
   },
   { timestamps: true }
 );
@@ -46,14 +50,21 @@ export interface ClothingItemResponse {
   tags: string[];
   isClean: boolean;
   isArchived: boolean;
-  // Short-lived download link for the item's photo, or null when it can't be provided.
+  hasModel: boolean;
+  // Short-lived download link for the item's front photo, or null when it can't be provided.
   imageUrl: string | null;
+  // Same for the back photo; also null for items that were added without one.
+  backImageUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
 // Single place that decides what the app sees for a clothing item.
-export function toClothingItemResponse(item: ClothingItemDocument, imageUrl: string | null): ClothingItemResponse {
+export function toClothingItemResponse(
+  item: ClothingItemDocument,
+  imageUrl: string | null,
+  backImageUrl: string | null = null
+): ClothingItemResponse {
   return {
     id: item._id.toString(),
     name: item.name,
@@ -63,7 +74,9 @@ export function toClothingItemResponse(item: ClothingItemDocument, imageUrl: str
     tags: [...item.tags],
     isClean: item.isClean,
     isArchived: item.isArchived,
+    hasModel: item.modelKey !== null && item.modelKey !== undefined,
     imageUrl,
+    backImageUrl,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };

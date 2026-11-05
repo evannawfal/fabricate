@@ -5,6 +5,7 @@ import { clothingRouter } from './routes/clothing.js';
 import { outfitsRouter } from './routes/outfits.js';
 import { avatarRouter } from './routes/avatar.js';
 import { roomsRouter } from './routes/rooms.js';
+import { recommendationsRouter } from './routes/recommendations.js';
 import { friendsRouter } from './routes/friends.js';
 import { usersRouter } from './routes/users.js';
 
@@ -25,6 +26,7 @@ export function createApp(): Express {
   app.use('/outfits', outfitsRouter);
   app.use('/avatar', avatarRouter);
   app.use('/rooms', roomsRouter);
+  app.use('/recommendations', recommendationsRouter);
   app.use('/friends', friendsRouter);
   app.use('/users', usersRouter);
 

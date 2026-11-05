@@ -41,6 +41,7 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,6 +63,7 @@ import coil.request.ImageRequest
 import com.example.cpen321application.data.readPhotoForUpload
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
+import com.example.cpen321application.model.PhotoSide
 import com.example.cpen321application.model.filterByCategory
 import com.example.cpen321application.viewmodel.ClosetError
 import com.example.cpen321application.viewmodel.ClosetUiState
@@ -73,8 +75,8 @@ const val CLOSET_ITEM_IMAGE_TAG = "closet_item_image"
 
 /**
  * The user's closet: a category filter over a grid of their clothing items.
- * Items are added from a photo with the Add button. Tapping an item opens its
- * details, where it can be edited or deleted.
+ * Items are added from a front and a back photo with the Add button. Tapping an
+ * item opens its details, where it can be edited or deleted.
  */
 @Composable
 fun ClosetScreen(viewModel: ClosetViewModel, modifier: Modifier = Modifier) {
@@ -84,9 +86,17 @@ fun ClosetScreen(viewModel: ClosetViewModel, modifier: Modifier = Modifier) {
     val photoPicker = rememberPhotoPicker(
         onPhoto = { uri -> viewModel.addPhoto { readPhotoForUpload(context, uri) } },
         onCameraUnavailable = {
+            viewModel.cancelAddingClothing()
             viewModel.showError(ClosetError("No camera app is available.", title = "Couldn't open the camera"))
         },
+        // Backed out of the camera or gallery: show the sheet again. Dismissing it cancels.
+        onCancelled = { choosingPhotoSource = true },
     )
+
+    // Once the front photo is in, ask for the back one.
+    LaunchedEffect(state.captureSide) {
+        if (state.captureSide == PhotoSide.Back) choosingPhotoSource = true
+    }
 
     val openItem = state.openItem
     if (openItem != null) {
@@ -100,27 +110,21 @@ fun ClosetScreen(viewModel: ClosetViewModel, modifier: Modifier = Modifier) {
             modifier = modifier,
         )
     } else {
-        Box(modifier = modifier.fillMaxSize()) {
-            ClosetGrid(
-                state = state,
-                onSelectCategory = viewModel::selectCategory,
-                onOpenItem = { viewModel.openItem(it.id) },
-                onRetry = viewModel::loadItems,
-            )
-            ExtendedFloatingActionButton(
-                onClick = { choosingPhotoSource = true },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp),
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = null)
-                Text("Add clothing", modifier = Modifier.padding(start = 12.dp))
-            }
-        }
+        ClosetBrowser(
+            state = state,
+            viewModel = viewModel,
+            onAddClothing = {
+                viewModel.startAddingClothing()
+                choosingPhotoSource = true
+            },
+            modifier = modifier,
+        )
     }
 
-    if (choosingPhotoSource) {
+    val captureSide = state.captureSide
+    if (choosingPhotoSource && captureSide != null) {
         PhotoSourceSheet(
+            side = captureSide,
             onTakePhoto = {
                 choosingPhotoSource = false
                 photoPicker.takePhoto()
@@ -129,10 +133,39 @@ fun ClosetScreen(viewModel: ClosetViewModel, modifier: Modifier = Modifier) {
                 choosingPhotoSource = false
                 photoPicker.chooseFromGallery()
             },
-            onDismiss = { choosingPhotoSource = false },
+            onDismiss = {
+                choosingPhotoSource = false
+                viewModel.cancelAddingClothing()
+            },
         )
     }
     ClosetDialogs(state, viewModel)
+}
+
+@Composable
+private fun ClosetBrowser(
+    state: ClosetUiState,
+    viewModel: ClosetViewModel,
+    onAddClothing: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier.fillMaxSize()) {
+        ClosetGrid(
+            state = state,
+            onSelectCategory = viewModel::selectCategory,
+            onOpenItem = { viewModel.openItem(it.id) },
+            onRetry = viewModel::loadItems,
+        )
+        ExtendedFloatingActionButton(
+            onClick = onAddClothing,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = null)
+            Text("Add clothing", modifier = Modifier.padding(start = 12.dp))
+        }
+    }
 }
 
 // The dialogs that can show over the closet: uploading, editing an item, and errors.
@@ -202,7 +235,7 @@ private fun ClosetGrid(
             )
             items.isEmpty() -> EmptyState(
                 title = "Your closet is empty",
-                message = "Tap Add clothing to photograph your first item.",
+                message = "Tap Add clothing to photograph the front and back of your first item.",
             )
             visibleItems.isEmpty() -> EmptyState(
                 title = "No ${state.selectedCategory?.label?.lowercase()} yet",
@@ -263,10 +296,18 @@ private fun ClothingItemCard(item: ClothingItem, onClick: () -> Unit) {
     }
 }
 
-// The item's photo. Has a swatch in item's color underneath with category's
-// initial. This shows while the photo loads, or if no photo is available.
+// The item's photo of the given [side] (the front by default). Has a swatch in item's
+// color underneath with category's initial. This shows while the photo loads, or if no
+// photo is available.
 @Composable
-internal fun ClothingThumbnail(item: ClothingItem, modifier: Modifier = Modifier) {
+internal fun ClothingThumbnail(
+    item: ClothingItem,
+    modifier: Modifier = Modifier,
+    side: PhotoSide = PhotoSide.Front,
+) {
+    val imageUrl = if (side == PhotoSide.Front) item.imageUrl else item.backImageUrl
+    // Photo links expire and change on every load, but an item's photos never do.
+    val cacheKey = if (side == PhotoSide.Front) item.id else "${item.id}:back"
     val swatch = swatchFor(item.color) ?: MaterialTheme.colorScheme.surfaceVariant
     Box(
         modifier = modifier
@@ -281,13 +322,12 @@ internal fun ClothingThumbnail(item: ClothingItem, modifier: Modifier = Modifier
             style = MaterialTheme.typography.displaySmall,
             color = if (swatch.luminance() > 0.5f) Color.Black else Color.White,
         )
-        if (item.imageUrl != null) {
+        if (imageUrl != null) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
-                    .data(item.imageUrl)
-                    // Photo links expire and change on every load, but an item's photo never does.
-                    .memoryCacheKey(item.id)
-                    .diskCacheKey(item.id)
+                    .data(imageUrl)
+                    .memoryCacheKey(cacheKey)
+                    .diskCacheKey(cacheKey)
                     .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
@@ -324,7 +364,7 @@ internal fun EmptyState(
     }
 }
 
-// The item's details. [isNew] marks an item that was just added from a photo,
+// The item's details. [isNew] marks an item that was just added from photos,
 // so the user is asked to check what was detected.
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -359,7 +399,7 @@ private fun ClothingItemDetail(
             NewItemNotice()
         }
 
-        ClothingThumbnail(item, Modifier.fillMaxWidth())
+        ItemPhotos(item)
 
         DetailRow("Type", item.category.label)
         DetailRow("Colour", item.color.replaceFirstChar(Char::uppercase))
@@ -385,6 +425,27 @@ private fun ClothingItemDetail(
             message = "It will be removed from your closet.",
             onDelete = onDelete,
         )
+    }
+}
+
+@Composable
+private fun ItemPhotos(item: ClothingItem) {
+    // Items added before back photos existed only have a front photo.
+    if (item.backImageUrl == null) {
+        ClothingThumbnail(item, Modifier.fillMaxWidth())
+    } else {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            PhotoSide.entries.forEach { side ->
+                Column(modifier = Modifier.weight(1f)) {
+                    ClothingThumbnail(item, Modifier.fillMaxWidth(), side)
+                    Text(
+                        side.label.replaceFirstChar(Char::uppercase),
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+        }
     }
 }
 

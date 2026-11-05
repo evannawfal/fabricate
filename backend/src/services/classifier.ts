@@ -1,8 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { env } from '../config/env.js';
 import { CLOTHING_CATEGORIES, CLOTHING_LIMITS, type ClothingCategory } from '../models/clothingItem.js';
+import { MESHES_CATEGORIES } from '../config/constants.js';
 
-// Classifies a clothing photo into the fields of a closet item using Claude's vision.
+// Classifies a clothing item's photos into the fields of a closet item using Claude's vision.
 export interface ClothingClassification {
   name: string;
   category: ClothingCategory;
@@ -10,8 +11,14 @@ export interface ClothingClassification {
   style: string;
 }
 
+// The optional back photo of the same item. It is checked like the front photo.
+export interface BackImage {
+  image: Uint8Array;
+  mediaType: string;
+}
+
 export interface ClothingClassifier {
-  classify(image: Uint8Array, mediaType: string): Promise<ClothingClassification>;
+  classify(image: Uint8Array, mediaType: string, back?: BackImage): Promise<ClothingClassification>;
 }
 
 export const CLASSIFIER_MODEL = 'claude-sonnet-5-5';
@@ -55,15 +62,16 @@ export class UnclassifiablePhotoError extends Error {
   }
 }
 
-const SYSTEM_PROMPT = `You catalogue clothing for a digital wardrobe app. Each request is one photo of a single item a user wants to add to their closet.
+const SYSTEM_PROMPT = `You catalogue clothing for a digital wardrobe app. Each request is one photo of a single item a user wants to add to their closet. It may also include a second photo showing the back of the same item.
 
 Describe the main item in the photo:
-- name: a short, natural item name a person would use, e.g. "Navy wool overcoat" or "White leather sneakers" (at most ${CLOTHING_LIMITS.nameLength} characters).
-- category: the one category that fits best. Use "dress" for one-piece garments such as dresses and jumpsuits, "outerwear" for jackets, coats and blazers worn over other clothes, and "accessory" for bags, hats, belts, scarves, jewellery and similar.
+- name: a short, natural item name a person would use, e.g. "Navy wool overcoat" or "White leather sneakers" (at most ${CLOTHING_LIMITS.nameLength} characters). If the item is one of these garment types, use that exact word in the name: ${Object.keys(MESHES_CATEGORIES).join(', ')}. For example "Blue cotton t-shirt", "Black denim shorts" or "Grey zip-up hoodie".- category: the one category that fits best. Use "dress" for one-piece garments such as dresses and jumpsuits, "outerwear" for jackets, coats and blazers worn over other clothes, and "accessory" for bags, hats, belts, scarves, jewellery and similar. Use "top" for shirts, t-shirts, sweaters and hoodies, "bottom" for pants, jeans, shorts and skirts, and "shoes" for footwear.
 - color: the dominant colour as a simple lowercase name, e.g. "navy" or "light grey"; use "multicolor" when no single colour dominates.
 - style: one or two lowercase words for how the item is typically worn, e.g. "casual", "formal", "business", "sporty", "streetwear", "loungewear" or "outdoor".
 
-If the photo shows several items, describe the most prominent one. If it doesn't show a clothing item or accessory at all, set isClothing to false and fill the other fields with your best guess.`;
+If a back photo is included, use it only to refine the details above (for example a back print, a hood or a different back colour). The front photo decides everything else, and if the back photo is unclear or doesn't seem to show the same item, rely on the front photo.
+
+If the photo (the front photo, when there are two) shows several items, describe the most prominent one. If it doesn't show a clothing item or accessory at all, set isClothing to false and fill the other fields with your best guess.`;
 
 const OUTPUT_SCHEMA = {
   type: 'object',
@@ -78,8 +86,28 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
 };
 
-function isSupportedImageType(mediaType: string): mediaType is (typeof SUPPORTED_IMAGE_TYPES)[number] {
+type SupportedImageType = (typeof SUPPORTED_IMAGE_TYPES)[number];
+
+function isSupportedImageType(mediaType: string): mediaType is SupportedImageType {
   return (SUPPORTED_IMAGE_TYPES as readonly string[]).includes(mediaType);
+}
+
+// Rejects an unusable photo before anything is sent to Claude. `subject` names it in the message.
+function checkImage(image: Uint8Array, mediaType: string, subject: 'image' | 'back image'): SupportedImageType {
+  if (!isSupportedImageType(mediaType)) {
+    throw new InvalidImageError(`Unsupported ${subject} type; use one of: ${SUPPORTED_IMAGE_TYPES.join(', ')}`);
+  }
+  if (image.byteLength === 0) {
+    throw new InvalidImageError(`The ${subject} is empty`);
+  }
+  if (image.byteLength > MAX_IMAGE_BYTES) {
+    throw new InvalidImageError(`The ${subject} must be at most ${MAX_IMAGE_BYTES / (1024 * 1024)} MB`);
+  }
+  return mediaType;
+}
+
+function toImageBlock(image: Uint8Array, mediaType: SupportedImageType): Anthropic.Beta.BetaImageBlockParam {
+  return { type: 'image', source: { type: 'base64', media_type: mediaType, data: Buffer.from(image).toString('base64') } };
 }
 
 // Keeps the model's free-text fields within the closet item's limits.
@@ -122,16 +150,21 @@ function parseClassification(response: Anthropic.Beta.BetaMessage): ClothingClas
 
 export function createClothingClassifier(client: Anthropic): ClothingClassifier {
   return {
-    async classify(image, mediaType) {
-      if (!isSupportedImageType(mediaType)) {
-        throw new InvalidImageError(`Unsupported image type; use one of: ${SUPPORTED_IMAGE_TYPES.join(', ')}`);
-      }
-      if (image.byteLength === 0) {
-        throw new InvalidImageError('The image is empty');
-      }
-      if (image.byteLength > MAX_IMAGE_BYTES) {
-        throw new InvalidImageError(`The image must be at most ${MAX_IMAGE_BYTES / (1024 * 1024)} MB`);
-      }
+    async classify(image, mediaType, back) {
+      const frontType = checkImage(image, mediaType, 'image');
+      const backType = back === undefined ? undefined : checkImage(back.image, back.mediaType, 'back image');
+
+      // With a back photo, both go in the same request, labelled so the model knows which is which.
+      const content: Anthropic.Beta.BetaContentBlockParam[] =
+        back === undefined || backType === undefined
+          ? [toImageBlock(image, frontType), { type: 'text', text: 'Classify this clothing item.' }]
+          : [
+              { type: 'text', text: 'Front photo:' },
+              toImageBlock(image, frontType),
+              { type: 'text', text: 'Back photo:' },
+              toImageBlock(back.image, backType),
+              { type: 'text', text: 'Classify this clothing item.' },
+            ];
 
       let response: Anthropic.Beta.BetaMessage;
       try {
@@ -142,15 +175,7 @@ export function createClothingClassifier(client: Anthropic): ClothingClassifier 
           betas: ['server-side-fallback-2026-07-01'],
           fallbacks: 'default',
           system: SYSTEM_PROMPT,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'image', source: { type: 'base64', media_type: mediaType, data: Buffer.from(image).toString('base64') } },
-                { type: 'text', text: 'Classify this clothing item.' },
-              ],
-            },
-          ],
+          messages: [{ role: 'user', content }],
           output_config: { effort: 'low', format: { type: 'json_schema', schema: OUTPUT_SCHEMA } },
         });
       } catch (err) {

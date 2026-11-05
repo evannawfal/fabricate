@@ -16,7 +16,12 @@ enum class ClothingCategory(val apiValue: String, val label: String) {
     }
 }
 
-/** A clothing item as the app sees it, mirrors ClothingItemResponse in backend. */
+/** Which side of a clothing item a photo shows. */
+enum class PhotoSide(val label: String) {
+    Front("front"),
+    Back("back"),
+}
+
 data class ClothingItem(
     val id: String,
     val name: String,
@@ -26,8 +31,10 @@ data class ClothingItem(
     val tags: List<String> = emptyList(),
     val isClean: Boolean = true,
     val imageUrl: String? = null,
+    val backImageUrl: String? = null,   // new
 )
 
 /** Items in [category], defaults to every item when [category] is null. */
 fun List<ClothingItem>.filterByCategory(category: ClothingCategory?): List<ClothingItem> =
     if (category == null) this else filter { it.category == category }
+
