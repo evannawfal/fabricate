@@ -18,7 +18,11 @@ export default {
     '/node_modules/',
     '/dist/',
     '/coverage/',
-    "<rootDir>/src/avatar/exportAvatar.ts"
+    "<rootDir>/src/avatar/exportAvatar.ts",
+    // Scripts run by hand to inspect or try out the garment models; the server never loads them.
+    "<rootDir>/src/garment/imgToGlb/inspectMeshes.ts",
+    "<rootDir>/src/garment/imgToGlb/testApplySolidColor.ts",
+    "<rootDir>/src/garment/imgToGlb/testProcessGarment.ts",
   ],
   testPathIgnorePatterns: [
     "/node_modules/",

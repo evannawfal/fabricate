@@ -10,6 +10,7 @@
 | 2026-10-30 | 4.6, 4.7 | Sequence diagrams and NFR designs use the new component names, and the room sequence diagram shows the membership check and the broadcast before the database write. |
 | 2026-11-01 | 4.1, 4.2, 4.3, 4.6 | Chose Serper for the online store search and documented it. `GET /recommendations` gains `country` and `department`, because results depend on the user's country and searches without a department came back mostly women's. Search results are cached in MongoDB to stay within the search credits. |
 | 2026-11-01 | 4.1 | `GET /recommendations`: each `StoreItem` also has the `reason` of the gap it fills and the closet items it `pairsWith`, which the Shop screen shows in use case 4 steps 3 and 5. Documented its 400 and 503 responses. |
+| 2026-11-04 | 3.4, 3.5, 4.1, 4.6 | Each clothing item now has a front and a back photo. Use case 1 asks for both, and backing out of the camera or gallery asks for the photo again before cancelling. `POST /clothing` takes a `backPhoto` file, and the use case 1 sequence diagram stores both photos. |
 
 ---
 
@@ -46,7 +47,7 @@ Fabricate is aimed at fashion enthusiasts who want more out of their wardrobe, p
 Each use case below has the same name as in the use case diagram. **Major** use cases are the five with formal specifications in 3.5; the other use cases are **minor**.
 
 - Use cases for feature 1: **Manage Closet**
-1. **Add clothing items** (major): The user takes or chooses a photo of a clothing item, which is classified and added to their closet.
+1. **Add clothing items** (major): The user takes or chooses a photo of the front and of the back of a clothing item, which is classified and added to their closet.
 2. **Browse items** (minor): The user browses their closet, optionally filtered by category.
 3. **Edit items** (minor): The user changes an item's name, category, color, style or tags.
 4. **Remove items** (minor): The user removes an item from their closet. Saved outfits that used it still show it.
@@ -82,27 +83,29 @@ Each use case below has the same name as in the use case diagram. **Major** use 
 
 #### Use Case 1: Add Clothing Items
 
-**Description**: The user adds a clothing item to their closet by taking or choosing a photo, which is classified automatically by an external AI service.
+**Description**: The user adds a clothing item to their closet by taking or choosing a photo of its front and of its back, which are classified automatically by an external AI service.
 
 **Primary actor(s)**: User
 
 **Main success scenario**:
 
 1. The user opens the Closet tab and taps "Add clothing".
-2. The app asks whether to take a photo with the camera or choose one from the gallery.
-3. The user takes or chooses a photo of a clothing item.
-4. The app uploads the photo and shows a loading indicator while the item is classified.
-5. The app shows the new item at the top of the closet with its photo and name; its details show the category, colour and style the app detected.
+2. The app asks whether to take a photo of the front of the item with the camera or choose one from the gallery.
+3. The user takes or chooses a photo of the front of a clothing item.
+4. The app asks the same for the back of the item, and the user takes or chooses a photo of the back.
+5. The app uploads both photos and shows a loading indicator while the item is classified.
+6. The app shows the new item at the top of the closet with its photo and name; its details show its front and back photos and the category, colour and style the app detected.
 
 **Failure scenario(s)**:
 
-- 3a. The user closes the camera or gallery without choosing a photo.
-  - 3a1. The app returns to the Closet screen and the closet is unchanged.
-- 4a. The photo does not show a clothing item.
-  - 4a1. The app shows the message "This photo doesn't show a clothing item. Try another photo." and the closet is unchanged.
-- 4b. The photo can't be uploaded or classified (no network, or the server is unavailable).
-  - 4b1. The app shows the message "Couldn't add the item. Please try again." with a "Try again" button.
-  - 4b2. The user taps "Try again" and the app repeats step 4.
+- 3a. In step 3 or 4, the user closes the camera or gallery without choosing a photo.
+  - 3a1. The app asks again where the photo should come from.
+  - 3a2. The user closes that too. The app returns to the Closet screen and the closet is unchanged.
+- 5a. The photos do not show a clothing item.
+  - 5a1. The app shows the message "This photo doesn't show a clothing item. Try another photo." and the closet is unchanged.
+- 5b. The photos can't be uploaded or classified (no network, or the server is unavailable).
+  - 5b1. The app shows the message "Couldn't add the item. Please try again." with a "Try again" button.
+  - 5b2. The user taps "Try again" and the app repeats step 5.
 
 #### Use Case 2: Generate Daily Outfit
 
@@ -236,8 +239,8 @@ Not included for CP1.
 2. **Closet**
    - **Purpose**: Stores and manages the user's clothing items and wash bin. It sends new photos to the clothing classifier and keeps the photos in file storage. Other components read closet data only through its interfaces.
    - **Interfaces**:
-     1. `POST /clothing`, multipart form with a `photo` file (JPEG, PNG or WebP, at most 5 MB), returns `201 ClothingItem`
-        - **Purpose**: Classifies the photo, stores it, and saves the new item with the detected category, color and style. Returns 422 if the photo does not show clothing and 503 if classification or storage is unavailable.
+     1. `POST /clothing`, multipart form with a `photo` file (the front) and a `backPhoto` file (the back), each JPEG, PNG or WebP and at most 5 MB, returns `201 ClothingItem`
+        - **Purpose**: Classifies both photos in one request, stores them, and saves the new item with the detected category, color and style. Returns 422 if the photos do not show clothing and 503 if classification or storage is unavailable. If storing a photo or saving the item fails, any photo already stored is deleted again.
      2. `GET /clothing`, query `category?: String`, `clean?: Boolean`, returns `{ items: List<ClothingItem> }`
         - **Purpose**: Returns the user's items that are still in the closet, newest first, optionally filtered by category or clean status (`clean=false` lists the wash bin).
      3. `GET /clothing/{id}`, returns `ClothingItem`
@@ -380,13 +383,15 @@ sequenceDiagram
     participant AZ as Azure Blob Storage
     participant DB as MongoDB
 
-    U->>FE: Tap "Add clothing", take or choose photo
-    FE->>CL: POST /clothing (photo)
+    U->>FE: Tap "Add clothing", take or choose front and back photos
+    FE->>CL: POST /clothing (photo, backPhoto)
     CL->>US: requireAuth(request)
     US-->>CL: userId
-    CL->>CA: classify photo
+    CL->>CA: classify front and back photos
     CA-->>CL: category, color, style
-    CL->>AZ: store photo
+    CL->>AZ: store front photo
+    AZ-->>CL: stored
+    CL->>AZ: store back photo
     AZ-->>CL: stored
     CL->>DB: create clothing item
     DB-->>CL: saved item
