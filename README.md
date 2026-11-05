@@ -27,16 +27,16 @@ Install the following before the frontend or backend setup steps:
 
 - [Android Studio](https://developer.android.com/studio) (latest version)
 - [Java 17](https://adoptium.net/temurin/releases/?version=17)
-- [Android SDK](https://developer.android.com/studio) with API level 36 (Android 16 / "Baklava")
+- [Android SDK](https://developer.android.com/studio) with API level 35 (Android 15)
 
 ### Setup
 
 1. **Open project**: Open the `frontend/` directory in Android Studio.
 2. **Sync Gradle**: Click "Sync Now" when prompted (or run `cd frontend && ./gradlew build`).
-3. **Configure Android SDK**: Ensure Android SDK API 36 is installed.
+3. **Configure Android SDK**: Ensure Android SDK API 35 is installed.
 4. **Set up emulator/device**:
-   - Create an AVD with **Pixel 9** and the **Android Baklava (API 36)** system image, **or**
-   - Connect a physical Android device running API 36.
+   - Create an AVD with **Pixel 9** and the **Android 15 (API 35)** system image (or newer), **or**
+   - Connect a physical Android device running Android 8.0 (API 26) or newer.
 5. **Set up app config**: copy the example file:
    ```bash
    cp frontend/local.properties.example frontend/local.properties
