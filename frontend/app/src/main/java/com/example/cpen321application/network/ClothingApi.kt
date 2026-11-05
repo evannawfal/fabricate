@@ -32,6 +32,11 @@ class BackendClothingRepository(
     private val modelDir: File = File(System.getProperty("java.io.tmpdir"), "garment_models"),
 ) : ClothingRepository {
     private val http = AuthorizedClient(tokenProvider, onUnauthorized, client)
+    private val modelHttp = AuthorizedClient(
+        tokenProvider,
+        onUnauthorized,
+        client.newBuilder().readTimeout(MODEL_GENERATION_TIMEOUT_MINUTES, TimeUnit.MINUTES).build(),
+    )
     private val clothingUrl = "${baseUrl.trimEnd('/')}/clothing"
 
     override suspend fun listItems(): List<ClothingItem> {
@@ -66,7 +71,7 @@ class BackendClothingRepository(
     override suspend fun generateModel(id: String): File {
         val file = modelFileFor(id)
         val request = Request.Builder().url("$clothingUrl/$id/generate").post(ByteArray(0).toRequestBody())
-        return downloadModel(file, http.send(request, ::modelErrorMessageFor))
+        return downloadModel(file, modelHttp.send(request, ::modelErrorMessageFor))
     }
 
     override suspend fun modelFile(id: String): File {
@@ -113,6 +118,9 @@ class BackendClothingRepository(
         val JPEG = "image/jpeg".toMediaType()
         val JSON = "application/json".toMediaType()
         val OBJECT_ID = Regex("[0-9a-f]{24}")
+
+        // Building a model took over 4 minutes on the deployed server, well past the usual 2-minute wait.
+        const val MODEL_GENERATION_TIMEOUT_MINUTES = 6L
 
         val defaultClient: OkHttpClient = OkHttpClient.Builder()
             .readTimeout(2, TimeUnit.MINUTES)
