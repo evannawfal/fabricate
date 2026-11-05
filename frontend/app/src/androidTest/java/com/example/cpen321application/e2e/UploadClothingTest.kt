@@ -121,6 +121,14 @@ class UploadClothingTest {
         device.findObject(PICKER_PHOTO).click()
     }
 
+    // The same photo is used for the front and the back.
+    private fun pickFrontAndBack() {
+        pickNewestPhoto()
+        waitForText("Step 2 of 2: the back", PICKER_TIMEOUT_MS)
+        composeRule.onNodeWithText("Choose from gallery").performClick()
+        pickNewestPhoto()
+    }
+
     // The Compose test rule waits for the UI to settle but not for the back-end's response, so
     // screens that depend on it are waited for explicitly.
     private fun waitForTag(tag: String, timeoutMillis: Long) {
@@ -156,7 +164,7 @@ class UploadClothingTest {
 
         // Steps 1-3
         chooseFromGallery()
-        pickNewestPhoto()
+        pickFrontAndBack()
 
         // Step 4: a loading indicator shows while the photo is classified.
         waitForTag(UPLOAD_PROGRESS_TAG, PICKER_TIMEOUT_MS)
@@ -208,7 +216,7 @@ class UploadClothingTest {
         addToGallery(MUG_PHOTO)
 
         chooseFromGallery()
-        pickNewestPhoto()
+        pickFrontAndBack()
 
         waitForText(NOT_CLOTHING_MESSAGE, CLASSIFY_TIMEOUT_MS)
         // Retrying is only offered for network and server errors; the same photo would be rejected again.

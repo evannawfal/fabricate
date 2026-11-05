@@ -30,6 +30,8 @@ data class ClosetUiState(
     val editingItemId: String? = null,
     val isSaving: Boolean = false,
     val editError: String? = null,
+    val generatingModelId: String? = null,
+    val modelError: String? = null,
     val error: ClosetError? = null,
 ) {
     val openItem: ClothingItem? get() = items.firstOrNull { it.id == openItemId }
@@ -66,7 +68,7 @@ class ClosetViewModel(private val repository: ClothingRepository) : ViewModel() 
 
     fun openItem(id: String) = _uiState.update { it.copy(openItemId = id) }
 
-    fun closeItem() = _uiState.update { it.copy(openItemId = null, newItemId = null) }
+    fun closeItem() = _uiState.update { it.copy(openItemId = null, newItemId = null, modelError = null) }
 
     /** Starts adding an item: the front photo is asked for first, then the back. */
     fun startAddingClothing() {
@@ -176,6 +178,24 @@ class ClosetViewModel(private val repository: ClothingRepository) : ViewModel() 
                 }
             } catch (e: ClothingRepositoryException) {
                 _uiState.update { it.copy(error = ClosetError(e.message, title = "Couldn't delete item")) }
+            }
+        }
+    }
+
+    fun generateModel(id: String) {
+        if (_uiState.value.generatingModelId != null) return
+        _uiState.update { it.copy(generatingModelId = id, modelError = null) }
+        viewModelScope.launch {
+            try {
+                repository.generateModel(id)
+                _uiState.update { state ->
+                    state.copy(
+                        items = state.items.map { if (it.id == id) it.copy(hasModel = true) else it },
+                        generatingModelId = null,
+                    )
+                }
+            } catch (e: ClothingRepositoryException) {
+                _uiState.update { it.copy(generatingModelId = null, modelError = e.message) }
             }
         }
     }

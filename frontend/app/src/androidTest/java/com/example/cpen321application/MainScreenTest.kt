@@ -7,6 +7,7 @@ import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.cpen321application.fakes.FakeClothingRepository
@@ -60,7 +61,7 @@ class MainScreenTest {
 
         composeRule.onNodeWithText("Avatar").performClick()
         // A fresh test install has no saved avatar yet.
-        composeRule.onNodeWithText("Update avatar").assertIsDisplayed()
+        composeRule.onNodeWithText("Update avatar").performScrollTo().assertIsDisplayed()
 
         pressBack()
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()

@@ -26,6 +26,7 @@ import com.example.cpen321application.screens.LoginScreen
 import com.example.cpen321application.screens.MainScreen
 import com.example.cpen321application.viewmodel.LoginUiState
 import com.example.cpen321application.viewmodel.LoginViewModel
+import java.io.File
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -89,6 +90,7 @@ private fun HomeDestination(sessionStore: SessionStore, navController: NavHostCo
     BackendClothingRepository(
       tokenProvider = { sessionStore.token.first() },
       onUnauthorized = { endRejectedSession(sessionStore, navController) },
+      modelDir = File(context.filesDir, "garment_models"),
     )
   }
   val outfitRepository = remember {

@@ -1,16 +1,21 @@
 package com.example.cpen321application
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.cpen321application.fakes.FakeClothingRepository
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
 import com.example.cpen321application.screens.ClosetScreen
 import com.example.cpen321application.viewmodel.ClosetViewModel
+import kotlinx.coroutines.CompletableDeferred
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,9 +31,11 @@ class ClosetScreenTest {
         ClothingItem("3", "White Sneakers", ClothingCategory.Shoes, "white", "casual"),
     )
 
-    private fun showCloset(closet: List<ClothingItem> = items) {
-        val viewModel = ClosetViewModel(FakeClothingRepository(closet))
+    private fun showCloset(closet: List<ClothingItem> = items): FakeClothingRepository {
+        val repository = FakeClothingRepository(closet)
+        val viewModel = ClosetViewModel(repository)
         composeRule.setContent { ClosetScreen(viewModel) }
+        return repository
     }
 
     @Test
@@ -76,6 +83,42 @@ class ClosetScreenTest {
 
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()
         composeRule.onNodeWithText("White Sneakers").assertDoesNotExist()
+    }
+
+    @Test
+    fun itemDetails_createAThreeDModel() {
+        val repository = showCloset()
+        val gate = CompletableDeferred<Unit>().also { repository.modelGate = it }
+
+        composeRule.onNodeWithText("Grey Hoodie").performClick()
+        composeRule.onNodeWithText("Create 3D model").performScrollTo().performClick()
+        composeRule.onNodeWithText("Creating 3D model…").assertIsNotEnabled()
+        gate.complete(Unit)
+
+        composeRule.onNodeWithText("Recreate 3D model").performScrollTo().assertIsEnabled()
+        assertEquals(listOf("1"), repository.generatedModels)
+    }
+
+    @Test
+    fun itemDetails_showWhyAModelCouldNotBeCreated() {
+        val repository = showCloset()
+        repository.modelError = "3D models aren't available right now. Try again later."
+
+        composeRule.onNodeWithText("Black Jeans").performClick()
+        composeRule.onNodeWithText("Create 3D model").performScrollTo().performClick()
+
+        composeRule.onNodeWithText("3D models aren't available right now. Try again later.").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Create 3D model").assertIsEnabled()
+    }
+
+    @Test
+    fun itemDetails_offerNoModelForUnsupportedCategories() {
+        showCloset()
+
+        composeRule.onNodeWithText("White Sneakers").performClick()
+
+        composeRule.onNodeWithText("Delete item").assertIsDisplayed()
+        composeRule.onNodeWithText("Create 3D model").assertDoesNotExist()
     }
 
     @Test
