@@ -16,11 +16,11 @@
 
 ### 2.2. Unfixed Issues per Codacy Category
 
-_(Placeholder for screenshots of Codacy's Category Breakdown table in Overview)_
+![Codacy Overview page: the Issues breakdown table shows 12 issues, all Security](images/codacy-categories.png)
 
 ### 2.3. Unfixed Issues per Codacy Code Pattern
 
-_(Placeholder for screenshots of Codacy's Issues page)_
+![Codacy Issues page: 8 issues for Detect Insecure Dependencies (High Severity) and 4 for Detect Insecure Dependencies (Medium Severity)](images/codacy-issues.png)
 
 ### 2.4. Justifications for Unfixed Issues
 
