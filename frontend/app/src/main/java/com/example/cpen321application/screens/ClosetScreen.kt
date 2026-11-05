@@ -102,23 +102,7 @@ fun ClosetScreen(viewModel: ClosetViewModel, modifier: Modifier = Modifier) {
 
     val openItem = state.openItem
     if (openItem != null) {
-        BackHandler { viewModel.closeItem() }
-        ClothingItemDetail(
-            item = openItem,
-            isNew = openItem.id == state.newItemId,
-            onBack = viewModel::closeItem,
-            onEdit = { viewModel.startEditing(openItem.id) },
-            onDelete = { viewModel.deleteItem(openItem.id) },
-            modelButton = {
-                ModelButton(
-                    item = openItem,
-                    isGenerating = state.generatingModelId == openItem.id,
-                    error = state.modelError,
-                    onGenerate = { viewModel.generateModel(openItem.id) },
-                )
-            },
-            modifier = modifier,
-        )
+        OpenItemDetail(openItem, state, viewModel, modifier)
     } else {
         ClosetBrowser(
             state = state,
@@ -150,6 +134,32 @@ fun ClosetScreen(viewModel: ClosetViewModel, modifier: Modifier = Modifier) {
         )
     }
     ClosetDialogs(state, viewModel)
+}
+
+@Composable
+private fun OpenItemDetail(
+    item: ClothingItem,
+    state: ClosetUiState,
+    viewModel: ClosetViewModel,
+    modifier: Modifier = Modifier,
+) {
+    BackHandler { viewModel.closeItem() }
+    ClothingItemDetail(
+        item = item,
+        isNew = item.id == state.newItemId,
+        onBack = viewModel::closeItem,
+        onEdit = { viewModel.startEditing(item.id) },
+        onDelete = { viewModel.deleteItem(item.id) },
+        modelButton = {
+            ModelButton(
+                item = item,
+                isGenerating = state.generatingModelId == item.id,
+                error = state.modelError,
+                onGenerate = { viewModel.generateModel(item.id) },
+            )
+        },
+        modifier = modifier,
+    )
 }
 
 @Composable
