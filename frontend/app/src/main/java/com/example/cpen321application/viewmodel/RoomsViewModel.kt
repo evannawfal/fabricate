@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.cpen321application.data.Friend
 import com.example.cpen321application.data.Room
-import com.example.cpen321application.data.RoomsException
+import com.example.cpen321application.data.ApiException
 import com.example.cpen321application.data.RoomsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -65,7 +65,7 @@ class RoomsViewModel(private val repository: RoomsRepository) : ViewModel() {
         viewModelScope.launch {
             try {
                 action()
-            } catch (e: RoomsException) {
+            } catch (e: ApiException) {
                 _uiState.update { it.copy(error = e.message, isLoading = false) }
             } finally {
                 _uiState.update { it.copy(isBusy = false) }

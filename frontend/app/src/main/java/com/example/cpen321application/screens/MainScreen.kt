@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
@@ -33,11 +34,13 @@ import com.example.cpen321application.R
 import com.example.cpen321application.data.ClothingRepository
 import com.example.cpen321application.data.LocationProvider
 import com.example.cpen321application.data.OutfitRepository
+import com.example.cpen321application.data.ProfileRepository
 import com.example.cpen321application.data.RecommendationRepository
 import com.example.cpen321application.data.RoomsRepository
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
 import com.example.cpen321application.viewmodel.ClosetViewModel
 import com.example.cpen321application.viewmodel.OutfitsViewModel
+import com.example.cpen321application.viewmodel.ProfileViewModel
 import com.example.cpen321application.viewmodel.ShopViewModel
 
 /** Top-level tabs reachable from the bottom navigation bar. */
@@ -47,6 +50,7 @@ enum class Tab(@StringRes val labelRes: Int, val icon: ImageVector) {
   Shop(R.string.tab_shop, Icons.Filled.ShoppingCart),
   Avatar(R.string.tab_avatar, Icons.Filled.Face),
   Rooms(R.string.tab_rooms, Icons.Filled.Person),
+  Profile(R.string.tab_profile, Icons.Filled.AccountCircle),
 }
 
 /**
@@ -60,6 +64,7 @@ fun MainScreen(
   recommendationRepository: RecommendationRepository,
   locationProvider: LocationProvider,
   roomsRepository: RoomsRepository,
+  profileRepository: ProfileRepository,
   onSignOut: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
@@ -101,6 +106,7 @@ fun MainScreen(
       Tab.Shop -> ShopScreen(shopViewModel, closet.items, contentModifier)
       Tab.Avatar -> AvatarRoute(clothingRepository, contentModifier)
       Tab.Rooms -> RoomsRoute(roomsRepository, clothingRepository, contentModifier)
+      Tab.Profile -> ProfileScreen(viewModel { ProfileViewModel(profileRepository) }, contentModifier)
     }
   }
 

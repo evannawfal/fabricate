@@ -17,6 +17,7 @@ import com.example.cpen321application.auth.GoogleAuthClient
 import com.example.cpen321application.auth.SessionStore
 import com.example.cpen321application.network.BackendClothingRepository
 import com.example.cpen321application.network.BackendOutfitRepository
+import com.example.cpen321application.network.BackendProfileRepository
 import com.example.cpen321application.network.BackendRecommendationRepository
 import com.example.cpen321application.network.BackendRoomsRepository
 import com.example.cpen321application.auth.SessionToken
@@ -110,12 +111,19 @@ private fun HomeDestination(sessionStore: SessionStore, navController: NavHostCo
       onUnauthorized = { endRejectedSession(sessionStore, navController) },
     )
   }
+  val profileRepository = remember {
+    BackendProfileRepository(
+      tokenProvider = { sessionStore.token.first() },
+      onUnauthorized = { endRejectedSession(sessionStore, navController) },
+    )
+  }
   MainScreen(
     clothingRepository = clothingRepository,
     outfitRepository = outfitRepository,
     recommendationRepository = recommendationRepository,
     locationProvider = remember { DeviceLocationProvider(context) },
     roomsRepository = roomsRepository,
+    profileRepository = profileRepository,
     onSignOut = {
       scope.launch {
         sessionStore.clearToken()

@@ -8,7 +8,7 @@ import com.example.cpen321application.data.ClothingRepositoryException
 import com.example.cpen321application.data.Room
 import com.example.cpen321application.data.RoomConnection
 import com.example.cpen321application.data.RoomListener
-import com.example.cpen321application.data.RoomsException
+import com.example.cpen321application.data.ApiException
 import com.example.cpen321application.data.RoomsRepository
 import com.example.cpen321application.model.ClothingItem
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,7 +63,7 @@ class RoomViewModel(
                 connection = rooms.connect(roomId, this@RoomViewModel)
                 // The screen may have closed while the room was loading.
                 if (hasLeft) leave()
-            } catch (e: RoomsException) {
+            } catch (e: ApiException) {
                 _uiState.update { it.copy(loadError = e.message) }
             } catch (e: ClothingRepositoryException) {
                 _uiState.update { it.copy(loadError = e.message) }
@@ -91,7 +91,7 @@ class RoomViewModel(
             val notice = try {
                 rooms.saveOutfit(roomId)
                 "Outfit saved to your outfits."
-            } catch (e: RoomsException) {
+            } catch (e: ApiException) {
                 e.message
             }
             _uiState.update { it.copy(isSaving = false, notice = notice) }
