@@ -105,8 +105,15 @@ class AddClothingTest {
 
     private fun addFrom(option: String) {
         composeRule.onNodeWithText("Add clothing").performClick()
+        composeRule.onNodeWithText("Step 1 of 2: the front").assertIsDisplayed()
         composeRule.onNodeWithText("Take photo").assertIsDisplayed()
         composeRule.onNodeWithText("Choose from gallery").assertIsDisplayed()
+        composeRule.onNodeWithText(option).performClick()
+    }
+
+    private fun addFrontAndBackFrom(option: String) {
+        addFrom(option)
+        waitForText("Step 2 of 2: the back")
         composeRule.onNodeWithText(option).performClick()
     }
 
@@ -141,10 +148,12 @@ class AddClothingTest {
         composeRule.onNodeWithContentDescription("Back").performClick()
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()
 
-        // The photo was uploaded as a JPEG.
-        val photo = repository.uploadedPhotos.single()
-        assertEquals(0xFF.toByte(), photo[0])
-        assertEquals(0xD8.toByte(), photo[1])
+        // Both photos were uploaded as JPEGs.
+        assertEquals(2, repository.uploadedPhotos.size)
+        repository.uploadedPhotos.forEach { photo ->
+            assertEquals(0xFF.toByte(), photo[0])
+            assertEquals(0xD8.toByte(), photo[1])
+        }
     }
 
     @Test
@@ -154,7 +163,7 @@ class AddClothingTest {
         showCloset()
         assertItemCards(2)
 
-        addFrom("Choose from gallery")
+        addFrontAndBackFrom("Choose from gallery")
 
         assertDetectedCoatAddedFirst()
     }
@@ -165,7 +174,7 @@ class AddClothingTest {
         stubCamera()
         showCloset()
 
-        addFrom("Take photo")
+        addFrontAndBackFrom("Take photo")
 
         assertDetectedCoatAddedFirst()
     }
@@ -178,7 +187,7 @@ class AddClothingTest {
         stubGallery()
         showCloset()
 
-        addFrom("Choose from gallery")
+        addFrontAndBackFrom("Choose from gallery")
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithTag(UPLOAD_PROGRESS_TAG).fetchSemanticsNodes().isNotEmpty()
@@ -209,7 +218,7 @@ class AddClothingTest {
         stubGallery()
         showCloset()
 
-        addFrom("Choose from gallery")
+        addFrontAndBackFrom("Choose from gallery")
 
         waitForText(message)
         composeRule.onNodeWithText("Try again").assertDoesNotExist()
@@ -231,7 +240,7 @@ class AddClothingTest {
         stubGallery()
         showCloset()
 
-        addFrom("Choose from gallery")
+        addFrontAndBackFrom("Choose from gallery")
 
         waitForText("Couldn't add the item. Please try again.")
         assertItemCards(2)
@@ -240,8 +249,9 @@ class AddClothingTest {
         waitUntilGone(UPLOAD_PROGRESS_TAG)
         waitForText("Navy Wool Coat")
         assertItemCards(3)
-        val (first, second) = repository.uploadedPhotos
-        assertArrayEquals(first, second)
+        val (front, back, retriedFront, retriedBack) = repository.uploadedPhotos
+        assertArrayEquals(front, retriedFront)
+        assertArrayEquals(back, retriedBack)
     }
 
     @Test
@@ -252,7 +262,7 @@ class AddClothingTest {
         composeRule.onNodeWithText("Bottoms").performClick()
         assertItemCards(1)
 
-        addFrom("Choose from gallery")
+        addFrontAndBackFrom("Choose from gallery")
 
         waitUntilGone(UPLOAD_PROGRESS_TAG)
         assertItemCards(3)
