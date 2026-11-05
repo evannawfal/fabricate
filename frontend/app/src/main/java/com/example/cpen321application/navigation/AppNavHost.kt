@@ -24,6 +24,7 @@ import com.example.cpen321application.auth.SessionToken
 import com.example.cpen321application.data.DeviceLocationProvider
 import com.example.cpen321application.screens.LoginScreen
 import com.example.cpen321application.screens.MainScreen
+import com.example.cpen321application.screens.MainScreenRepositories
 import com.example.cpen321application.viewmodel.LoginUiState
 import com.example.cpen321application.viewmodel.LoginViewModel
 import java.io.File
@@ -117,13 +118,18 @@ private fun HomeDestination(sessionStore: SessionStore, navController: NavHostCo
       onUnauthorized = { endRejectedSession(sessionStore, navController) },
     )
   }
+  val repositories = remember {
+    MainScreenRepositories(
+      clothing = clothingRepository,
+      outfits = outfitRepository,
+      recommendations = recommendationRepository,
+      location = DeviceLocationProvider(context),
+      rooms = roomsRepository,
+      profile = profileRepository,
+    )
+  }
   MainScreen(
-    clothingRepository = clothingRepository,
-    outfitRepository = outfitRepository,
-    recommendationRepository = recommendationRepository,
-    locationProvider = remember { DeviceLocationProvider(context) },
-    roomsRepository = roomsRepository,
-    profileRepository = profileRepository,
+    repositories = repositories,
     onSignOut = {
       scope.launch {
         sessionStore.clearToken()

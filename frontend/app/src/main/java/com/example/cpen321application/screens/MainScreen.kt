@@ -59,20 +59,15 @@ enum class Tab(@StringRes val labelRes: Int, val icon: ImageVector) {
  */
 @Composable
 fun MainScreen(
-  clothingRepository: ClothingRepository,
-  outfitRepository: OutfitRepository,
-  recommendationRepository: RecommendationRepository,
-  locationProvider: LocationProvider,
-  roomsRepository: RoomsRepository,
-  profileRepository: ProfileRepository,
+  repositories: MainScreenRepositories,
   onSignOut: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   var tab by rememberSaveable { mutableStateOf(Tab.Closet) }
   var confirmingSignOut by rememberSaveable { mutableStateOf(false) }
-  val closetViewModel: ClosetViewModel = viewModel { ClosetViewModel(clothingRepository) }
-  val outfitsViewModel: OutfitsViewModel = viewModel { OutfitsViewModel(outfitRepository, locationProvider) }
-  val shopViewModel: ShopViewModel = viewModel { ShopViewModel(recommendationRepository) }
+  val closetViewModel: ClosetViewModel = viewModel { ClosetViewModel(repositories.clothing) }
+  val outfitsViewModel: OutfitsViewModel = viewModel { OutfitsViewModel(repositories.outfits, repositories.location) }
+  val shopViewModel: ShopViewModel = viewModel { ShopViewModel(repositories.recommendations) }
 
   // Back from another tab returns to the Closet tab before leaving the app.
   BackHandler(enabled = tab != Tab.Closet) { tab = Tab.Closet }
@@ -104,9 +99,9 @@ fun MainScreen(
       Tab.Closet -> ClosetScreen(closetViewModel, contentModifier)
       Tab.Outfits -> OutfitsScreen(outfitsViewModel, closet.items, contentModifier)
       Tab.Shop -> ShopScreen(shopViewModel, closet.items, contentModifier)
-      Tab.Avatar -> AvatarRoute(clothingRepository, contentModifier)
-      Tab.Rooms -> RoomsRoute(roomsRepository, clothingRepository, contentModifier)
-      Tab.Profile -> ProfileScreen(viewModel { ProfileViewModel(profileRepository) }, contentModifier)
+      Tab.Avatar -> AvatarRoute(repositories.clothing, contentModifier)
+      Tab.Rooms -> RoomsRoute(repositories.rooms, repositories.clothing, contentModifier)
+      Tab.Profile -> ProfileScreen(viewModel { ProfileViewModel(repositories.profile) }, contentModifier)
     }
   }
 
@@ -120,6 +115,15 @@ fun MainScreen(
     )
   }
 }
+
+class MainScreenRepositories(
+  val clothing: ClothingRepository,
+  val outfits: OutfitRepository,
+  val recommendations: RecommendationRepository,
+  val location: LocationProvider,
+  val rooms: RoomsRepository,
+  val profile: ProfileRepository,
+)
 
 @Composable
 private fun SignOutDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
