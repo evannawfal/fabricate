@@ -13,6 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.cpen321application.fakes.FakeClothingRepository
 import com.example.cpen321application.fakes.FakeLocationProvider
 import com.example.cpen321application.fakes.FakeOutfitRepository
+import com.example.cpen321application.fakes.FakePostsRepository
 import com.example.cpen321application.fakes.FakeProfileRepository
 import com.example.cpen321application.fakes.FakeRecommendationRepository
 import com.example.cpen321application.fakes.FakeRoomsRepository
@@ -45,6 +46,7 @@ class MainScreenTest {
                     location = FakeLocationProvider(),
                     rooms = FakeRoomsRepository(),
                     profile = FakeProfileRepository(),
+                    posts = FakePostsRepository(),
                 ),
                 onSignOut = { signOutCalls++ },
             )

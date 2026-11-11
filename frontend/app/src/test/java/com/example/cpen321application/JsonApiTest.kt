@@ -92,6 +92,16 @@ class JsonApiTest {
     }
 
     @Test
+    fun emptyBody_isParsedAsAnEmptyObject() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(204))
+
+        val keys = api.send("/posts/p1", JSONObject(), "DELETE") { it.length() }
+
+        assertEquals(0, keys)
+        assertEquals("DELETE", server.takeRequest().method)
+    }
+
+    @Test
     fun malformedBody_isAnUnexpectedResponse() {
         respond(200, "not json")
 

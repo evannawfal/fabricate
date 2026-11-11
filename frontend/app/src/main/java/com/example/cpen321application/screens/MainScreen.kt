@@ -34,12 +34,14 @@ import com.example.cpen321application.R
 import com.example.cpen321application.data.ClothingRepository
 import com.example.cpen321application.data.LocationProvider
 import com.example.cpen321application.data.OutfitRepository
+import com.example.cpen321application.data.PostsRepository
 import com.example.cpen321application.data.ProfileRepository
 import com.example.cpen321application.data.RecommendationRepository
 import com.example.cpen321application.data.RoomsRepository
 import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
 import com.example.cpen321application.viewmodel.ClosetViewModel
 import com.example.cpen321application.viewmodel.OutfitsViewModel
+import com.example.cpen321application.viewmodel.PostsViewModel
 import com.example.cpen321application.viewmodel.ProfileViewModel
 import com.example.cpen321application.viewmodel.ShopViewModel
 
@@ -66,7 +68,10 @@ fun MainScreen(
   var tab by rememberSaveable { mutableStateOf(Tab.Closet) }
   var confirmingSignOut by rememberSaveable { mutableStateOf(false) }
   val closetViewModel: ClosetViewModel = viewModel { ClosetViewModel(repositories.clothing) }
-  val outfitsViewModel: OutfitsViewModel = viewModel { OutfitsViewModel(repositories.outfits, repositories.location) }
+  val outfitsViewModel: OutfitsViewModel = viewModel {
+    OutfitsViewModel(repositories.outfits, repositories.location, repositories.posts)
+  }
+  val postsViewModel: PostsViewModel = viewModel { PostsViewModel(repositories.posts) }
   val shopViewModel: ShopViewModel = viewModel { ShopViewModel(repositories.recommendations) }
 
   // Back from another tab returns to the Closet tab before leaving the app.
@@ -97,7 +102,7 @@ fun MainScreen(
     val closet by closetViewModel.uiState.collectAsState()
     when (tab) {
       Tab.Closet -> ClosetScreen(closetViewModel, contentModifier)
-      Tab.Outfits -> OutfitsScreen(outfitsViewModel, closet.items, contentModifier)
+      Tab.Outfits -> OutfitsScreen(outfitsViewModel, closet.items, postsViewModel, contentModifier)
       Tab.Shop -> ShopScreen(shopViewModel, closet.items, contentModifier)
       Tab.Avatar -> AvatarRoute(repositories.clothing, contentModifier)
       Tab.Rooms -> RoomsRoute(repositories.rooms, repositories.clothing, contentModifier)
@@ -123,6 +128,7 @@ class MainScreenRepositories(
   val location: LocationProvider,
   val rooms: RoomsRepository,
   val profile: ProfileRepository,
+  val posts: PostsRepository,
 )
 
 @Composable

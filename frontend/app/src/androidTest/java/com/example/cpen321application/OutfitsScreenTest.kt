@@ -1,12 +1,15 @@
 package com.example.cpen321application
 
 import android.Manifest
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -16,8 +19,10 @@ import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.cpen321application.data.ClothingRepositoryException
+import com.example.cpen321application.data.Post
 import com.example.cpen321application.fakes.FakeLocationProvider
 import com.example.cpen321application.fakes.FakeOutfitRepository
+import com.example.cpen321application.fakes.FakePostsRepository
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
 import com.example.cpen321application.model.Coordinates
@@ -28,12 +33,15 @@ import com.example.cpen321application.model.Weather
 import com.example.cpen321application.screens.GENERATE_OUTFIT_BUTTON_TAG
 import com.example.cpen321application.screens.GENERATING_OUTFIT_TAG
 import com.example.cpen321application.screens.OUTFIT_NAME_FIELD_TAG
+import com.example.cpen321application.screens.POST_CARD_TAG
+import com.example.cpen321application.screens.POST_OUTFIT_BUTTON_TAG
 import com.example.cpen321application.screens.OutfitsScreen
 import com.example.cpen321application.screens.REGENERATE_OUTFIT_TAG
 import com.example.cpen321application.screens.SAVE_GENERATED_OUTFIT_TAG
 import com.example.cpen321application.screens.SAVE_OUTFIT_BUTTON_TAG
 import com.example.cpen321application.screens.occasionOptionTag
 import com.example.cpen321application.viewmodel.OutfitsViewModel
+import com.example.cpen321application.viewmodel.PostsViewModel
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -52,6 +60,7 @@ class OutfitsScreenTest {
     private val closet = listOf(hoodie, jeans, sneakers)
     private val weekend = Outfit("o1", "Weekend", listOf(hoodie, jeans))
     private lateinit var viewModel: OutfitsViewModel
+    private lateinit var posts: FakePostsRepository
 
     private val rain = Weather(9, "Rain", "light rain")
     private val rainyDay = GeneratedOutfit("Rainy day layers", OutfitOccasion.Work, listOf(hoodie, jeans), rain)
@@ -66,11 +75,16 @@ class OutfitsScreenTest {
         )
     }
 
-    private fun showOutfits(outfits: List<Outfit> = emptyList(), listError: String? = null): FakeOutfitRepository {
+    private fun showOutfits(
+        outfits: List<Outfit> = emptyList(),
+        listError: String? = null,
+        posted: List<Post> = emptyList(),
+    ): FakeOutfitRepository {
         val repository = FakeOutfitRepository(outfits, closet)
         repository.listError = listError
-        viewModel = OutfitsViewModel(repository, location)
-        composeRule.setContent { OutfitsScreen(viewModel, closet) }
+        posts = FakePostsRepository(posted)
+        viewModel = OutfitsViewModel(repository, location, posts)
+        composeRule.setContent { OutfitsScreen(viewModel, closet, PostsViewModel(posts)) }
         return repository
     }
 
@@ -415,5 +429,56 @@ class OutfitsScreenTest {
 
         composeRule.onNodeWithText("No outfits yet").assertIsDisplayed()
         assertEquals(0, repository.outfits.size)
+    }
+
+    @Test
+    fun postsASavedOutfitAsTodaysOutfit() {
+        showOutfits(listOf(weekend))
+
+        composeRule.onNodeWithText("Weekend").performClick()
+        composeRule.onNodeWithTag(POST_OUTFIT_BUTTON_TAG).performClick()
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("Posted!", substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(listOf("o1"), posts.postedOutfitIds)
+    }
+
+    @Test
+    fun failedPost_showsTheReason() {
+        showOutfits(listOf(weekend))
+        posts.postError = "Outfit not found"
+
+        composeRule.onNodeWithText("Weekend").performClick()
+        composeRule.onNodeWithTag(POST_OUTFIT_BUTTON_TAG).performClick()
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("Outfit not found").fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(emptyList<String>(), posts.postedOutfitIds)
+    }
+
+    @Test
+    fun newOutfitCantBePostedBeforeItIsSaved() {
+        showOutfits()
+
+        composeRule.onNodeWithText("Create outfit").performClick()
+
+        composeRule.onNodeWithTag(POST_OUTFIT_BUTTON_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun friendsPostsTab_showsTheFeed() {
+        showOutfits(posted = listOf(Post("p1", "Sam Lee", isOwn = false, outfitName = "Gym day", items = listOf(hoodie))))
+
+        composeRule.onNodeWithText("Friends' posts").performClick()
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("Sam Lee").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Gym day").assertIsDisplayed()
+        composeRule.onAllNodesWithTag(POST_CARD_TAG).assertCountEquals(1)
+        composeRule.onNodeWithText("My Outfits").performClick()
+        composeRule.onNodeWithText("Create outfit").assertIsDisplayed()
     }
 }

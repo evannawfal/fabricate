@@ -21,11 +21,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,6 +48,7 @@ import com.example.cpen321application.viewmodel.OutfitsViewModel
 const val OUTFIT_NAME_FIELD_TAG = "outfit_name"
 const val OUTFIT_ITEM_CHOICE_TAG = "outfit_item_choice"
 const val SAVE_OUTFIT_BUTTON_TAG = "save_outfit_button"
+const val POST_OUTFIT_BUTTON_TAG = "post_outfit_button"
 
 /**
  * Names [draft] and picks its items, grouped by category, from [closetItems]. Items the
@@ -100,6 +103,13 @@ internal fun OutfitEditor(
             onSave = viewModel::saveDraft,
         )
         if (!isNew) {
+            PostOutfitButton(
+                isPosting = state.isPosting,
+                isPosted = state.isPosted,
+                error = state.postError,
+                enabled = !state.isBusy,
+                onPost = viewModel::postDraftOutfit,
+            )
             ConfirmDeleteButton(
                 label = "Delete outfit",
                 title = "Delete this outfit?",
@@ -206,5 +216,39 @@ private fun SaveOutfitButton(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+// Posts the saved outfit, so changes that haven't been saved yet aren't posted.
+@Composable
+private fun PostOutfitButton(
+    isPosting: Boolean,
+    isPosted: Boolean,
+    error: String?,
+    enabled: Boolean,
+    onPost: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        OutlinedButton(
+            onClick = onPost,
+            enabled = enabled,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(POST_OUTFIT_BUTTON_TAG),
+        ) {
+            if (isPosting) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+            } else {
+                Icon(Icons.Filled.Share, contentDescription = null)
+                Text("Post as today's outfit", modifier = Modifier.padding(start = 8.dp))
+            }
+        }
+        val (message, color) = when {
+            error != null -> error to MaterialTheme.colorScheme.error
+            isPosted -> "Posted! Your friends can see it in Friends' posts for a day." to MaterialTheme.colorScheme.primary
+            else -> "Shares the saved outfit with your friends for a day, replacing your last post." to
+                MaterialTheme.colorScheme.onSurfaceVariant
+        }
+        Text(message, style = MaterialTheme.typography.bodySmall, color = color)
     }
 }

@@ -2,10 +2,12 @@ package com.example.cpen321application.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.cpen321application.data.ApiException
 import com.example.cpen321application.data.ClothingRepositoryException
 import com.example.cpen321application.data.LocationProvider
 import com.example.cpen321application.data.OutfitChanges
 import com.example.cpen321application.data.OutfitRepository
+import com.example.cpen321application.data.PostsRepository
 import com.example.cpen321application.model.ClothingItem
 import com.example.cpen321application.model.GeneratedOutfit
 import com.example.cpen321application.model.Outfit
@@ -46,13 +48,18 @@ data class OutfitsUiState(
     val saveError: String? = null,
     val isDeleting: Boolean = false,
     val deleteError: String? = null,
+    val isPosting: Boolean = false,
+    /** Set once the open outfit has been posted, until the editor closes. */
+    val isPosted: Boolean = false,
+    val postError: String? = null,
 ) {
-    val isBusy: Boolean get() = isSaving || isDeleting
+    val isBusy: Boolean get() = isSaving || isDeleting || isPosting
 }
 
 class OutfitsViewModel(
     private val repository: OutfitRepository,
     private val locationProvider: LocationProvider,
+    private val postsRepository: PostsRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(OutfitsUiState())
     val uiState: StateFlow<OutfitsUiState> = _uiState.asStateFlow()
@@ -77,10 +84,29 @@ class OutfitsViewModel(
 
     fun startCreating() = _uiState.update { it.copy(draft = OutfitDraft(), saveError = null) }
 
-    fun startEditing(outfit: Outfit) =
-        _uiState.update { it.copy(draft = OutfitDraft(outfit.id, outfit.name, outfit.items), saveError = null) }
+    fun startEditing(outfit: Outfit) = _uiState.update {
+        it.copy(draft = OutfitDraft(outfit.id, outfit.name, outfit.items), saveError = null, isPosted = false, postError = null)
+    }
 
-    fun closeDraft() = _uiState.update { if (it.isBusy) it else it.copy(draft = null, saveError = null) }
+    fun closeDraft() = _uiState.update {
+        if (it.isBusy) it else it.copy(draft = null, saveError = null, isPosted = false, postError = null)
+    }
+
+    /** Posts the open saved outfit as the user's outfit of the day. */
+    fun postDraftOutfit() {
+        val state = _uiState.value
+        val outfitId = state.draft?.outfitId ?: return
+        if (state.isBusy) return
+        _uiState.update { it.copy(isPosting = true, isPosted = false, postError = null) }
+        viewModelScope.launch {
+            try {
+                postsRepository.postOutfit(outfitId)
+                _uiState.update { it.copy(isPosting = false, isPosted = true) }
+            } catch (e: ApiException) {
+                _uiState.update { it.copy(isPosting = false, postError = e.message) }
+            }
+        }
+    }
 
     fun rename(name: String) = updateDraft { it.copy(name = name.take(NAME_MAX_LENGTH)) }
 
