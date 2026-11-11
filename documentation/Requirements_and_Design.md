@@ -11,6 +11,7 @@
 | 2026-11-01 | 4.1, 4.2, 4.3, 4.6 | Chose Serper for the online store search and documented it. `GET /recommendations` gains `country` and `department`, because results depend on the user's country and searches without a department came back mostly women's. Search results are cached in MongoDB to stay within the search credits. |
 | 2026-11-01 | 4.1 | `GET /recommendations`: each `StoreItem` also has the `reason` of the gap it fills and the closet items it `pairsWith`, which the Shop screen shows in use case 4 steps 3 and 5. Documented its 400 and 503 responses. |
 | 2026-11-04 | 3.4, 3.5, 4.1, 4.6 | Each clothing item now has a front and a back photo. Use case 1 asks for both, and backing out of the camera or gallery asks for the photo again before cancelling. `POST /clothing` takes a `backPhoto` file, and the use case 1 sequence diagram stores both photos. |
+| 2026-11-11 | 4.1 | Posts: each user has one post at a time, which keeps a copy of the posted outfit. Added `DELETE /posts/{id}`, and `GET /posts` returns `{ posts }` with the user's own post marked by `isOwn`. |
 
 ---
 
@@ -284,10 +285,10 @@ Not included for CP1.
 6. **Social & Rooms**
    - **Purpose**: Manages daily outfit posts, ratings and rooms, and delivers chat messages and shared outfit changes to room members in real time.
    - **Interfaces**:
-     1. `POST /posts`, body `{ outfitId: String }`, returns `201 Post`
-        - **Purpose**: Posts the user's daily outfit for their friends.
-     2. `GET /posts`, returns `List<Post>`
-        - **Purpose**: Returns the outfits the user's friends posted, newest first, with their average ratings.
+     1. `POST /posts`, body `{ outfitId: String }`, returns `201 Post`, and `DELETE /posts/{id}`, returns `204`
+        - **Purpose**: Posts one of the user's outfits as their outfit of the day for their friends, replacing their previous post. The post keeps a copy of the outfit's name and items, so it still shows what was posted if the outfit is later edited or deleted. Returns 404 if the outfit isn't the user's. `DELETE` removes the user's own post, and returns 403 for someone else's.
+     2. `GET /posts`, returns `{ posts: List<Post> }`
+        - **Purpose**: Returns the posts the user and their friends made in the last 24 hours, newest first, with their average ratings. Each post has its author, the outfit's name and items, and `isOwn`, which marks the user's own post.
      3. `POST /posts/{id}/ratings`, body `{ stars: Int }` (1 to 5), returns `Rating`
         - **Purpose**: Rates a friend's posted outfit; rating again replaces the user's previous rating.
      4. `POST /rooms`, body `{ name: String, friendIds: List<String> }`, returns `201 Room`, and `GET /rooms`, returns `{ rooms: List<Room> }`
