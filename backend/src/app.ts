@@ -8,6 +8,7 @@ import { roomsRouter } from './routes/rooms.js';
 import { recommendationsRouter } from './routes/recommendations.js';
 import { friendsRouter } from './routes/friends.js';
 import { usersRouter } from './routes/users.js';
+import { postsRouter } from './routes/posts.js';
 
 export function createApp(): Express {
   const app = express();
@@ -29,6 +30,7 @@ export function createApp(): Express {
   app.use('/recommendations', recommendationsRouter);
   app.use('/friends', friendsRouter);
   app.use('/users', usersRouter);
+  app.use('/posts', postsRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: 'Not Found' });
