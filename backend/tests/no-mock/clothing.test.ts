@@ -268,6 +268,7 @@ describe('Unmocked: GET /clothing', () => {
         'style',
         'tags',
         'updatedAt',
+        "referencePoints",
       ].sort()
     );
     // File storage isn't configured in these tests, so there are no photo links

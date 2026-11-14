@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Garment Reference Point Picker</title>
+  <style>
+    :root {
+      --bg-dark: #12141a;
+      --card-bg: rgba(24,27,36,0.92);
+      --accent: #6366f1;
+      --text: #f3f4f6;
+    }
+    body,html{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg-dark);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+    #canvas{width:100%;height:100%;display:block;touch-action:none;}
+    #ui{position:absolute;top:10px;left:10px;background:var(--card-bg);padding:10px;border-radius:8px;max-width:340px;}
+    button,select{background:#1f2937;color:#fff;border:none;padding:6px 10px;margin:2px;border-radius:4px;cursor:pointer;font-size:13px;}
+    button:hover,select:hover{background:#374151;}
+    button.primary{background:var(--accent);}
+    button:disabled{opacity:.4;cursor:not-allowed;}
+    #info{margin-top:6px;font-size:13px;line-height:1.4;}
+    #points{margin-top:8px;font-size:12px;color:#d1d5db;}
+    .prow{margin-bottom:6px;}
+    .pname{margin-bottom:2px;}
+    .axes{display:flex;gap:4px;}
+    .axes input{width:78px;box-sizing:border-box;background:#1f2937;color:#fff;border:1px solid #374151;border-radius:4px;padding:4px 6px;font-size:12px;font-family:ui-monospace,Menlo,monospace;}
+    .axes input:disabled{opacity:.35;}
+    .axes input:focus{outline:none;border-color:var(--accent);}
+    .hint{font-size:11px;color:#9ca3af;margin-top:6px;}
+  </style>
+  <!-- Import map is required: GLTFLoader/OrbitControls import the bare specifier "three" -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="ui">
+    <select id="garmentSelect"></select>
+    <button id="loadBtn">Load</button>
+    <div>
+      <button id="pickBtn">Pick Points</button>
+      <button id="undoBtn">Undo</button>
+      <button id="resetBtn">Reset</button>
+      <button id="saveBtn" class="primary" disabled>Save</button>
+    </div>
+    <div id="info">Loading garment list…</div>
+    <div id="points"></div>
+    <div class="hint">Left/Right are the wearer's own sides (the wearer's left appears on screen-right when viewed from the front). Drag to orbit, scroll to zoom, click to place a point. Then edit a point's x / y / z (type, or use the arrow keys) and its marker moves live; click Save to store the edited values.</div>
+  </div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
+    import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
+
+    const draco = new DRACOLoader();
+    draco.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/");
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(draco);
+    loader.setMeshoptDecoder(MeshoptDecoder);
+
+    const canvas = document.getElementById('canvas');
+    const infoEl = document.getElementById('info');
+    const pointsEl = document.getElementById('points');
+    const selectEl = document.getElementById('garmentSelect');
+    const saveBtn = document.getElementById('saveBtn');
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x12141a);
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
+    camera.position.set(0, 1, 3);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.4));
+    const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+    dir.position.set(2, 4, 3);
+    scene.add(dir);
+
+    // Garment is NEVER rescaled/rotated, so picked points are in the GLB's own
+    // coordinate space and its original proportions are preserved.
+    let garmentMesh = null;
+    let garmentFile = null;
+    let garmentBox = new THREE.Box3();
+    let markerScale = 0.02;
+    const markers = new THREE.Group();
+    scene.add(markers);
+
+    const state = { type: null, step: 0, points: {} };
+    const markerObjs = {};      // key -> { sph, spr }
+    let coordStep = 0.001;      // arrow-key step for the coordinate inputs
+    let picking = false;
+
+    const STEPS = {
+      top:    [{ key: 'leftShoulder',   label: 'Left Shoulder' },
+               { key: 'rightShoulder',  label: 'Right Shoulder' },
+               { key: 'bottomHem',      label: 'Bottom Hem' }],
+      bottom: [{ key: 'topHemLeft',    label: 'Top Hem Left' },
+               { key: 'topHemRight',   label: 'Top Hem Right' },
+               { key: 'bottomHemLeft',  label: 'Bottom Hem Left' },
+               { key: 'bottomHemRight', label: 'Bottom Hem Right' }],
+    };
+
+    function detectType(filename) {
+      return /(pant|short|skirt|jean|trouser|legging)/i.test(filename) ? 'bottom' : 'top';
+    }
+
+    const setInfo = (t) => { infoEl.textContent = t; };
+
+    function updateSaveState() {
+      const steps = STEPS[state.type] || [];
+      saveBtn.disabled = !(state.type && steps.every(s => state.points[s.key]));
+    }
+
+    // Rebuilds the coordinate rows (call when points are added/removed, not while typing).
+    function renderPointsText() {
+      const steps = STEPS[state.type] || [];
+      pointsEl.innerHTML = '';
+      for (const s of steps) {
+        const p = state.points[s.key];
+        const row = document.createElement('div');
+        row.className = 'prow';
+        const name = document.createElement('div');
+        name.className = 'pname';
+        name.textContent = (p ? '✓ ' : '· ') + s.label;
+        row.appendChild(name);
+
+        const axes = document.createElement('div');
+        axes.className = 'axes';
+        for (const ax of ['x', 'y', 'z']) {
+          const inp = document.createElement('input');
+          inp.type = 'number';
+          inp.step = coordStep;
+          inp.title = ax.toUpperCase();
+          inp.disabled = !p;
+          inp.value = p ? p[ax].toFixed(4) : '';
+          inp.oninput = () => {
+            const v = parseFloat(inp.value);
+            const pt = state.points[s.key];
+            if (!pt || !Number.isFinite(v)) return;
+            pt[ax] = v;
+            moveMarker(s.key);       // marker follows the edit immediately
+          };
+          inp.onfocus = () => highlightMarker(s.key, true);
+          inp.onblur = () => highlightMarker(s.key, false);
+          axes.appendChild(inp);
+        }
+        row.appendChild(axes);
+        pointsEl.appendChild(row);
+      }
+      updateSaveState();
+    }
+
+    // ---------- Garment list ----------
+    async function loadGarmentList() {
+      let files = [];
+      try {
+        const r = await fetch('/api/garments');
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        files = (await r.json()).files;
+      } catch (e) {
+        console.error('Could not list garments', e);
+      }
+      selectEl.innerHTML = '';
+      for (const f of files) {
+        const o = document.createElement('option');
+        o.value = f;
+        o.textContent = `${detectType(f) === 'top' ? 'Top' : 'Bottom'}: ${f}`;
+        selectEl.appendChild(o);
+      }
+      if (files.length) {
+        loadGarment(files[0]);
+      } else {
+        setInfo('No .glb files found in the baseMeshes folder.');
+      }
+    }
+
+    // ---------- Load garment ----------
+    function disposeGarment() {
+      if (!garmentMesh) return;
+      scene.remove(garmentMesh);
+      garmentMesh.traverse(c => {
+        if (c.isMesh) {
+          c.geometry?.dispose();
+          (Array.isArray(c.material) ? c.material : [c.material]).forEach(m => m?.dispose());
+        }
+      });
+      garmentMesh = null;
+    }
+
+    async function loadGarment(filename) {
+      const url = `/api/garments/${encodeURIComponent(filename)}`;
+      setInfo(`Loading ${filename}…`);
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const buf = await resp.arrayBuffer();
+        const gltf = await loader.parseAsync(buf, '');
+
+        disposeGarment();
+        picking = false;
+        garmentMesh = gltf.scene;
+        garmentFile = filename;
+        garmentMesh.traverse(c => { if (c.isMesh && c.material) c.material.side = THREE.DoubleSide; });
+        scene.add(garmentMesh);
+        garmentMesh.updateMatrixWorld(true);
+
+        state.type = detectType(filename);
+        resetPicking();
+
+        // Fit camera (camera moves, garment does not)
+        garmentBox = new THREE.Box3().setFromObject(garmentMesh);
+        const size = garmentBox.getSize(new THREE.Vector3());
+        const centre = garmentBox.getCenter(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        markerScale = maxDim * 0.015;
+        coordStep = Number((maxDim / 1000).toPrecision(2));
+        controls.target.copy(centre);
+        camera.position.set(centre.x, centre.y, centre.z + maxDim * 2.2);
+        camera.near = maxDim / 100;
+        camera.far = maxDim * 100;
+        camera.updateProjectionMatrix();
+        controls.update();
+
+        await loadSavedPoints(filename);
+        if (Object.keys(state.points).length) {
+          setInfo(`Loaded ${filename} as ${state.type} (saved points restored). Click "Pick Points" to redo them.`);
+        } else {
+          setInfo(`Loaded ${filename} as ${state.type}. Click "Pick Points" to start.`);
+        }
+      } catch (err) {
+        console.error('Load error', err);
+        setInfo(`Failed to load ${filename}: ${err.message}`);
+      }
+    }
+
+    async function loadSavedPoints(filename) {
+      try {
+        const r = await fetch(`/api/garments/${encodeURIComponent(filename)}/points`);
+        if (!r.ok) return;
+        const saved = await r.json();
+        if (saved.type !== state.type) return;
+        for (const s of STEPS[state.type]) {
+          const p = saved.points?.[s.key];
+          if (p) {
+            const v = new THREE.Vector3(p.x, p.y, p.z);
+            state.points[s.key] = v;
+            addMarker(s.key, s.label, v);
+          }
+        }
+        state.step = Object.keys(state.points).length;
+        renderPointsText();
+      } catch (e) { /* no saved points yet */ }
+    }
+
+    // ---------- Markers ----------
+    function resetPicking() {
+      state.step = 0;
+      state.points = {};
+      clearMarkers();
+      renderPointsText();
+    }
+
+    function addMarker(key, label, pos) {
+      const sph = new THREE.Mesh(
+        new THREE.SphereGeometry(markerScale, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0xffd700, depthTest: false })
+      );
+      sph.renderOrder = 10;
+      markers.add(sph);
+      const spr = makeLabelSprite(label);
+      markers.add(spr);
+      markerObjs[key] = { sph, spr };
+      moveMarker(key);
+    }
+
+    // Sync a marker (sphere + label) to state.points[key].
+    function moveMarker(key) {
+      const m = markerObjs[key], p = state.points[key];
+      if (!m || !p) return;
+      m.sph.position.copy(p);
+      m.spr.position.copy(p).add(new THREE.Vector3(0, markerScale * 3, 0));
+    }
+
+    function highlightMarker(key, on) {
+      const m = markerObjs[key];
+      if (m) m.sph.scale.setScalar(on ? 1.8 : 1);
+    }
+
+    function clearMarkers() {
+      markers.clear();
+      for (const k of Object.keys(markerObjs)) delete markerObjs[k];
+    }
+
+    function makeLabelSprite(txt) {
+      const c = document.createElement('canvas');
+      const ctx = c.getContext('2d');
+      const font = 'Bold 48px Arial';
+      ctx.font = font;
+      const w = Math.ceil(ctx.measureText(txt).width) + 16;
+      c.width = w;
+      c.height = 64;
+      ctx.font = font; // resizing the canvas resets the context
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.fillStyle = '#ffea00';
+      ctx.fillText(txt, 8, 48);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+      const h = markerScale * 4;               // sprite scale in world units (default is 1x1 = huge)
+      spr.scale.set(h * (w / 64), h, 1);
+      spr.renderOrder = 11;
+      return spr;
+    }
+
+    // ---------- UI ----------
+    document.getElementById('loadBtn').onclick = () => loadGarment(selectEl.value);
+    selectEl.onchange = () => loadGarment(selectEl.value);
+
+    document.getElementById('resetBtn').onclick = () => {
+      resetPicking();
+      picking = false;
+      setInfo('Points cleared.');
+    };
+
+    document.getElementById('undoBtn').onclick = () => {
+      if (!state.type || state.step === 0) return;
+      const steps = STEPS[state.type];
+      const last = steps[state.step - 1];
+      delete state.points[last.key];
+      state.step--;
+      clearMarkers();
+      for (const s of steps) if (state.points[s.key]) addMarker(s.key, s.label, state.points[s.key]);
+      renderPointsText();
+      if (picking) setInfo(`Click to set ${steps[state.step].label}`);
+    };
+
+    document.getElementById('pickBtn').onclick = () => {
+      if (!garmentMesh) { alert('Load a garment first'); return; }
+      resetPicking();
+      picking = true;
+      setInfo(`Click to set ${STEPS[state.type][0].label}`);
+    };
+
+    saveBtn.onclick = async () => {
+      const steps = STEPS[state.type];
+      const size = garmentBox.getSize(new THREE.Vector3());
+      const pts = {};
+      for (const s of steps) {
+        const p = state.points[s.key];
+        pts[s.key] = {
+          x: p.x, y: p.y, z: p.z,
+          normalized: {                       // 0..1 within the garment's bounding box
+            x: size.x ? (p.x - garmentBox.min.x) / size.x : 0,
+            y: size.y ? (p.y - garmentBox.min.y) / size.y : 0,
+            z: size.z ? (p.z - garmentBox.min.z) / size.z : 0,
+          },
+        };
+      }
+      const body = {
+        garment: garmentFile,
+        type: state.type,
+        boundingBox: {
+          min: garmentBox.min.toArray(),
+          max: garmentBox.max.toArray(),
+          size: size.toArray(),
+        },
+        points: pts,
+      };
+      try {
+        const r = await fetch(`/api/garments/${encodeURIComponent(garmentFile)}/points`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+        setInfo(`Saved to ${j.savedAs}`);
+      } catch (e) {
+        console.error(e);
+        setInfo(`Save failed: ${e.message}`);
+      }
+    };
+
+    // ---------- Picking (click, not drag) ----------
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let downPos = null;
+
+    renderer.domElement.addEventListener('pointerdown', e => { downPos = { x: e.clientX, y: e.clientY }; });
+    renderer.domElement.addEventListener('pointerup', e => {
+      if (!picking || !garmentMesh || !downPos) return;
+      const moved = Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y);
+      downPos = null;
+      if (moved > 5) return; // it was an orbit drag
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObject(garmentMesh, true);
+      if (!hits.length) return;
+
+      const steps = STEPS[state.type];
+      const step = steps[state.step];
+      const pt = hits[0].point.clone();
+      state.points[step.key] = pt;
+      addMarker(step.key, step.label, pt);
+      state.step++;
+      renderPointsText();
+
+      if (state.step < steps.length) {
+        setInfo(`Click to set ${steps[state.step].label}`);
+      } else {
+        picking = false;
+        setInfo('All points set. Click Save to store them (or Undo / Pick Points to redo).');
+      }
+    });
+
+    // ---------- Render loop / resize ----------
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    loadGarmentList();
+  </script>
+</body>
+</html>

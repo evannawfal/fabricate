@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import { exportAvatar } from '../avatar/exportAvatar.js';
+import { exportAvatar, exportSegAvatar } from '../avatar/exportAvatar.js';
 import { getUserId, type AuthedRequest } from '../middleware/middleware.js';
 import { User } from '../models/user.js';
 import { getAvatarModelUrl, saveAvatarModel } from '../services/avatarStorage.js';
@@ -21,7 +21,8 @@ export async function createAvatar(req: AuthedRequest, res: Response) {
     return res.status(404).json({ error: 'User not found' });
   }
 
-  const glb = await exportAvatar(input.value);
+  // const glb = await exportAvatar(input.value);
+  const glb = await exportSegAvatar(input.value);
   const key = await saveAvatarModel(user.id, glb, storage);
   const previousKey = user.avatarModelKey;
   user.avatarModelKey = key;
