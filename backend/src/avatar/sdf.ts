@@ -1,4 +1,5 @@
 import { AvatarParameters, Vec3 } from "./types.js";
+export const LEG_REACH = 1.0;
 
 /**
  * Default ratios 
@@ -7,7 +8,7 @@ const DEFAULTS = {
   headHeight: 0.23,
   neckWidth: 0.12,
   armLengthRatio: 0.30,
-  legLengthRatio: 0.46,
+  legLengthRatio: 0.50, 
   resolution: 0.015,
 };
 
@@ -342,8 +343,8 @@ function defineArms(
  */
 const LEGS_PARAMS = {
   upperLengthToLegLength: 0.53,
-  upperRadiusToLegLength: 0.085,
-  lowerRadiusToLegLength: 0.075,
+  upperRadiusToLegLength: 0.078, // was 0.085
+  lowerRadiusToLegLength: 0.069, // was 0.075
   hipStart: 0.26,
   upperLegToVerticleRad: (2 * Math.PI) / 180,
   lowerLegToVerticleRad: (2 * Math.PI) / 180,
@@ -383,12 +384,12 @@ function defineLegs(
     const hip = [hipX, waistY - h * WAIST_PARAMS.yToHeight * 0.85, 0] as Vec3;
     const knee = [
       kneeX,
-      hip[1] - upperLength * Math.cos(LEGS_PARAMS.upperLegToVerticleRad) * 0.70,
+      hip[1] - upperLength * Math.cos(LEGS_PARAMS.upperLegToVerticleRad) * LEG_REACH,
       0,
     ] as Vec3;
     const ankle = [
       ankleX,
-      knee[1] - lowerLength * Math.cos(LEGS_PARAMS.lowerLegToVerticleRad) * 0.70,
+      knee[1] - lowerLength * Math.cos(LEGS_PARAMS.lowerLegToVerticleRad) * LEG_REACH,
       0,
     ] as Vec3;
     const thigh = sdCapsule(

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Avatar Garment Fitter</title>
+  <style>
+    :root { --bg:#12141a; --card:rgba(24,27,36,0.92); --accent:#6366f1; --text:#f3f4f6; --muted:#9ca3af; }
+    html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:13px;}
+    #canvas{width:100%;height:100%;display:block;touch-action:none;}
+    #ui{position:absolute;top:10px;left:10px;width:310px;max-height:calc(100% - 20px);overflow-y:auto;background:var(--card);padding:12px;border-radius:8px;box-sizing:border-box;}
+    h3{margin:12px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+    h3:first-child{margin-top:0;}
+    label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0;}
+    select,input[type=number]{background:#1f2937;color:#fff;border:none;padding:5px 8px;border-radius:4px;font-size:13px;}
+    select{width:190px;} input[type=number]{width:80px;}
+    input[type=range]{width:150px;}
+    button{background:var(--accent);color:#fff;border:none;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:13px;margin-top:6px;}
+    button:disabled{opacity:.5;cursor:wait;}
+    .check{justify-content:flex-start;} .check input{margin:0;}
+    #info{margin-top:10px;font-size:12px;line-height:1.45;white-space:pre-wrap;color:#d1d5db;font-family:ui-monospace,Menlo,monospace;}
+    .swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:2px;}
+    a{color:#a5b4fc;}
+  </style>
+  <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+  </script>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="ui">
+    <h3>Garments</h3>
+    <label>Top <select id="topSel"></select></label>
+    <label>Bottom <select id="bottomSel"></select></label>
+    <label>Top width ease <input type="range" id="topEase" min="0.8" max="1.4" step="0.01" value="1.05" /><span id="topEaseV">1.05</span></label>
+    <label>Bottom top-hem width (x hip) <input type="range" id="bottomEase" min="0.8" max="1.3" step="0.01" value="0.90" /><span id="bottomEaseV">0.90</span></label>
+    <label>Garment opacity <input type="range" id="opacity" min="0.2" max="1" step="0.05" value="1" /><span id="opacityV">1.00</span></label>
+    <label class="check"><input type="checkbox" id="stretch" checked /> Stretch vertically to hit the hem target</label>
+    <label class="check"><input type="checkbox" id="hideUnder" checked /> Hide pants under the shirt</label>
+
+    <h3>Avatar measurements (m)</h3>
+    <label>Height <input type="number" id="height" step="0.01" value="1.80" /></label>
+    <label>Shoulder width <input type="number" id="shoulderWidth" step="0.01" value="0.40" /></label>
+    <label>Chest width <input type="number" id="chestWidth" step="0.01" value="0.35" /></label>
+    <label>Waist width <input type="number" id="waistWidth" step="0.01" value="0.30" /></label>
+    <label>Hip width <input type="number" id="hipWidth" step="0.01" value="0.32" /></label>
+    <button id="updateBtn">Update avatar</button>
+
+    <h3>Body parts</h3>
+    <div id="parts"></div>
+
+    <div id="info">Starting…</div>
+    <div style="margin-top:8px;color:var(--muted);font-size:11px;">Set garment reference points at <a href="/">/</a>. Garments without saved points are disabled.</div>
+  </div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
+    import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
+
+    const $ = (id) => document.getElementById(id);
+    const infoEl = $('info');
+
+    const renderer = new THREE.WebGLRenderer({ canvas: $('canvas'), antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.localClippingEnabled = true;   // needed to hide the pants under the shirt
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x12141a);
+    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.05, 100);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.3));
+    const dir = new THREE.DirectionalLight(0xffffff, 1.3);
+    dir.position.set(2, 4, 3);
+    scene.add(dir);
+    const grid = new THREE.GridHelper(4, 20, 0x374151, 0x1f2937);
+    scene.add(grid);
+
+    const draco = new DRACOLoader();
+    draco.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/");
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(draco);              // Draco-compressed meshes
+    loader.setMeshoptDecoder(MeshoptDecoder);  // meshopt-compressed meshes (e.g. gltfpack output)
+    const state = {
+      anchors: null, dims: null, avatar: null, cameraFramed: false,
+      hidden: new Set(),
+      topHemY: null,
+      clipPlane: new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),   // keeps y <= constant
+      slots: { top: null, bottom: null },   // { file, wrapper, scene, ref, cache }
+    };
+
+    const setInfo = (t) => { infoEl.textContent = t; };
+    const fits = { top: '', bottom: '' };
+    const refreshInfo = () => setInfo([fits.top, fits.bottom].filter(Boolean).join('\n\n') || 'Pick a top and/or bottom.');
+    const V = (p) => new THREE.Vector3(p.x, p.y, p.z);
+    const params = () => Object.fromEntries(['height','shoulderWidth','chestWidth','waistWidth','hipWidth'].map(k => [k, Number($(k).value)]));
+
+    // ---------------- Avatar ----------------
+    function disposeObject(root) {
+      root.traverse(c => {
+        if (c.isMesh) {
+          c.geometry?.dispose();
+          (Array.isArray(c.material) ? c.material : [c.material]).forEach(m => m?.dispose());
+        }
+      });
+    }
+
+    function applyPartVisibility() {
+      state.avatar?.traverse(o => { if (o.isMesh) o.visible = !state.hidden.has(o.name); });
+    }
+
+    async function loadAvatar() {
+      $('updateBtn').disabled = true;
+      setInfo('Generating avatar…');
+      try {
+        const q = new URLSearchParams(params()).toString();
+        const [anc, buf] = await Promise.all([
+          fetch(`/api/anchors?${q}`).then(r => { if (!r.ok) throw new Error(`anchors HTTP ${r.status}`); return r.json(); }),
+          fetch(`/api/avatar.glb?${q}`).then(r => { if (!r.ok) throw new Error(`avatar HTTP ${r.status}`); return r.arrayBuffer(); }),
+        ]);
+        const gltf = await loader.parseAsync(buf, '');
+        if (state.avatar) { scene.remove(state.avatar); disposeObject(state.avatar); }
+        state.avatar = gltf.scene;
+        scene.add(state.avatar);
+        state.anchors = anc.anchors;
+        state.dims = anc.dimensions;
+        applyPartVisibility();
+
+        if (!state.cameraFramed) {
+          const h = params().height;
+          controls.target.set(0, h * 0.5, 0);
+          camera.position.set(0, h * 0.6, h * 2.4);
+          controls.update();
+          state.cameraFramed = true;
+        }
+        for (const slot of ['top', 'bottom']) fitSlot(slot);
+        refreshInfo();
+      } catch (e) {
+        console.error(e);
+        setInfo(`Avatar failed: ${e.message}`);
+      } finally {
+        $('updateBtn').disabled = false;
+      }
+    }
+
+    async function buildPartToggles() {
+      try {
+        const meta = await (await fetch('/api/metadata')).json();
+        const box = $('parts');
+        box.innerHTML = '';
+        for (const [name, m] of Object.entries(meta)) {
+          const l = document.createElement('label');
+          l.className = 'check';
+          const color = '#' + Number(m.color).toString(16).padStart(6, '0');
+          l.innerHTML = `<input type="checkbox" checked data-part="${name}"><span class="swatch" style="background:${color}"></span>${m.displayName}`;
+          l.querySelector('input').onchange = (e) => {
+            if (e.target.checked) state.hidden.delete(name); else state.hidden.add(name);
+            applyPartVisibility();
+          };
+          box.appendChild(l);
+        }
+      } catch (e) { console.error('metadata', e); }
+    }
+
+    // ---------------- Garments ----------------
+    const PANTS_LIFT = 0.05;   // metres the pants' top hem sits above the avatar's hip joint
+    const isPants = (f) => /(pant|jean|trouser|legging)/i.test(f);
+    const isBottomName = (f) => /(pant|short|skirt|jean|trouser|legging)/i.test(f);
+
+    async function fetchPoints(file) {
+      try {
+        const r = await fetch(`/api/garments/${encodeURIComponent(file)}/points`);
+        return r.ok ? await r.json() : null;
+      } catch { return null; }
+    }
+
+    async function populateSelects() {
+      let files = [];
+      try { files = (await (await fetch('/api/garments')).json()).files; } catch (e) { console.error(e); }
+      const pts = await Promise.all(files.map(fetchPoints));
+      for (const slot of ['top', 'bottom']) {
+        const sel = $(slot + 'Sel');
+        sel.innerHTML = '<option value="">— none —</option>';
+        files.forEach((f, i) => {
+          const saved = pts[i];
+          const type = saved?.type ?? (isBottomName(f) ? 'bottom' : 'top');
+          if (type !== slot) return;
+          const o = document.createElement('option');
+          o.value = f;
+          o.textContent = saved ? f : `${f} (no reference points)`;
+          o.disabled = !saved;
+          sel.appendChild(o);
+        });
+        sel.onchange = () => selectGarment(slot, sel.value);
+      }
+    }
+
+    function clearSlot(slot) {
+      const s = state.slots[slot];
+      if (!s) return;
+      scene.remove(s.wrapper);
+      disposeObject(s.wrapper);
+      state.slots[slot] = null;
+      fits[slot] = '';
+      if (slot === 'top') { state.topHemY = null; updateOcclusion(); }
+    }
+
+    function widthAtY(root, y, tol) {
+      let mn = Infinity, mx = -Infinity;
+      const v = new THREE.Vector3();
+      root.updateMatrixWorld(true);
+      root.traverse(o => {
+        if (!o.isMesh) return;
+        const pa = o.geometry.attributes.position;
+        for (let i = 0; i < pa.count; i++) {
+          v.fromBufferAttribute(pa, i).applyMatrix4(o.matrixWorld);
+          if (Math.abs(v.y - y) <= tol) { if (v.x < mn) mn = v.x; if (v.x > mx) mx = v.x; }
+        }
+      });
+      return mx > mn ? mx - mn : 0;
+    }
+
+    function applyOpacity(root) {
+      const op = Number($('opacity').value);
+      root.traverse(o => {
+        if (!o.isMesh) return;
+        for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
+          m.side = THREE.DoubleSide;
+          m.transparent = op < 1;
+          m.opacity = op;
+          m.needsUpdate = true;
+        }
+      });
+    }
+
+    async function selectGarment(slot, file) {
+      clearSlot(slot);
+      if (!file) { refreshInfo(); return; }
+      fits[slot] = `Loading ${file}…`;
+      refreshInfo();
+      try {
+        const [saved, buf] = await Promise.all([
+          fetchPoints(file),
+          fetch(`/api/garments/${encodeURIComponent(file)}`).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.arrayBuffer(); }),
+        ]);
+        if (!saved) throw new Error('no saved reference points');
+        const REQUIRED = {
+          top: ['leftShoulder', 'rightShoulder', 'bottomHem'],
+          bottom: ['topHemLeft', 'topHemRight', 'bottomHemLeft', 'bottomHemRight'],
+        };
+        const missing = REQUIRED[slot].filter(k => !saved.points?.[k]);
+        if (missing.length) throw new Error(`saved points are missing ${missing.join(', ')} - re-pick them at /`);
+        const gltf = await loader.parseAsync(buf, '');
+        const wrapper = new THREE.Group();
+        wrapper.add(gltf.scene);
+        applyOpacity(wrapper);
+        wrapper.traverse(o => { o.renderOrder = slot === 'top' ? 2 : 1; });   // shirt draws after pants
+        scene.add(wrapper);
+
+        // Reference points were picked with the garment at identity, so measure it there.
+        wrapper.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(gltf.scene);
+        const size = box.getSize(new THREE.Vector3());
+        const ref = saved.points;
+        const cache = { cz: (box.min.z + box.max.z) / 2, size, box };
+        state.slots[slot] = { file, wrapper, scene: gltf.scene, ref, cache };
+        fitSlot(slot);
+      } catch (e) {
+        console.error(e);
+        fits[slot] = `${slot}: failed to load ${file}: ${e.message}`;
+      }
+      refreshInfo();
+    }
+
+    // ---------------- Fitting ----------------
+    function place(wrapper, scale, refPoint, targetPoint) {
+      wrapper.scale.copy(scale);
+      wrapper.position.set(
+        targetPoint.x - refPoint.x * scale.x,
+        targetPoint.y - refPoint.y * scale.y,
+        targetPoint.z - refPoint.z * scale.z
+      );
+    }
+
+    function fitSlot(slot) {
+      const g = state.slots[slot];
+      if (!g || !state.anchors) return;
+      const A = state.anchors, D = state.dims, h = params().height;
+      const stretch = $('stretch').checked;
+      const f = (n) => n.toFixed(3);
+
+      if (slot === 'top') {
+        const L = V(g.ref.leftShoulder), R = V(g.ref.rightShoulder), H = V(g.ref.bottomHem);
+        const ease = Number($('topEase').value);
+        const gDist = Math.abs(L.x - R.x);
+        if (gDist < 1e-6) { fits.top = 'top: shoulder points share the same x - re-pick them.'; return; }
+
+        const armRadius = 0.30 * h * 0.072;                              // upper-arm radius used by the avatar SDF
+        const shoulderY = A.leftShoulderAnchor.position[1] + armRadius;  // top of the shoulder
+        const waistY = A.waistAnchor.position[1];
+        const torsoBottomY = waistY - h * 0.125;                         // bottom of the waist ellipsoid
+        const hemTargetY = torsoBottomY - 0.02 * h;                      // hem sits a little below the torso
+
+        const targetDist = D.shoulderWidth * ease;
+        const sx = targetDist / gDist;
+        const midY = (L.y + R.y) / 2;
+        const span = midY - H.y;
+        const sy = stretch && span > 1e-6 ? (shoulderY - hemTargetY) / span : sx;
+
+        place(g.wrapper, new THREE.Vector3(sx, sy, sx),
+          new THREE.Vector3((L.x + R.x) / 2, midY, g.cache.cz),
+          new THREE.Vector3(0, shoulderY, 0));
+
+        const hemY = shoulderY - sy * span;
+        state.topHemY = hemY;
+        fits.top =
+`TOP ${g.file}
+shoulder width: ${f(gDist * sx)} m (avatar ${f(D.shoulderWidth)} x ease ${ease.toFixed(2)})
+scale x/z ${f(sx)}  y ${f(sy)}
+hem y ${f(hemY)} m, torso bottom ${f(torsoBottomY)} m -> ${hemY <= torsoBottomY ? 'covers torso' : 'TOO SHORT (enable stretch)'}`;
+      } else {
+        const TL = V(g.ref.topHemLeft), TR = V(g.ref.topHemRight);
+        const HL = V(g.ref.bottomHemLeft), HR = V(g.ref.bottomHemRight);
+        const ease = Number($('bottomEase').value);          // top-hem width as a fraction of hip width (default 0.95)
+        const pants = isPants(g.file);
+        const hipY = A.hipsAnchor.position[1] + PANTS_LIFT;   // top hem sits this far above the avatar's hip
+        const hemTargetY = pants ? A.leftAnkleAnchor.position[1] : A.leftKneeAnchor.position[1];
+
+        const gTopW = Math.abs(TL.x - TR.x);
+        if (gTopW < 1e-6) { fits.bottom = 'bottom: top hem points share the same x - re-pick them.'; return; }
+        const targetW = D.hipWidth * ease;
+        const sx = targetW / gTopW;
+        const topY = (TL.y + TR.y) / 2;
+        const hemMidY = (HL.y + HR.y) / 2;
+        const span = topY - hemMidY;
+        const sy = stretch && span > 1e-6 ? (hipY - hemTargetY) / span : sx;
+
+        place(g.wrapper, new THREE.Vector3(sx, sy, sx),
+          new THREE.Vector3((TL.x + TR.x) / 2, topY, g.cache.cz),
+          new THREE.Vector3(0, hipY, 0));
+
+        const hemY = hipY - sy * span;
+        fits.bottom =
+`BOTTOM ${g.file} (${pants ? 'pants: hem to ankle' : 'shorts/skirt: hem at knee'})
+top hem width: ${f(gTopW * sx)} m (hip ${f(D.hipWidth)} x ${ease.toFixed(2)})
+scale x/z ${f(sx)}  y ${f(sy)}
+top hem y ${f(hipY)} m (hip +${PANTS_LIFT.toFixed(2)}), bottom hem y ${f(hemY)} m (target ${f(hemTargetY)} m)`;
+      }
+      updateOcclusion();
+    }
+
+    // Everything of the bottom above the top's hem is clipped away, so the shirt
+    // always wins over the pants regardless of how the two meshes intersect.
+    function updateOcclusion() {
+      const b = state.slots.bottom;
+      if (!b) return;
+      const on = $('hideUnder').checked && !!state.slots.top && state.topHemY != null;
+      if (on) state.clipPlane.constant = state.topHemY;
+      if (b.clipOn === on) return;
+      b.clipOn = on;
+      b.wrapper.traverse(o => {
+        if (!o.isMesh) return;
+        for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
+          m.clippingPlanes = on ? [state.clipPlane] : [];
+          m.needsUpdate = true;
+        }
+      });
+    }
+
+    // ---------------- UI wiring ----------------
+    $('updateBtn').onclick = loadAvatar;
+    for (const [id, slot] of [['topEase', 'top'], ['bottomEase', 'bottom']]) {
+      $(id).oninput = () => { $(id + 'V').textContent = Number($(id).value).toFixed(2); fitSlot(slot); refreshInfo(); };
+    }
+    $('hideUnder').onchange = updateOcclusion;
+    $('stretch').onchange = () => { fitSlot('top'); fitSlot('bottom'); refreshInfo(); };
+    $('opacity').oninput = () => {
+      $('opacityV').textContent = Number($('opacity').value).toFixed(2);
+      for (const s of Object.values(state.slots)) if (s) applyOpacity(s.wrapper);
+    };
+
+    function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+    animate();
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    buildPartToggles();
+    populateSelects();
+    loadAvatar();
+  </script>
+</body>
+</html>

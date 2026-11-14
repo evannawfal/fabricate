@@ -14,7 +14,8 @@ import { authHeader, createUser, UNKNOWN_ID } from '../helpers/fixtures.js';
 // Stand-in for the avatar generator: real generation takes seconds and is covered by
 // tests/unit/meshGenerator.test.ts. ES modules must be mocked before the app is imported.
 const exportAvatar = jest.fn<(input: AvatarInput) => Promise<Uint8Array>>();
-jest.unstable_mockModule('../../src/avatar/exportAvatar.js', () => ({ exportAvatar }));
+const exportSegAvatar = jest.fn<(input: AvatarInput) => Promise<Uint8Array>>();
+jest.unstable_mockModule('../../src/avatar/exportAvatar.js', () => ({ exportAvatar, exportSegAvatar }));
 const { createApp } = await import('../../src/app.js');
 const { User } = await import('../../src/models/user.js');
 
@@ -45,8 +46,10 @@ function createAvatar(userId: string) {
 
 beforeAll(startTestDatabase, DATABASE_SETUP_TIMEOUT_MS);
 beforeEach(() => {
-  exportAvatar.mockReset();
-  exportAvatar.mockResolvedValue(GLB);
+  // exportAvatar.mockReset();
+  // exportAvatar.mockResolvedValue(GLB);
+  exportSegAvatar.mockReset();
+  exportSegAvatar.mockResolvedValue(GLB);
   jest.spyOn(console, 'error').mockImplementation(() => undefined);
 });
 afterEach(async () => {
@@ -71,7 +74,8 @@ describe('Mocked: POST /avatar', () => {
     const response = await createAvatar(user.id);
 
     expect(response.status).toBe(201);
-    expect(exportAvatar).toHaveBeenCalledWith(MEASUREMENTS);
+    // expect(exportAvatar).toHaveBeenCalledWith(MEASUREMENTS);
+    expect(exportSegAvatar).toHaveBeenCalledWith(MEASUREMENTS);
     const [key, body, contentType] = storage.uploadFile.mock.calls[0] ?? [];
     expect(key).toMatch(/^avatars\/[0-9a-f]{24}\/[0-9a-f-]{36}\.glb$/);
     expect(key?.startsWith(`avatars/${user.id}/`)).toBe(true);
@@ -128,7 +132,8 @@ describe('Mocked: POST /avatar', () => {
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ error: 'User not found' });
-    expect(exportAvatar).not.toHaveBeenCalled();
+    // expect(exportAvatar).not.toHaveBeenCalled();
+    expect(exportSegAvatar).not.toHaveBeenCalled();
     expect(storage.uploadFile).not.toHaveBeenCalled();
   });
 
@@ -138,7 +143,8 @@ describe('Mocked: POST /avatar', () => {
   // Expected behavior: nothing is stored; the user's avatar is unchanged
   // Expected output: { error: "Internal server error" }
   test('Generation fails', async () => {
-    exportAvatar.mockRejectedValue(new Error('Forced generation error'));
+    // exportAvatar.mockRejectedValue(new Error('Forced generation error'));
+    exportSegAvatar.mockRejectedValue(new Error('Forced generation error'));
     const storage = mockStorage();
     const user = await createUser();
 

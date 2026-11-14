@@ -3,6 +3,7 @@ import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 import { Buffer } from "node:buffer";
 import { AvatarInput } from "./types.js";
 import { generateAvatarGeometry } from "./meshGenerator.js";
+import { exportSegmentedGLB } from "./prototype/exportPrototype.js";
 
 // GLTFExporter's binary output uses the browser's FileReader, which Node.js doesn't have.
 if (typeof globalThis.FileReader === "undefined") {
@@ -94,4 +95,10 @@ export async function exportAvatar(
     geometry.dispose();
     material.dispose();
   }
+}
+
+export async function exportSegAvatar(
+  options: AvatarInput,
+): Promise<Uint8Array> {
+  return exportSegmentedGLB(options, true);
 }

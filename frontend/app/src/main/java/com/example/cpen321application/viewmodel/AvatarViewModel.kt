@@ -49,11 +49,17 @@ data class AvatarUiState(
 ) {
   val garmentModels: Map<ClothingCategory, File> get() = worn.mapValues { it.value.model }
   val garmentSizes: Map<ClothingCategory, Float> get() = worn.mapValues { it.value.size }
+  val garmentItems: Map<ClothingCategory, ClothingItem?> get() = worn.mapValues { it.value.item }
 
   fun isWorn(item: ClothingItem) = worn[item.category]?.itemId == item.id
 }
 
-data class WornGarment(val itemId: String, val model: File, val size: Float = 1f)
+data class WornGarment(
+  val itemId: String,
+  val model: File,
+  val size: Float = 1f,
+  val item: ClothingItem? = null,
+)
 
 /**
  * Avatar customization: loads the saved avatar when the screen opens, and on
@@ -106,7 +112,7 @@ class AvatarViewModel(
         val model = if (item.hasModel) clothing.modelFile(item.id) else clothing.generateModel(item.id)
         _uiState.update { s ->
           s.copy(
-            worn = s.worn + (item.category to WornGarment(item.id, model)),
+            worn = s.worn + (item.category to WornGarment(item.id, model, item = item)),
             wardrobe = s.wardrobe.map { if (it.id == item.id) it.copy(hasModel = true) else it },
             tryingOnId = null,
           )

@@ -6,6 +6,8 @@ import com.example.cpen321application.data.ClothingRepository
 import com.example.cpen321application.data.ClothingRepositoryException
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
+import com.example.cpen321application.model.GarmentReferencePoints
+import com.example.cpen321application.model.Point3D
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -155,6 +157,36 @@ internal fun modelErrorMessageFor(status: Int, serverError: String?): String = w
 internal fun parseClothingItem(json: JSONObject): ClothingItem? {
     val category = ClothingCategory.fromApiValue(json.getString("category")) ?: return null
     val tags = json.optJSONArray("tags")
+    val refJson = json.optJSONObject("referencePoints")
+    val refPoints = if (refJson != null) {
+        val type = refJson.optString("type", "")
+        val ptsObj = refJson.optJSONObject("points")
+        val ptsMap = mutableMapOf<String, Point3D>()
+        if (ptsObj != null) {
+            val keys = ptsObj.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val p = ptsObj.optJSONObject(key)
+                if (p != null) {
+                    ptsMap[key] = Point3D(
+                        x = p.optDouble("x", 0.0).toFloat(),
+                        y = p.optDouble("y", 0.0).toFloat(),
+                        z = p.optDouble("z", 0.0).toFloat(),
+                    )
+                }
+            }
+        }
+        val bbox = refJson.optJSONObject("boundingBox")
+        val cz = if (bbox != null) {
+            val minArr = bbox.optJSONArray("min")
+            val maxArr = bbox.optJSONArray("max")
+            if (minArr != null && maxArr != null) {
+                ((minArr.optDouble(2, 0.0) + maxArr.optDouble(2, 0.0)) / 2.0).toFloat()
+            } else 0f
+        } else 0f
+        GarmentReferencePoints(type = type, points = ptsMap, boundingBoxCenterZ = cz)
+    } else null
+
     return ClothingItem(
         id = json.getString("id"),
         name = json.getString("name"),
@@ -166,5 +198,6 @@ internal fun parseClothingItem(json: JSONObject): ClothingItem? {
         imageUrl = if (json.isNull("imageUrl")) null else json.getString("imageUrl"),
         backImageUrl = if (json.isNull("backImageUrl")) null else json.getString("backImageUrl"),
         hasModel = json.optBoolean("hasModel", false),
+        referencePoints = refPoints,
     )
 }

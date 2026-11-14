@@ -55,6 +55,8 @@ export interface ClothingItemResponse {
   imageUrl: string | null;
   // Same for the back photo; also null for items that were added without one.
   backImageUrl: string | null;
+  // Reference points to scale the 3D model to avatar body proportions
+  referencePoints?: unknown | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -63,7 +65,8 @@ export interface ClothingItemResponse {
 export function toClothingItemResponse(
   item: ClothingItemDocument,
   imageUrl: string | null,
-  backImageUrl: string | null = null
+  backImageUrl: string | null = null,
+  referencePoints: unknown | null = null
 ): ClothingItemResponse {
   return {
     id: item._id.toString(),
@@ -77,6 +80,7 @@ export function toClothingItemResponse(
     hasModel: item.modelKey !== null && item.modelKey !== undefined,
     imageUrl,
     backImageUrl,
+    referencePoints,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };

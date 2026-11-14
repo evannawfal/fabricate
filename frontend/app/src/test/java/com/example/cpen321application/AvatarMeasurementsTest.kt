@@ -26,7 +26,7 @@ class AvatarMeasurementsTest {
     fun with_changesOnlyThatMeasurement() {
         val measurements = AvatarMeasurements().with(BodyMeasurement.Height, 180)
         assertEquals(180, measurements[BodyMeasurement.Height])
-        assertEquals(BodyMeasurement.Waist.defaultCm, measurements[BodyMeasurement.Waist])
+        assertEquals(BodyMeasurement.Hips.defaultCm, measurements[BodyMeasurement.Hips])
     }
 
     @Test
