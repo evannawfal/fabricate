@@ -186,7 +186,7 @@ fun MainScreen(
       Destination.Social -> SocialScreen(contentModifier) // Placeholder composable for your new Social tab
       Destination.Avatar -> AvatarRoute(repositories.clothing, contentModifier)
       Destination.Shop -> ShopScreen(shopViewModel, closet.items, contentModifier)
-      Destination.Rooms -> RoomsRoute(repositories.rooms, repositories.clothing, contentModifier)
+      Destination.Rooms -> RoomsRoute(repositories.rooms, contentModifier)
       Destination.Profile -> ProfileScreen(viewModel { ProfileViewModel(repositories.profile) }, contentModifier)
     }
   }

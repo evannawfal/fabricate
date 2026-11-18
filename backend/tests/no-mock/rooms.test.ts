@@ -28,8 +28,8 @@ async function friends() {
 describe('Unmocked: POST /rooms', () => {
   // Input: a room name and one of the user's friends
   // Expected status code: 201
-  // Expected behavior: the room is saved with the user and the friend as members
-  // Expected output: the room with both members' ids and names
+  // Expected behavior: the room is saved with the user as host and the friend as a member
+  // Expected output: the room with the host's id and both members' ids and names
   test('Creates a room with a friend', async () => {
     const { user, friend } = await friends();
 
@@ -40,6 +40,7 @@ describe('Unmocked: POST /rooms', () => {
 
     expect(response.status).toBe(201);
     expect(response.body.name).toBe('Party fits');
+    expect(response.body.hostId).toBe(user.id);
     expect(response.body.members).toEqual([
       { id: user.id, name: `Test ${user.familyName}` },
       { id: friend.id, name: `Test ${friend.familyName}` },
@@ -113,26 +114,60 @@ describe('Unmocked: GET /rooms', () => {
     expect(response.status).toBe(200);
     expect(response.body.rooms.map((room: { name: string }) => room.name)).toEqual(['Newer', 'Older']);
   });
+
+  // Input: a room saved before rooms had hosts
+  // Expected status code: 200
+  // Expected behavior: the room's first member, who created it, is treated as its host
+  // Expected output: the room with the first member's id as hostId
+  test('Treats the first member of an older room as its host', async () => {
+    const { user, friend } = await friends();
+    await Room.collection.insertOne({ name: 'Old room', members: [friend._id, user._id], outfitItems: [] });
+
+    const response = await request(app).get('/rooms').set('Authorization', authHeader(user.id));
+
+    expect(response.status).toBe(200);
+    expect(response.body.rooms[0].hostId).toBe(friend.id);
+  });
+});
+
+// Room and message expiry
+describe('Unmocked: room expiry', () => {
+  // Input: the rooms and messages collections
+  // Expected behavior: MongoDB deletes rooms and messages 2 days after they're created
+  // Expected output: a TTL index on createdAt of 2 days in each collection
+  test('Rooms and their messages expire after 2 days', async () => {
+    await Promise.all([Room.init(), Message.init()]);
+    const twoDays = 2 * 24 * 60 * 60;
+    for (const collection of [Room.collection, Message.collection]) {
+      expect(await collection.indexes()).toContainEqual(
+        expect.objectContaining({ key: { createdAt: 1 }, expireAfterSeconds: twoDays })
+      );
+    }
+  });
 });
 
 // Interface GET /rooms/:id
 describe('Unmocked: GET /rooms/:id', () => {
-  // Input: a room with a shared outfit and messages
+  // Input: a joiner opening a room with a shared outfit and messages
   // Expected status code: 200
   // Expected behavior: nothing changes
-  // Expected output: the room with its outfit items in board order and messages oldest first
-  test('Returns the room with its outfit and messages', async () => {
+  // Expected output: the room with its outfit items in board order, the host's closet, and messages oldest first
+  test('Returns the room with its outfit, closet and messages', async () => {
     const { user, friend } = await friends();
     const shirt = await createClothingItem(user.id, { name: 'Shirt' });
-    const jeans = await createClothingItem(friend.id, { name: 'Jeans', category: 'bottom' });
+    const jeans = await createClothingItem(user.id, { name: 'Jeans', category: 'bottom' });
+    await createClothingItem(user.id, { name: 'Old coat', isArchived: true });
+    await createClothingItem(friend.id, { name: 'Hat' });
     const room = await createRoom('Room', [user.id, friend.id], [jeans.id, shirt.id]);
     await Message.create({ room: room._id, sender: user._id, senderName: 'A', text: 'first' });
     await Message.create({ room: room._id, sender: friend._id, senderName: 'B', text: 'second' });
 
-    const response = await request(app).get(`/rooms/${room.id}`).set('Authorization', authHeader(user.id));
+    const response = await request(app).get(`/rooms/${room.id}`).set('Authorization', authHeader(friend.id));
 
     expect(response.status).toBe(200);
+    expect(response.body.hostId).toBe(user.id);
     expect(response.body.outfitItems.map((item: { name: string }) => item.name)).toEqual(['Jeans', 'Shirt']);
+    expect(response.body.closet.map((item: { name: string }) => item.name).sort()).toEqual(['Jeans', 'Shirt']);
     expect(response.body.messages.map((message: { text: string }) => message.text)).toEqual(['first', 'second']);
     expect(response.body.messages[0]).toMatchObject({ roomId: room.id, senderId: user.id, senderName: 'A' });
   });
@@ -160,16 +195,16 @@ describe('Unmocked: GET /rooms/:id', () => {
 
 // Interface POST /rooms/:id/save
 describe('Unmocked: POST /rooms/:id/save', () => {
-  // Input: a room whose board has two of the user's items and one of the friend's
+  // Input: the host, with a board of two of their items and one they've since removed from their closet
   // Expected status code: 201
-  // Expected behavior: an outfit named after the room is saved with the user's items, in board order
+  // Expected behavior: an outfit named after the room is saved for the host with the remaining items, in board order
   // Expected output: the saved outfit
-  test("Saves the user's items from the shared outfit", async () => {
+  test('Saves the shared outfit for the host', async () => {
     const { user, friend } = await friends();
     const shirt = await createClothingItem(user.id, { name: 'Shirt' });
     const shoes = await createClothingItem(user.id, { name: 'Shoes', category: 'shoes' });
-    const jeans = await createClothingItem(friend.id, { name: 'Jeans', category: 'bottom' });
-    const room = await createRoom('Brunch', [user.id, friend.id], [shoes.id, jeans.id, shirt.id]);
+    const removed = await createClothingItem(user.id, { name: 'Removed', isArchived: true });
+    const room = await createRoom('Brunch', [user.id, friend.id], [shoes.id, removed.id, shirt.id]);
 
     const response = await request(app).post(`/rooms/${room.id}/save`).set('Authorization', authHeader(user.id));
 
@@ -180,18 +215,33 @@ describe('Unmocked: POST /rooms/:id/save', () => {
     expect(saved?.owner.toString()).toBe(user.id);
   });
 
-  // Input: a room whose board only has the friend's items
+  // Input: the host, with an empty board
   // Expected status code: 400
   // Expected behavior: no outfit is saved
-  // Expected output: an error explaining the board has none of the user's items
-  test("Rejects a board without the user's items", async () => {
+  // Expected output: an error saying the shared outfit is empty
+  test('Rejects an empty board', async () => {
     const { user, friend } = await friends();
-    const jeans = await createClothingItem(friend.id, { category: 'bottom' });
-    const room = await createRoom('Room', [user.id, friend.id], [jeans.id]);
+    const room = await createRoom('Room', [user.id, friend.id]);
 
     const response = await request(app).post(`/rooms/${room.id}/save`).set('Authorization', authHeader(user.id));
 
     expect(response.status).toBe(400);
+    expect(await Outfit.countDocuments()).toBe(0);
+  });
+
+  // Input: a joiner, with a board of the host's items
+  // Expected status code: 403
+  // Expected behavior: no outfit is saved
+  // Expected output: an error saying only the host can save
+  test('Rejects joiners', async () => {
+    const { user, friend } = await friends();
+    const shirt = await createClothingItem(user.id);
+    const room = await createRoom('Room', [user.id, friend.id], [shirt.id]);
+
+    const response = await request(app).post(`/rooms/${room.id}/save`).set('Authorization', authHeader(friend.id));
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toBe('Only the host can save the outfit');
     expect(await Outfit.countDocuments()).toBe(0);
   });
 

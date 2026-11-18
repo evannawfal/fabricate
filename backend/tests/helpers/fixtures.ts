@@ -58,8 +58,9 @@ export async function makeFriends(userId: string, ...friendIds: string[]) {
   await User.updateMany({ _id: { $in: friendIds } }, { $addToSet: { friends: userId } });
 }
 
-export async function createRoom(name: string, memberIds: string[], outfitItems: string[] = []) {
-  return Room.create({ name, members: memberIds, outfitItems });
+// The first member is the host, as when a user creates a room.
+export async function createRoom(name: string, memberIds: [string, ...string[]], outfitItems: string[] = []) {
+  return Room.create({ name, host: memberIds[0], members: memberIds, outfitItems });
 }
 
 // A valid id that doesn't belong to any document.

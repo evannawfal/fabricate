@@ -7,11 +7,13 @@ import com.example.cpen321application.data.RoomDetail
 import com.example.cpen321application.data.RoomListener
 import com.example.cpen321application.data.RoomMember
 import com.example.cpen321application.data.RoomsRepository
+import com.example.cpen321application.model.ClothingItem
 
 /** In-memory rooms for UI tests; [connect] reports connected right away and drops sent events. */
 class FakeRoomsRepository(
     rooms: List<Room> = emptyList(),
     friends: List<Friend> = emptyList(),
+    private val closet: List<ClothingItem> = emptyList(),
 ) : RoomsRepository {
     val rooms = rooms.toMutableList()
     val friends = friends.toMutableList()
@@ -22,10 +24,10 @@ class FakeRoomsRepository(
 
     override suspend fun createRoom(name: String, friendIds: List<String>): Room {
         val members = listOf(RoomMember("me", "Me")) + friends.filter { it.id in friendIds }.map { RoomMember(it.id, it.name) }
-        return Room("room-${rooms.size + 1}", name, members).also { rooms.add(0, it) }
+        return Room("room-${rooms.size + 1}", name, members, hostId = "me").also { rooms.add(0, it) }
     }
 
-    override suspend fun getRoom(id: String) = RoomDetail(rooms.first { it.id == id }, emptyList(), emptyList())
+    override suspend fun getRoom(id: String) = RoomDetail(rooms.first { it.id == id }, emptyList(), closet, emptyList())
 
     override suspend fun saveOutfit(roomId: String) = Unit
 
