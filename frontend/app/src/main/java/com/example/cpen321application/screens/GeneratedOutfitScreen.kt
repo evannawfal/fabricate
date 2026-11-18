@@ -47,6 +47,7 @@ const val GENERATED_OUTFIT_ITEM_TAG = "generated_outfit_item"
 const val GENERATED_OUTFIT_WEATHER_TAG = "generated_outfit_weather"
 const val GENERATED_OUTFIT_ERROR_TAG = "generated_outfit_error"
 const val SAVE_GENERATED_OUTFIT_TAG = "save_generated_outfit"
+const val SAVE_AND_POST_GENERATED_OUTFIT_TAG = "save_and_post_generated_outfit"
 const val REGENERATE_OUTFIT_TAG = "regenerate_outfit"
 
 fun occasionOptionTag(occasion: OutfitOccasion) = "occasion_${occasion.apiValue}"
@@ -86,7 +87,7 @@ internal fun GeneratedOutfitScreen(
     isSaving: Boolean,
     saveError: String?,
     onRegenerate: () -> Unit,
-    onSave: () -> Unit,
+    onSave: (post: Boolean) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -139,7 +140,7 @@ private fun GeneratedOutfitDetails(
     isSaving: Boolean,
     saveError: String?,
     onRegenerate: () -> Unit,
-    onSave: () -> Unit,
+    onSave: (post: Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -189,9 +190,9 @@ private fun GeneratedItem(item: ClothingItem) {
 }
 
 @Composable
-private fun GeneratedOutfitActions(isSaving: Boolean, onRegenerate: () -> Unit, onSave: () -> Unit) {
+private fun GeneratedOutfitActions(isSaving: Boolean, onRegenerate: () -> Unit, onSave: (post: Boolean) -> Unit) {
     Button(
-        onClick = onSave,
+        onClick = { onSave(false) },
         enabled = !isSaving,
         modifier = Modifier
             .fillMaxWidth()
@@ -202,6 +203,15 @@ private fun GeneratedOutfitActions(isSaving: Boolean, onRegenerate: () -> Unit, 
         } else {
             Text("Save")
         }
+    }
+    OutlinedButton(
+        onClick = { onSave(true) },
+        enabled = !isSaving,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(SAVE_AND_POST_GENERATED_OUTFIT_TAG),
+    ) {
+        Text("Save and post as today's outfit")
     }
     OutlinedButton(
         onClick = onRegenerate,

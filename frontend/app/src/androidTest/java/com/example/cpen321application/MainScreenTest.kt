@@ -5,11 +5,13 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.cpen321application.data.Post
 import com.example.cpen321application.fakes.FakeClothingRepository
 import com.example.cpen321application.fakes.FakeLocationProvider
 import com.example.cpen321application.fakes.FakeOutfitRepository
@@ -36,7 +38,10 @@ class MainScreenTest {
     private var signOutCalls = 0
     private val recommendations = FakeRecommendationRepository()
 
-    private fun showMainScreen(outfitRepository: FakeOutfitRepository = FakeOutfitRepository()) {
+    private fun showMainScreen(
+        outfitRepository: FakeOutfitRepository = FakeOutfitRepository(),
+        posts: FakePostsRepository = FakePostsRepository(),
+    ) {
         composeRule.setContent {
             MainScreen(
                 repositories = MainScreenRepositories(
@@ -46,7 +51,7 @@ class MainScreenTest {
                     location = FakeLocationProvider(),
                     rooms = FakeRoomsRepository(),
                     profile = FakeProfileRepository(),
-                    posts = FakePostsRepository(),
+                    posts = posts,
                 ),
                 onSignOut = { signOutCalls++ },
             )
@@ -81,6 +86,19 @@ class MainScreenTest {
 
         pressBack()
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()
+    }
+
+    @Test
+    fun socialTab_showsFriendsPosts() {
+        val samsPost = Post("p1", "Sam Lee", isOwn = false, outfitName = "Gym day", items = emptyList())
+        showMainScreen(posts = FakePostsRepository(listOf(samsPost)))
+
+        composeRule.onNodeWithText("Social").performClick()
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("Sam Lee").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Gym day").assertIsDisplayed()
     }
 
     @Test

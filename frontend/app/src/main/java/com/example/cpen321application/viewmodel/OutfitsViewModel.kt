@@ -101,14 +101,16 @@ class OutfitsViewModel(
         val state = _uiState.value
         val outfitId = state.draft?.outfitId ?: return
         if (state.isBusy) return
+        viewModelScope.launch { post(outfitId) }
+    }
+
+    private suspend fun post(outfitId: String) {
         _uiState.update { it.copy(isPosting = true, isPosted = false, postError = null) }
-        viewModelScope.launch {
-            try {
-                postsRepository.postOutfit(outfitId)
-                _uiState.update { it.copy(isPosting = false, isPosted = true) }
-            } catch (e: ApiException) {
-                _uiState.update { it.copy(isPosting = false, postError = e.message) }
-            }
+        try {
+            postsRepository.postOutfit(outfitId)
+            _uiState.update { it.copy(isPosting = false, isPosted = true) }
+        } catch (e: ApiException) {
+            _uiState.update { it.copy(isPosting = false, postError = e.message) }
         }
     }
 
@@ -170,24 +172,32 @@ class OutfitsViewModel(
         _uiState.update { it.copy(generation = null, saveError = null) }
     }
 
-    fun saveGenerated() {
+    /** Saves the generated outfit; with [post], also posts it and opens it to show how posting went. */
+    fun saveGenerated(post: Boolean = false) {
         val state = _uiState.value
         val outfit = state.generation?.outfit ?: return
         if (state.isBusy) return
-        save { repository.createOutfit(OutfitChanges(outfit.name, outfit.items.map { it.id }, outfit.occasion)) }
+        save(post) { repository.createOutfit(OutfitChanges(outfit.name, outfit.items.map { it.id }, outfit.occasion)) }
     }
 
-    private fun save(request: suspend () -> Outfit) {
+    private fun save(post: Boolean = false, request: suspend () -> Outfit) {
         _uiState.update { it.copy(isSaving = true, saveError = null) }
         viewModelScope.launch {
-            try {
-                val saved = request()
-                _uiState.update { state ->
-                    state.copy(outfits = state.outfits.upsert(saved), draft = null, generation = null, isSaving = false)
-                }
+            val saved = try {
+                request()
             } catch (e: ClothingRepositoryException) {
                 _uiState.update { it.copy(isSaving = false, saveError = e.message) }
+                return@launch
             }
+            _uiState.update { state ->
+                state.copy(
+                    outfits = state.outfits.upsert(saved),
+                    draft = if (post) OutfitDraft(saved.id, saved.name, saved.items) else null,
+                    generation = null,
+                    isSaving = false,
+                )
+            }
+            if (post) post(saved.id)
         }
     }
 

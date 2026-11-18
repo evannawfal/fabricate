@@ -2,6 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { MESHES_CATEGORIES } from '../config/constants.js';
+import { processAndApplyGarment, GarmentType } from '../garment/imgToGlb/processGarment.js';
 
 const BASE_MESHES_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../garment/baseMeshes');
 
@@ -66,12 +67,27 @@ export function meshTypeFor(item: { category: string; name: string }): string | 
   return byName?.[1] ?? allowed[0];
 }
 
-export async function generateGarmentModel(frontImage: Uint8Array, meshType: string): Promise<Uint8Array> {
-  // Loaded on first use so sharp and the background-removal model don't slow down or break server startup.
-  const { processAndApplyGarment } = await import('../garment/imgToGlb/processGarment.js');
+export async function generateGarmentModel(
+  frontImage: Uint8Array,
+  backImage: Uint8Array | null,
+  meshType: string
+): Promise<Uint8Array> {
+  const frontImageBuffer = Buffer.from(
+    frontImage.buffer,
+    frontImage.byteOffset,
+    frontImage.byteLength
+  );
+
+  const backImageBuffer = backImage ? Buffer.from(
+    backImage.buffer,
+    backImage.byteOffset,
+    backImage.byteLength
+  ): null;
+
   return processAndApplyGarment({
-    frontImageBuffer: Buffer.from(frontImage),
-    category: meshType,
+    frontImageBuffer,
+    backImageBuffer,
+    category: meshType as GarmentType,
     baseMeshesDir: BASE_MESHES_DIR,
   });
 }

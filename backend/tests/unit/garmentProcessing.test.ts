@@ -97,6 +97,10 @@ function removedBackground(pixels: Rgba[]) {
   removeBackground.mockImplementation(async () => new Blob([new Uint8Array(await png(pixels))], { type: 'image/png' }));
 }
 
+function srgbToLinear(c: number): number {
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+
 describe('Applying a solid colour to a garment model', () => {
   // Input: the real pants base mesh and a colour
   // Expected behavior: every material gets the colour, a matte finish and no textures; the mesh data is kept
@@ -110,7 +114,12 @@ describe('Applying a solid colour to a garment model', () => {
     expect(result.json.materials).toHaveLength(original.json.materials.length);
     for (const material of result.json.materials) {
       expect(material.pbrMetallicRoughness).toMatchObject({
-        baseColorFactor: [0x33 / 255, 0x66 / 255, 0xcc / 255, 1],
+        baseColorFactor: [
+          srgbToLinear(0x33 / 255),
+          srgbToLinear(0x66 / 255),
+          srgbToLinear(0xcc / 255),
+          1,
+        ],
         roughnessFactor: 0.85,
         metallicFactor: 0,
       });
@@ -183,13 +192,16 @@ describe('Primary colour of a garment photo', () => {
       [0, 0, 255, 255],
       [255, 0, 0, 128],
     ]);
-    const photo = Buffer.from('photo');
+    const photo = await png([[10, 20, 30, 255]]);
 
     await expect(extractPrimaryColourFromBuffer(photo)).resolves.toBe('#0000FF');
 
     const [image, config] = requireValue(removeBackground.mock.calls[0]);
-    expect(Buffer.from(await image.arrayBuffer())).toEqual(photo);
-    expect(config).toEqual({ output: { format: 'image/png' } });
+    expect((await image.arrayBuffer()).byteLength).toBeGreaterThan(0);
+    expect(config).toEqual({
+      model: 'small',
+      output: { format: 'image/png' },
+    });
   });
 
   // Input: a garment made of black and white pixels
@@ -199,27 +211,32 @@ describe('Primary colour of a garment photo', () => {
       [0, 0, 0, 255],
       [254, 254, 254, 255],
     ]);
+    const photo = await png([[0, 0, 0, 255]]);
 
-    await expect(extractPrimaryColourFromBuffer(Buffer.from('photo'))).resolves.toBe('#7F7F7F');
+    await expect(extractPrimaryColourFromBuffer(photo)).resolves.toBe('#7F7F7F');
   });
 
   // Input: a photo where background removal left nothing
   // Expected output: white
   test('Falls back to white when nothing is left', async () => {
     removedBackground([[10, 20, 30, 0]]);
+    const photo = await png([[0, 0, 0, 255]]);
 
-    await expect(extractPrimaryColourFromBuffer(Buffer.from('photo'))).resolves.toBe('#FFFFFF');
+    await expect(extractPrimaryColourFromBuffer(photo)).resolves.toBe('#FFFFFF');
   });
 });
 
 describe('Building a garment model from a photo', () => {
+
   // Input: a photo of a red garment and the pants mesh type
   // Expected output: the pants model coloured red
   test('Colours the base mesh with the photo colour', async () => {
     removedBackground([[255, 0, 0, 255]]);
+    const photo = await png([[255, 0, 0, 255]]);
 
     const bytes = await processAndApplyGarment({
-      frontImageBuffer: Buffer.from('photo'),
+      frontImageBuffer: photo,
+      backImageBuffer: null,
       category: 'pants',
       baseMeshesDir: BASE_MESHES_DIR,
     });
@@ -234,7 +251,12 @@ describe('Building a garment model from a photo', () => {
   // Expected output: an error naming the type
   test('Rejects an unknown mesh type', async () => {
     await expect(
-      processAndApplyGarment({ frontImageBuffer: Buffer.from('photo'), category: 'scarf', baseMeshesDir: BASE_MESHES_DIR })
+      processAndApplyGarment({
+        frontImageBuffer: Buffer.from('photo'),
+        backImageBuffer: null,
+        category: 'scarf' as any,
+        baseMeshesDir: BASE_MESHES_DIR,
+      })
     ).rejects.toThrow('Unsupported garment category: scarf');
     expect(removeBackground).not.toHaveBeenCalled();
   });

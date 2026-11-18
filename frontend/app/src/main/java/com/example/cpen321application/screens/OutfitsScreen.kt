@@ -24,10 +24,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -48,7 +45,6 @@ import com.example.cpen321application.model.Outfit
 import com.example.cpen321application.model.OutfitOccasion
 import com.example.cpen321application.viewmodel.OutfitsUiState
 import com.example.cpen321application.viewmodel.OutfitsViewModel
-import com.example.cpen321application.viewmodel.PostsViewModel
 
 // Test tags for the Create Outfit end-to-end test.
 const val OUTFIT_CARD_TAG = "outfit_card"
@@ -61,15 +57,9 @@ private const val PREVIEW_ITEM_COUNT = 4
  * Displays the user's saved outfits. Create outfit opens an editor to name an outfit and pick
  * its items from [closetItems]; tapping an outfit opens it to rename, change, post or delete it.
  * Generate outfit asks for an occasion, then shows an outfit picked for it and the weather.
- * The Friends' posts tab shows the outfits the user and their friends posted today.
  */
 @Composable
-fun OutfitsScreen(
-    viewModel: OutfitsViewModel,
-    closetItems: List<ClothingItem>,
-    postsViewModel: PostsViewModel,
-    modifier: Modifier = Modifier,
-) {
+fun OutfitsScreen(viewModel: OutfitsViewModel, closetItems: List<ClothingItem>, modifier: Modifier = Modifier) {
     val state by viewModel.uiState.collectAsState()
     var choosingOccasion by rememberSaveable { mutableStateOf(false) }
     val generate = rememberGenerateWithLocation(viewModel)
@@ -93,7 +83,14 @@ fun OutfitsScreen(
             BackHandler { viewModel.closeDraft() }
             OutfitEditor(state, draft, closetItems, viewModel, modifier)
         }
-        else -> OutfitsHome(state, viewModel, postsViewModel, onGenerate = { choosingOccasion = true }, modifier)
+        else -> Box(modifier = modifier.fillMaxSize()) {
+            OutfitList(state, onOpenOutfit = viewModel::startEditing, onRetry = viewModel::loadOutfits)
+            OutfitActions(
+                onGenerate = { choosingOccasion = true },
+                onCreate = viewModel::startCreating,
+                modifier = Modifier.align(Alignment.BottomEnd),
+            )
+        }
     }
 
     if (choosingOccasion) {
@@ -113,37 +110,6 @@ fun OutfitsScreen(
             text = { Text(error) },
             confirmButton = { TextButton(onClick = viewModel::dismissDeleteError) { Text("OK") } },
         )
-    }
-}
-
-// The My Outfits and Friends' posts tabs.
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun OutfitsHome(
-    state: OutfitsUiState,
-    viewModel: OutfitsViewModel,
-    postsViewModel: PostsViewModel,
-    onGenerate: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var showingPosts by rememberSaveable { mutableStateOf(false) }
-    Column(modifier = modifier.fillMaxSize()) {
-        PrimaryTabRow(selectedTabIndex = if (showingPosts) 1 else 0) {
-            Tab(selected = !showingPosts, onClick = { showingPosts = false }, text = { Text("My Outfits") })
-            Tab(selected = showingPosts, onClick = { showingPosts = true }, text = { Text("Friends' posts") })
-        }
-        if (showingPosts) {
-            PostsFeed(postsViewModel)
-        } else {
-            Box(modifier = Modifier.fillMaxSize()) {
-                OutfitList(state, onOpenOutfit = viewModel::startEditing, onRetry = viewModel::loadOutfits)
-                OutfitActions(
-                    onGenerate = onGenerate,
-                    onCreate = viewModel::startCreating,
-                    modifier = Modifier.align(Alignment.BottomEnd),
-                )
-            }
-        }
     }
 }
 
@@ -195,6 +161,11 @@ private fun OutfitActions(onGenerate: () -> Unit, onCreate: () -> Unit, modifier
 @Composable
 private fun OutfitList(state: OutfitsUiState, onOpenOutfit: (Outfit) -> Unit, onRetry: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize()) {
+        Text(
+            "My Outfits",
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
+        )
         when {
             state.isLoading && state.outfits.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                 CircularProgressIndicator()
@@ -209,7 +180,7 @@ private fun OutfitList(state: OutfitsUiState, onOpenOutfit: (Outfit) -> Unit, on
                 message = "Generate one for today, or create your own from your closet.",
             )
             else -> LazyColumn(
-                contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 160.dp),
+                contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 160.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {

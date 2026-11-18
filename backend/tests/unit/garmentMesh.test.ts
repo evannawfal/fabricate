@@ -87,7 +87,7 @@ describe('Garment model generation', () => {
   test('Passes the photo, mesh type and base mesh folder on', async () => {
     const photo = new Uint8Array([1, 2, 3]);
 
-    const result = await generateGarmentModel(photo, 'shirt');
+    const result = await generateGarmentModel(photo, null, 'shirt');
 
     expect(result).toBe(GLB);
     expect(processAndApplyGarment).toHaveBeenCalledTimes(1);
@@ -106,7 +106,7 @@ describe('Garment model generation', () => {
   test('Reports a generation failure', async () => {
     processAndApplyGarment.mockRejectedValue(new Error('Forced generation error'));
 
-    await expect(generateGarmentModel(new Uint8Array([1]), 'shirt')).rejects.toThrow('Forced generation error');
+    await expect(generateGarmentModel(new Uint8Array([1]), null, 'shirt')).rejects.toThrow('Forced generation error');
   });
 });
 
