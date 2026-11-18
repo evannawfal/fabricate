@@ -173,7 +173,7 @@ Each advisory is reported twice: once in `backend/package-lock.json`, and once i
 | **Finding** | **Action Taken** | **Commit / Location in Git** |
 | ----------- | ---------------- | ---------------------------- |
 | 2.4: The 10-second upload requirement has no test. | Added a test that runs in the app against the deployed back-end and its real classifier, timing 5 uploads each of photos of about 0.5, 2 and 5 MB. The slowest took 4.5 seconds. | [`ClothingUploadTimeTest.kt`](https://github.com/evannawfal/fabricate/pull/152) |
-| 5.2.3: The try-on slider overlaps the Height slider. | Split the avatar screen into Clothes, Measurements and Body parts tabs, so the try-on controls and the measurement sliders are no longer on the same screen. New users now see a default avatar instead of an empty screen. | [`e155f10`](https://github.com/evannawfal/fabricate/commit/e155f10) |
+| 5.2.3: The try-on slider overlaps the Height slider. | Split the avatar screen's controls into Clothes and Measurements tabs, so the try-on controls and the measurement sliders are no longer on the same screen. | [`e155f10`](https://github.com/evannawfal/fabricate/commit/e155f10) |
 
 - **Findings not acted on.** We prioritized finishing and testing the remaining use cases for CP3. These findings are planned for M3 unless the justification says otherwise:
   1. **Finding:** Major fault: friends and rooms need no consent, and removing a friend keeps room access.
