@@ -367,16 +367,18 @@ The test finds the outfit screens' elements by the test tags `generate_outfit_bu
   2. The app shows a list of occasions (casual, work, formal and workout).
   3. The user selects an occasion.
   4. The app shows a loading indicator while the outfit is generated from the user's clean clothes, the occasion and the current weather.
-  5. The app displays the generated outfit, with the weather it was based on.
+  5. The app displays the generated outfit's items, with the weather it was based on (for example "Based on the weather: 12°C, light rain").
   6. The user saves the outfit, or taps "Regenerate" to get a different one.
 
   **Failure scenarios**
   - 1a. The user's clean clothes do not include at least one shirt and one pair of pants.
-    - 1a1. The app displays a message listing the missing items and prompts the user to add clothes or empty their wash bin.
+    - 1a1. The app shows "Couldn't generate an outfit" with a message naming what is missing, for example "Your clean clothes don't include a bottom. Add one to your closet or empty your wash bin."
   - 4a. The outfit generation service is unavailable or does not respond in time.
-    - 4a1. The app displays an error message prompting the user to try again later.
+    - 4a1. The app shows "Couldn't generate an outfit" with the message "Outfits aren't available right now. Try again later." and a "Try again" button.
   - 4b. The current weather cannot be retrieved.
-    - 4b1. The app generates the outfit without the weather and tells the user that the weather was not considered.
+    - 4b1. The app generates the outfit without the weather and shows "The weather wasn't considered for this outfit."
+  - 4c. The user doesn't allow the app to use their location.
+    - 4c1. The app shows "Couldn't generate an outfit" with the message "Fabricate needs your approximate location to dress you for the weather. Allow location access and try again, or turn it on in your device's settings." and a "Try again" button.
 
   - **Expected Behaviors:**
 
@@ -386,12 +388,13 @@ The test finds the outfit screens' elements by the test tags `generate_outfit_bu
     | 2. The app shows a list of occasions (casual, work, formal and workout). | Check that the text "What's the occasion?" and the options tagged `occasion_casual`, `occasion_work`, `occasion_formal` and `occasion_workout` are displayed. |
     | 3. The user selects an occasion. | Click the option tagged `occasion_casual` (`occasion_work` in `regenerating_showsAnotherOutfitWithoutSavingTheFirst`). |
     | 4. The app shows a loading indicator while the outfit is generated from the user's clean clothes, the occasion and the current weather. | Wait up to 10 seconds for the loading indicator (tagged `generating_outfit`), and check that it is displayed.<br>Wait up to 120 seconds for the generated outfit's name (tagged `generated_outfit_name`). |
-    | 5. The app displays the generated outfit, with the weather it was based on. | Check that the heading "Casual outfit" (or "Work outfit") is present.<br>Check that the weather text (tagged `generated_outfit_weather`) contains "Based on the weather:".<br>Check that there is at least one item (tagged `generated_outfit_item`), and that each one shows the name of one of the tester's clean clothes, read from the back-end (`GET /clothing`). |
+    | 5. The app displays the generated outfit's items, with the weather it was based on (for example "Based on the weather: 12°C, light rain"). | Check that the heading "Casual outfit" (or "Work outfit") is present.<br>Check that the weather text (tagged `generated_outfit_weather`) contains "Based on the weather:".<br>Check that there is at least one item (tagged `generated_outfit_item`), and that each one shows the name of one of the tester's clean clothes, read from the back-end (`GET /clothing`). |
     | 6. The user saves the outfit, or taps "Regenerate" to get a different one. | `generatingAnOutfit_showsItWithTheWeatherAndSavesIt`: click the button tagged `save_generated_outfit`.<br>Wait for the generated outfit to close, then check that the text "My Outfits" is present and that the first outfit card (tagged `outfit_card`) shows the outfit's name.<br>Check that the back-end has exactly one new outfit, with that name and the occasion "casual".<br><br>`regenerating_showsAnotherOutfitWithoutSavingTheFirst`: after steps 1-5 for a Work outfit, click the button tagged `regenerate_outfit`.<br>Repeat the checks of steps 4 and 5.<br>Check that the back-end has no new outfit. |
     | 1a. The user's clean clothes do not include at least one shirt and one pair of pants. | `noCleanBottom_showsWhatIsMissing`: add only the test top to the tester's closet, and mark every clean bottom in it as dirty.<br>Do steps 1-3 with the Casual occasion. |
-    | 1a1. The app displays a message listing the missing items and prompts the user to add clothes or empty their wash bin. | Wait up to 120 seconds for the error (tagged `generated_outfit_error`).<br>Check that the texts "Couldn't generate an outfit" and "Your clean clothes don't include a bottom. Add one to your closet or empty your wash bin." are present.<br>Check that there is no "Try again" button.<br>Check that the back-end has no new outfit. |
+    | 1a1. The app shows "Couldn't generate an outfit" with a message naming what is missing, for example "Your clean clothes don't include a bottom. Add one to your closet or empty your wash bin." | Wait up to 120 seconds for the error (tagged `generated_outfit_error`).<br>Check that the texts "Couldn't generate an outfit" and "Your clean clothes don't include a bottom. Add one to your closet or empty your wash bin." are present.<br>Check that there is no "Try again" button.<br>Check that the back-end has no new outfit. |
     | 4a. The outfit generation service is unavailable or does not respond in time. | Not automated: it needs the generator to fail on purpose, and the front-end end-to-end tests use the real back-end with no mocking. The back-end side is covered by the mocked `POST /outfits/generate` test "Generator unavailable", and the app's error message and "Try again" button by `OutfitsScreenTest.kt` (`unavailableServiceCanBeRetried`), which runs the Outfits screen with a fake back-end. |
     | 4b. The current weather cannot be retrieved. | Not automated, for the same reason. The back-end side is covered by the mocked `POST /outfits/generate` test "Weather unavailable", and the app's message by `OutfitsScreenTest.kt` (`missingWeatherIsCalledOut`). |
+    | 4c. The user doesn't allow the app to use their location. | Not automated end to end: the test grants location access, and taking it away mid-test would affect the other end-to-end tests. The app's message, its "Try again" button and that no request is sent to the back-end are covered by `OutfitsScreenTest.kt` (`unavailableLocationExplainsWhyItsNeededWithoutCallingTheBackEnd`). |
 
   - **Test Logs:**
     ```
