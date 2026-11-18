@@ -1,13 +1,120 @@
-import {
-  DEFAULT_AVATAR_PARAMS,
-  LEG_REACH,
-  sdCapsule,
-  sdEllipsoid,
-  sdRoundedBox,
-  smoothMin,
-} from "../sdf.js";
-import type { AvatarBounds, AvatarParameters, Vec3 } from "../types.js";
+import type { AvatarBounds, AvatarParameters, Vec3 } from "./types.js";
 import type { BodyPartName } from "./types.js";
+
+export const LEG_REACH = 1.0;
+
+/**
+ * Default ratios 
+ */
+const DEFAULTS = {
+  headHeight: 0.23,
+  neckWidth: 0.12,
+  armLengthRatio: 0.30,
+  legLengthRatio: 0.50, 
+  resolution: 0.015,
+};
+
+/**
+ * Approximate signed distance to an ellipsoid.
+ * center = [x, y, z]
+ * radii  = [rx, ry, rz]
+ */
+export function sdEllipsoid(
+  x: number,
+  y: number,
+  z: number,
+  center: Vec3,
+  radii: Vec3,
+): number {
+  const qx = x - center[0];
+  const qy = y - center[1];
+  const qz = z - center[2];
+  const [rx, ry, rz] = radii;
+  const k0 = Math.hypot(qx / rx, qy / ry, qz / rz);
+  const k1 = Math.hypot(
+    qx / (rx * rx),
+    qy / (ry * ry),
+    qz / (rz * rz)
+  );
+  if (k1 < 1e-10) {
+    return -Math.min(rx, ry, rz);
+  }
+  return (k0 * (k0 - 1)) / k1;
+}
+
+/**
+ * Approximate signed distance to a rounded box.
+ * center = [x, y, z]
+ * halfSize = [sx, sy, sz]
+ * radii  = [rx, ry, rz]
+ */
+export function sdRoundedBox(
+  x: number,
+  y: number,
+  z: number,
+  center: Vec3,
+  halfSize: Vec3,
+  radius: number,
+): number {
+  const qx = Math.abs(x - center[0]) - halfSize[0] + radius;
+  const qy = Math.abs(y - center[1]) - halfSize[1] + radius;
+  const qz = Math.abs(z - center[2]) - halfSize[2] + radius;
+  return (
+    Math.hypot(
+      Math.max(qx, 0),
+      Math.max(qy, 0),
+      Math.max(qz, 0)
+    ) +
+    Math.min(Math.max(qx, qy, qz), 0) -
+    radius
+  );
+}
+
+/**
+ * Signed distance to a capsule around segment A to B.
+ */
+export function sdCapsule(
+  x: number,
+  y: number,
+  z: number,
+  a: Vec3,
+  b: Vec3,
+  radius: number,
+): number {
+  const pax = x - a[0];
+  const pay = y - a[1];
+  const paz = z - a[2];
+
+  const bax = b[0] - a[0];
+  const bay = b[1] - a[1];
+  const baz = b[2] - a[2];
+  const denominator = bax * bax + bay * bay + baz * baz;
+  const t = denominator > 0
+    ? Math.max(
+        0,
+        Math.min(1, (pax * bax + pay * bay + paz * baz) / denominator)
+      )
+    : 0;
+  return Math.hypot(
+    pax - bax * t,
+    pay - bay * t,
+    paz - baz * t
+  ) - radius;
+}
+
+/**
+ * Smoothly combines two SDFs.
+ * Smaller k = tighter blend.
+ */
+export function smoothMin(
+  a: number,
+  b: number,
+  k: number,
+): number {
+  if (k <= 0) return Math.min(a, b);
+  const h = Math.max(k - Math.abs(a - b), 0) / k;
+  return Math.min(a, b) - (k * h * h) / 4;
+}
 
 const HEAD_PARAMS = {
   xRatio: 0.36,
@@ -50,15 +157,9 @@ const ARMS_PARAMS = {
 
 const LEGS_PARAMS = {
   upperLengthToLegLength: 0.53,
-
-  // ===== LEG WIDTH =====
-  // Radii as a fraction of legLength (= legLengthRatio * height). Smaller = thinner legs.
   upperRadiusToLegLength: 0.066, // thigh      (was 0.078)
   lowerRadiusToLegLength: 0.054, // shin/calf  (was 0.069)
   pelvisRadiusFactor: 0.95,      // pelvis connector radius relative to the thigh radius
-  // Keep the two radius values in sync with LEGS_PARAMS in sdf.ts (non-segmented avatar).
-  // ======================
-
   hipStart: 0.26,                // how far each hip joint sits from the centre line (x hipWidth)
   upperLegToVerticleRad: (2 * Math.PI) / 180,
   lowerLegToVerticleRad: (2 * Math.PI) / 180,
@@ -514,7 +615,7 @@ export interface BodyJoints {
 }
 
 export function getBodyJoints(options: Partial<AvatarParameters> = {}): BodyJoints {
-  const p = { ...DEFAULT_AVATAR_PARAMS, ...options } as AvatarParameters;
+  const p = { ...DEFAULTS, ...options } as AvatarParameters;
   const side = (s: Side): SideJoints => {
     const a = armJoints(p, s);
     const l = legJoints(p, s);
@@ -532,3 +633,5 @@ export function getBodyJoints(options: Partial<AvatarParameters> = {}): BodyJoin
   };
   return { left: side(-1), right: side(1) };
 }
+
+export { DEFAULTS as DEFAULT_AVATAR_PARAMS };

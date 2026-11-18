@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { calculateAvatarAnchors, calculateBodyDimensions } from "./anchorsAndFitting.js";
-import { exportPartGLB, exportSegmentedGLB } from "./exportPrototype.js";
+import { exportPartGLB, exportSegmentedGLB } from "./exportAvatar.js";
 import { getBodyJoints } from "./partsSdf.js";
 import { PART_METADATA, type BodyPartName } from "./types.js";
 
@@ -11,9 +11,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = Number(process.env.VIEWER_PORT || 3030);
-const GARMENTS_DIR = path.resolve(__dirname, "../../garment/baseMeshes");
-const VIEWER_HTML_PATH = path.join(__dirname, "viewer.html");   // reference point picker  -> /
-const FIT_HTML_PATH = path.join(__dirname, "fitViewer.html");   // avatar + garment fitter -> /view
+const GARMENTS_DIR = path.resolve(__dirname, "../garment/baseMeshes");
+const VIEWER_HTML_PATH = path.join(__dirname, "viewer.html");   
+const FIT_HTML_PATH = path.join(__dirname, "fitViewer.html"); 
 
 const REQUIRED_POINTS: Record<string, string[]> = {
   top: ["leftShoulder", "rightShoulder", "bottomHem"],

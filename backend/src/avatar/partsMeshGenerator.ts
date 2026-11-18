@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { DEFAULT_AVATAR_PARAMS } from "../sdf.js";
 import type {
   AvatarBounds,
   AvatarParameters,
@@ -10,9 +9,10 @@ import type {
   ScalarField,
   TetraCorners,
   Vec3,
-} from "../types.js";
-import { getPartBounds, getPartSDF } from "./partsSdf.js";
-import { BODY_PARTS, PART_METADATA, type BodyPartName } from "./types.js";
+  BodyPartName
+} from "./types.js";
+import { DEFAULT_AVATAR_PARAMS, getPartBounds, getPartSDF } from "./partsSdf.js";
+import { BODY_PARTS, PART_METADATA } from "./types.js";
 
 const CORNERS: Vec3[] = [
   [0, 0, 0],

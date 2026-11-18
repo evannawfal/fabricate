@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "prototype:avatar": "tsx src/avatar/prototype/viewerServer.ts",
+    "prototype:avatar": "tsx src/avatar/viewerServer.ts",
     "build": "tsc -p tsconfig.build.json && node scripts/copy-assets.mjs",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",

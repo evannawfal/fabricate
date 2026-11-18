@@ -1,5 +1,5 @@
-import { DEFAULT_AVATAR_PARAMS, LEG_REACH } from "../sdf.js";
-import type { AvatarParameters, Vec3 } from "../types.js";
+import { DEFAULT_AVATAR_PARAMS, LEG_REACH } from "./partsSdf.js";
+import type { AvatarParameters, Vec3 } from "./types.js";
 
 export interface AnchorPoint {
   id: string;
