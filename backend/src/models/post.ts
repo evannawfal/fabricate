@@ -2,11 +2,9 @@ import { Schema, model, type HydratedDocument, type InferSchemaType } from 'mong
 import type { ClothingItemResponse } from './clothingItem.js';
 import { OUTFIT_LIMITS } from './outfit.js';
 
-// Friends see a post for this long after it's posted.
 export const POST_VISIBLE_HOURS = 24;
 
-// Each user has one post at a time. It copies the outfit's name and items, so it keeps showing
-// what was posted even if the outfit is later edited or deleted.
+// One post per user, holding a copy of the outfit so editing or deleting the outfit doesn't change it.
 const postSchema = new Schema({
   author: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
   outfit: { type: Schema.Types.ObjectId, ref: 'Outfit', required: true },
