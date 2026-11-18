@@ -95,7 +95,7 @@ class JoinRoomTest {
         val friendEmails = rooms.listFriends().map { it.email.lowercase() }.toSet()
         removedFriends.filterNot { it.email.lowercase() in friendEmails }.forEach { rooms.addFriend(it.email) }
         addedItems.forEach { closet.deleteItem(it.id) }
-        val idsBefore = requireNotNull(outfitsBefore).map { it.id }.toSet()
+        val idsBefore = outfitsBefore?.map { it.id }?.toSet() ?: return@runBlocking
         outfits.listOutfits().filterNot { it.id in idsBefore }.forEach { outfits.deleteOutfit(it.id) }
     }
 
