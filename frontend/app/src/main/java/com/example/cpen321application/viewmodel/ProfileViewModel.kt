@@ -3,8 +3,10 @@ package com.example.cpen321application.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.cpen321application.data.ApiException
+import com.example.cpen321application.data.Friend
 import com.example.cpen321application.data.Profile
 import com.example.cpen321application.data.ProfileRepository
+import com.example.cpen321application.data.RoomsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,12 +15,16 @@ import kotlinx.coroutines.launch
 
 data class ProfileUiState(
     val profile: Profile? = null,
+    val friends: List<Friend> = emptyList(),
     val isSaving: Boolean = false,
     val error: String? = null,
     val saved: Boolean = false,
 )
 
-class ProfileViewModel(private val repository: ProfileRepository) : ViewModel() {
+class ProfileViewModel(
+    private val repository: ProfileRepository,
+    private val roomsRepository: RoomsRepository,
+) : ViewModel() {
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
@@ -26,7 +32,11 @@ class ProfileViewModel(private val repository: ProfileRepository) : ViewModel() 
         load()
     }
 
-    fun load() = request { _uiState.update { it.copy(profile = repository.getProfile()) } }
+    fun load() = request {
+        val profile = repository.getProfile()
+        val friends = roomsRepository.listFriends()
+        _uiState.update { it.copy(profile = profile, friends = friends) }
+    }
 
     fun savePronouns(pronouns: String) = request {
         _uiState.update { it.copy(isSaving = true) }

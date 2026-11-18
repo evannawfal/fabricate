@@ -187,7 +187,10 @@ fun MainScreen(
       Destination.Avatar -> AvatarRoute(repositories.clothing, contentModifier)
       Destination.Shop -> ShopScreen(shopViewModel, closet.items, contentModifier)
       Destination.Rooms -> RoomsRoute(repositories.rooms, repositories.clothing, contentModifier)
-      Destination.Profile -> ProfileScreen(viewModel { ProfileViewModel(repositories.profile) }, contentModifier)
+      Destination.Profile -> ProfileScreen(
+        viewModel { ProfileViewModel(repositories.profile, repositories.rooms) },
+        contentModifier,
+      )
     }
   }
 
