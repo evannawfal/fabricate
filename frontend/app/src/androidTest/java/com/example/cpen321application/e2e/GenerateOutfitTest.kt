@@ -90,7 +90,7 @@ class GenerateOutfitTest {
         shell("cmd location providers remove-test-provider gps")
         itemsMadeDirty.forEach { setClean(it, true) }
         addedItems.forEach { closet.deleteItem(it.id) }
-        addedOutfits().forEach { outfits.deleteOutfit(it.id) }
+        if (outfitsBefore != null) addedOutfits().forEach { outfits.deleteOutfit(it.id) }
     }
 
     private fun shell(command: String) {
