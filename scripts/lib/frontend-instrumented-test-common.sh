@@ -119,11 +119,18 @@ run_instrumented_tests() {
   done
   class_arg="$(IFS=,; echo "${classes[*]}")"
 
+  # The room test needs a second tester (User B); it is skipped unless their email is given.
+  local extra_args=()
+  if [[ -n "${ROOM_FRIEND_EMAIL:-}" ]]; then
+    extra_args+=("-Pandroid.testInstrumentationRunnerArguments.friendEmail=$ROOM_FRIEND_EMAIL")
+  fi
+
   info "Running frontend ${label} tests (${class_arg}) ..."
   (
     cd "$FRONTEND_DIR"
     ./gradlew "$GRADLE_TASK" \
-      -Pandroid.testInstrumentationRunnerArguments.class="$class_arg"
+      -Pandroid.testInstrumentationRunnerArguments.class="$class_arg" \
+      ${extra_args[@]+"${extra_args[@]}"}
   )
   info "Frontend ${label} tests finished."
 }
