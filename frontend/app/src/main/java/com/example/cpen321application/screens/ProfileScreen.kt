@@ -1,17 +1,24 @@
 package com.example.cpen321application.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.example.cpen321application.data.AvatarStore
+import com.example.cpen321application.data.Friend
 import com.example.cpen321application.model.AvatarMeasurements
 import com.example.cpen321application.model.BodyMeasurement
 import com.example.cpen321application.viewmodel.ProfileViewModel
@@ -46,6 +54,7 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
     val avatarStore = remember { AvatarStore(context) }
     val savedMeasurements by avatarStore.measurements.collectAsState(initial = null)
     val measurements = savedMeasurements ?: AvatarMeasurements()
+    var showFriendsModal by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -56,8 +65,32 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
         if (profile == null) {
             if (state.error == null) CircularProgressIndicator()
         } else {
-            // Keyed on the saved value so the field resets to it after loading or saving.
             var pronouns by rememberSaveable(profile.pronouns) { mutableStateOf(profile.pronouns) }
+
+            // Clickable Friends Count Card (Instagram-style)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showFriendsModal = true },
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = state.friends.size.toString(),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = if (state.friends.size == 1) "Friend" else "Friends",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
 
             ProfileInfoRow(title = "Name", value = profile.name)
             ProfileInfoRow(title = "Email", value = profile.email)
@@ -107,6 +140,60 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
             if (profile == null) Button(onClick = viewModel::load) { Text("Try again") }
         }
     }
+
+    if (showFriendsModal) {
+        FriendsListModal(
+            friends = state.friends,
+            onDismiss = { showFriendsModal = false },
+        )
+    }
+}
+
+@Composable
+private fun FriendsListModal(
+    friends: List<Friend>,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Friends (${friends.size})") },
+        text = {
+            if (friends.isEmpty()) {
+                Text(
+                    text = "You haven't added any friends yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 360.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(friends, key = { it.id }) { friend ->
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = friend.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = friend.email,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        },
+    )
 }
 
 @Composable
