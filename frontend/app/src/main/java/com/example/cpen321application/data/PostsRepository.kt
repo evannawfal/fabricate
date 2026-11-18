@@ -2,7 +2,7 @@ package com.example.cpen321application.data
 
 import com.example.cpen321application.model.ClothingItem
 
-/** An outfit someone posted as their outfit of the day; [isOwn] marks the user's own post. */
+/** An outfit someone posted as their outfit of the day. */
 data class Post(
     val id: String,
     val authorName: String,

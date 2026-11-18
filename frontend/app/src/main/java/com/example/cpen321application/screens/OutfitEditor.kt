@@ -219,7 +219,6 @@ private fun SaveOutfitButton(
     }
 }
 
-// Posts the saved outfit, so changes that haven't been saved yet aren't posted.
 @Composable
 private fun PostOutfitButton(
     isPosting: Boolean,
@@ -245,7 +244,8 @@ private fun PostOutfitButton(
         }
         val (message, color) = when {
             error != null -> error to MaterialTheme.colorScheme.error
-            isPosted -> "Posted! Your friends can see it in Friends' posts for a day." to MaterialTheme.colorScheme.primary
+            isPosted -> "Posted! Your friends can see it in Friends' posts for a day." to
+                MaterialTheme.colorScheme.primary
             else -> "Shares the saved outfit with your friends for a day, replacing your last post." to
                 MaterialTheme.colorScheme.onSurfaceVariant
         }

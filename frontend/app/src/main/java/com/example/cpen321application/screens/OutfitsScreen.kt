@@ -63,7 +63,6 @@ private const val PREVIEW_ITEM_COUNT = 4
  * Generate outfit asks for an occasion, then shows an outfit picked for it and the weather.
  * The Friends' posts tab shows the outfits the user and their friends posted today.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OutfitsScreen(
     viewModel: OutfitsViewModel,
@@ -73,7 +72,6 @@ fun OutfitsScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var choosingOccasion by rememberSaveable { mutableStateOf(false) }
-    var showingPosts by rememberSaveable { mutableStateOf(false) }
     val generate = rememberGenerateWithLocation(viewModel)
 
     val draft = state.draft
@@ -95,24 +93,7 @@ fun OutfitsScreen(
             BackHandler { viewModel.closeDraft() }
             OutfitEditor(state, draft, closetItems, viewModel, modifier)
         }
-        else -> Column(modifier = modifier.fillMaxSize()) {
-            PrimaryTabRow(selectedTabIndex = if (showingPosts) 1 else 0) {
-                Tab(selected = !showingPosts, onClick = { showingPosts = false }, text = { Text("My Outfits") })
-                Tab(selected = showingPosts, onClick = { showingPosts = true }, text = { Text("Friends' posts") })
-            }
-            if (showingPosts) {
-                PostsFeed(postsViewModel)
-            } else {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    OutfitList(state, onOpenOutfit = viewModel::startEditing, onRetry = viewModel::loadOutfits)
-                    OutfitActions(
-                        onGenerate = { choosingOccasion = true },
-                        onCreate = viewModel::startCreating,
-                        modifier = Modifier.align(Alignment.BottomEnd),
-                    )
-                }
-            }
-        }
+        else -> OutfitsHome(state, viewModel, postsViewModel, onGenerate = { choosingOccasion = true }, modifier)
     }
 
     if (choosingOccasion) {
@@ -132,6 +113,37 @@ fun OutfitsScreen(
             text = { Text(error) },
             confirmButton = { TextButton(onClick = viewModel::dismissDeleteError) { Text("OK") } },
         )
+    }
+}
+
+// The My Outfits and Friends' posts tabs.
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OutfitsHome(
+    state: OutfitsUiState,
+    viewModel: OutfitsViewModel,
+    postsViewModel: PostsViewModel,
+    onGenerate: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var showingPosts by rememberSaveable { mutableStateOf(false) }
+    Column(modifier = modifier.fillMaxSize()) {
+        PrimaryTabRow(selectedTabIndex = if (showingPosts) 1 else 0) {
+            Tab(selected = !showingPosts, onClick = { showingPosts = false }, text = { Text("My Outfits") })
+            Tab(selected = showingPosts, onClick = { showingPosts = true }, text = { Text("Friends' posts") })
+        }
+        if (showingPosts) {
+            PostsFeed(postsViewModel)
+        } else {
+            Box(modifier = Modifier.fillMaxSize()) {
+                OutfitList(state, onOpenOutfit = viewModel::startEditing, onRetry = viewModel::loadOutfits)
+                OutfitActions(
+                    onGenerate = onGenerate,
+                    onCreate = viewModel::startCreating,
+                    modifier = Modifier.align(Alignment.BottomEnd),
+                )
+            }
+        }
     }
 }
 

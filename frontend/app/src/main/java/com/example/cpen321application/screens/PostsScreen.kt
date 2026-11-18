@@ -48,7 +48,8 @@ fun PostsFeed(viewModel: PostsViewModel, modifier: Modifier = Modifier) {
         )
         state.posts.isEmpty() -> EmptyState(
             title = "No posts today",
-            message = "Open one of your outfits and tap \"Post as today's outfit\". Outfits your friends post today show up here too.",
+            message = "Open one of your outfits and tap \"Post as today's outfit\". " +
+                "Outfits your friends post today show up here too.",
             modifier = modifier,
         )
         else -> LazyColumn(

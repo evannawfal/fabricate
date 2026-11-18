@@ -49,7 +49,6 @@ data class OutfitsUiState(
     val isDeleting: Boolean = false,
     val deleteError: String? = null,
     val isPosting: Boolean = false,
-    /** Set once the open outfit has been posted, until the editor closes. */
     val isPosted: Boolean = false,
     val postError: String? = null,
 ) {
@@ -85,14 +84,19 @@ class OutfitsViewModel(
     fun startCreating() = _uiState.update { it.copy(draft = OutfitDraft(), saveError = null) }
 
     fun startEditing(outfit: Outfit) = _uiState.update {
-        it.copy(draft = OutfitDraft(outfit.id, outfit.name, outfit.items), saveError = null, isPosted = false, postError = null)
+        it.copy(
+            draft = OutfitDraft(outfit.id, outfit.name, outfit.items),
+            saveError = null,
+            isPosted = false,
+            postError = null,
+        )
     }
 
     fun closeDraft() = _uiState.update {
         if (it.isBusy) it else it.copy(draft = null, saveError = null, isPosted = false, postError = null)
     }
 
-    /** Posts the open saved outfit as the user's outfit of the day. */
+    /** Posts the saved version of the open outfit, not any unsaved edits in the editor. */
     fun postDraftOutfit() {
         val state = _uiState.value
         val outfitId = state.draft?.outfitId ?: return

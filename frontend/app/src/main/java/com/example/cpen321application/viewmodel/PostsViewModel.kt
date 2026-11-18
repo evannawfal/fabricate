@@ -43,7 +43,9 @@ class PostsViewModel(private val repository: PostsRepository) : ViewModel() {
         viewModelScope.launch {
             try {
                 repository.deletePost(id)
-                _uiState.update { state -> state.copy(posts = state.posts.filterNot { it.id == id }, deletingId = null) }
+                _uiState.update { state ->
+                    state.copy(posts = state.posts.filterNot { it.id == id }, deletingId = null)
+                }
             } catch (e: ApiException) {
                 _uiState.update { it.copy(deletingId = null, deleteError = e.message) }
             }
