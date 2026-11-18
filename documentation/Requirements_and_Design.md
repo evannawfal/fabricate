@@ -11,6 +11,9 @@
 | 2026-11-01 | 4.1, 4.2, 4.3, 4.6 | Chose Serper for the online store search and documented it. `GET /recommendations` gains `country` and `department`, because results depend on the user's country and searches without a department came back mostly women's. Search results are cached in MongoDB to stay within the search credits. |
 | 2026-11-01 | 4.1 | `GET /recommendations`: each `StoreItem` also has the `reason` of the gap it fills and the closet items it `pairsWith`, which the Shop screen shows in use case 4 steps 3 and 5. Documented its 400 and 503 responses. |
 | 2026-11-04 | 3.4, 3.5, 4.1, 4.6 | Each clothing item now has a front and a back photo. Use case 1 asks for both, and backing out of the camera or gallery asks for the photo again before cancelling. `POST /clothing` takes a `backPhoto` file, and the use case 1 sequence diagram stores both photos. |
+| 2026-11-18 | 3.1, 3.4 | 3.4 now lists the same use cases as the use case diagram (CP2 TA feedback): Sign Up, Sign In and Sign Out are separate, and Leave a room and Add viewed item to wishlist were added. The avatar use cases now say how they differ: one item, a whole outfit as a 3D model, or a realistic image. Browse past outfits says that deleting an outfit unsaves it. |
+| 2026-11-18 | 3.5 | Failure scenarios give the exact messages the app shows (CP2 TA feedback). Use case 2 shows the outfit's items, not the outfit on the avatar, which is still to be built, and has a new failure for location access being denied (peer review 5.1.2). Use case 5 matches the avatar screen: measurement sliders and "Update avatar", with failures for avatar generation and an expired session; skin tone and hair style are still to be built. |
+| 2026-11-18 | 4.1, 4.3, 4.4, 4.6, 4.7 | Interfaces match the code (CP2 TA feedback and peer review 2.3). Outfit generation moved from Recommendation Engine to Outfit, where its code is. Closet documents the garment model routes `POST /clothing/{id}/generate` and `GET /clothing/{id}/model`, and other components read clothing items through the `ClothingItem` model rather than a `getItemsForUser` function. `POST /avatar` takes measurements in metres. Interfaces and modules that aren't built yet (posts, ratings, outfit renders, Gemini and Firebase Cloud Messaging) are marked as planned. Added why we chose the Claude API, and the background removal library. Sequence diagrams show the failure scenarios. The upload time design describes the classifier's actual timeout and retries. |
 
 ---
 
@@ -29,8 +32,8 @@ Fabricate is aimed at fashion enthusiasts who want more out of their wardrobe, p
 1. **Manage Closet**: Users add clothing items by taking a photo or choosing one from their gallery. The photo is classified by an external AI service and the item is added to the closet, where it can be browsed, edited and removed. Users keep track of which clothes are dirty with a wash bin.
 2. **Customize Avatar**: Users customize the proportions of a personal avatar from their body measurements, view clothing items and outfits on it, and generate a realistic image of the avatar wearing an outfit.
 3. **Create Outfit**: Users have AI generate a daily outfit from their clean clothes based on the occasion and the current weather, save outfits, and browse the outfits they saved.
-4. **Recommend Clothes to Buy**: The app analyzes the gaps in the user's closet and recommends items from online stores that fill them, with the user's clothes that each item pairs with.
-5. **Friends and Social**: Users sign in with their Google account (a new user is registered automatically on their first sign-in), add and remove friends, post their daily outfit, rate their friends' outfits, and create and join rooms with friends to build outfits together, where chat messages and outfit changes appear live for every member.
+4. **Recommend Clothes to Buy**: The app analyzes the gaps in the user's closet and recommends items from online stores that fill them, with the user's clothes that each item pairs with. Users save items they like to a wishlist.
+5. **Friends and Social**: Users sign up and sign in with their Google account, and sign out. They add and remove friends, post their daily outfit, rate their friends' outfits, and create, join and leave rooms with friends to build outfits together, where chat messages and outfit changes appear live for every member.
 
 ### **3.2. Use Case Diagram**
 
@@ -55,29 +58,33 @@ Each use case below has the same name as in the use case diagram. **Major** use 
 6. **Remove items from wash bin** (minor): The user moves clean clothes from the wash bin back to the closet.
 
 - Use cases for feature 2: **Customize Avatar**
-7. **Customize Avatar Proportion** (major): The user sets their avatar's body measurements and saves the avatar to their profile.
-8. **View items on Avatar** (minor): The user sees a single clothing item from their closet displayed on their avatar.
-9. **Preview outfits on Avatar** (minor): The user sees a whole outfit displayed on their avatar before deciding to wear or save it.
-10. **Generate realistic outfits** (minor): The app generates a realistic image of the user's avatar wearing a chosen outfit.
+7. **Customize Avatar Proportion** (major): The user sets their avatar's body measurements, and the app builds their 3D avatar from them.
+8. **View items on Avatar** (minor): The user tries one clothing item at a time from their closet (a top, a bottom or outerwear) on their 3D avatar, and adjusts its size.
+9. **Preview outfits on Avatar** (minor): The user sees a whole saved or generated outfit on their 3D avatar at once, before deciding to wear or save it.
+10. **Visualize realistic outfits** (minor): The app generates a realistic image, not a 3D model, of the user's avatar wearing a chosen outfit.
 
 - Use cases for feature 3: **Create Outfit**
 11. **Generate daily outfit** (major): The app generates an outfit from the user's clean clothes for an occasion they choose, taking the current weather into account.
 12. **Save outfits** (minor): The user saves a generated outfit, or one they built from their closet, to their outfits.
-13. **Browse past outfits** (minor): The user browses the outfits they saved, and edits or deletes them.
+13. **Browse past outfits** (minor): The user browses the outfits they saved, and edits or deletes them. Deleting an outfit unsaves it; its items stay in the closet.
 
 - Use cases for feature 4: **Recommend Clothes to Buy**
 14. **Browse online outfit / items** (major): The user browses items from online stores, recommended by analyzing the gaps in their closet, and sees which of their clothes each item pairs with.
+15. **Add viewed item to wishlist** (minor): The user saves a recommended store item to their wishlist to come back to later.
 
 - Use cases for feature 5: **Friends and Social**
-15. **Sign In / Out** (minor): The user signs in with their Google account, or signs out. If they have never used Fabricate, a new account is created on their first sign-in.
-16. **Add people in friendlist** (minor): The user adds another user to their friend list by email.
-17. **Remove people from friendlist** (minor): The user removes someone from their friend list.
-18. **Post daily outfits** (minor): The user posts the outfit they are wearing today so their friends can see it.
-19. **Rate your friend's outfits** (minor): The user rates an outfit a friend posted, from 1 to 5 stars.
-20. **Create a room** (minor): The user names a new room and invites friends from their friend list.
-21. **Join a room** (minor): The user opens one of the rooms they belong to and sees its chat and shared outfit board.
-22. **Browse room owner's outfit** (minor): The user browses the outfit on the room's shared board, including items from other members' closets.
-23. **Create outfits in a room** (major): The user builds an outfit together with the room's members, where every chat message and outfit change appears live on all members' devices.
+16. **Sign Up** (minor): A person who has never used Fabricate signs in with their Google account, and an account is created for them.
+17. **Sign In** (minor): The user signs in with their Google account.
+18. **Sign Out** (minor): The user signs out, after confirming.
+19. **Add people in friendlist** (minor): The user adds another user to their friend list by email.
+20. **Remove people from friendlist** (minor): The user removes someone from their friend list.
+21. **Post daily outfits** (minor): The user posts the outfit they are wearing today so their friends can see it.
+22. **Rate your friend's outfits** (minor): The user rates an outfit a friend posted, from 1 to 5 stars.
+23. **Create a room** (minor): The user names a new room and invites friends from their friend list.
+24. **Join a room** (minor): The user opens one of the rooms they belong to and sees its chat and shared outfit board.
+25. **Leave a room** (minor): The user leaves a room, which then no longer appears in their room list.
+26. **Browse room owner's outfit** (minor): The user browses the outfit on the room's shared board, including items from other members' closets.
+27. **Create outfits in a room** (major): The user builds an outfit together with the room's members, where every chat message and outfit change appears live on all members' devices.
 
 ### **3.5. Formal Use Case Specifications (5 Most Major Use Cases)**
 
@@ -119,17 +126,19 @@ Each use case below has the same name as in the use case diagram. **Major** use 
 2. The app shows a list of occasions (casual, work, formal and workout).
 3. The user selects an occasion.
 4. The app shows a loading indicator while the outfit is generated from the user's clean clothes, the occasion and the current weather.
-5. The app displays the generated outfit on the user's avatar, with the weather it was based on.
+5. The app displays the generated outfit's items, with the weather it was based on (for example "Based on the weather: 12°C, light rain").
 6. The user saves the outfit, or taps "Regenerate" to get a different one.
 
 **Failure scenario(s)**:
 
 - 1a. The user's clean clothes do not include at least one shirt and one pair of pants.
-  - 1a1. The app displays a message listing the missing items and prompts the user to add clothes or empty their wash bin.
+  - 1a1. The app shows "Couldn't generate an outfit" with a message naming what is missing, for example "Your clean clothes don't include a bottom. Add one to your closet or empty your wash bin."
 - 4a. The outfit generation service is unavailable or does not respond in time.
-  - 4a1. The app displays an error message prompting the user to try again later.
+  - 4a1. The app shows "Couldn't generate an outfit" with the message "Outfits aren't available right now. Try again later." and a "Try again" button.
 - 4b. The current weather cannot be retrieved.
-  - 4b1. The app generates the outfit without the weather and tells the user that the weather was not considered.
+  - 4b1. The app generates the outfit without the weather and shows "The weather wasn't considered for this outfit."
+- 4c. The user doesn't allow the app to use their location.
+  - 4c1. The app shows "Couldn't generate an outfit" with the message "Fabricate needs your approximate location to dress you for the weather. Allow location access and try again, or turn it on in your device's settings." and a "Try again" button.
 
 #### Use Case 3: Create Outfits in a Room
 
@@ -148,11 +157,11 @@ Each use case below has the same name as in the use case diagram. **Major** use 
 **Failure scenario(s)**:
 
 - 1a. The user has no friends in their friend list to invite.
-  - 1a1. The app explains that friends must be added first and lets the user add a friend by email.
+  - 1a1. The app shows "Rooms are for styling with friends. Add a friend by email first." and a field to add a friend by email.
 - 3a. The connection to the server is lost.
-  - 3a1. The app shows a "Reconnecting" banner and disables sending until the connection is restored.
+  - 3a1. The app shows a "Reconnecting…" banner and disables sending until the connection is restored.
 - 4a. Another member leaves the room.
-  - 4a1. The app shows a notice that the member left, and the room continues for the remaining members.
+  - 4a1. The app shows the notice "(member's name) left the room." in the chat, and the room continues for the remaining members.
 
 #### Use Case 4: Browse Online Outfit / Items
 
@@ -171,32 +180,36 @@ Each use case below has the same name as in the use case diagram. **Major** use 
 **Failure scenario(s)**:
 
 - 2a. The closet does not include at least one shirt and one pair of pants.
-  - 2a1. The app displays a message prompting the user to add those items first.
+  - 2a1. The app shows "No recommendations yet" with the message "Add at least one top and one bottom to your closet to get recommendations".
 - 3a. The online catalogs return no matching items.
-  - 3a1. The app shows the closet gaps it found and a message that no matching items are available right now.
+  - 3a1. The app shows the closet gaps it found and the message "No matching items are available right now".
 - 3b. The analysis or the catalog search fails because of a server or network problem.
-  - 3b1. The app displays an error message prompting the user to try again.
+  - 3b1. The app shows "Couldn't load recommendations" with the message "Recommendations aren't available right now. Try again." and a "Try again" button.
 
 #### Use Case 5: Customize Avatar Proportion
 
-**Description**: The user customizes their avatar's appearance and saves it to their profile, so outfits can be previewed on it.
+**Description**: The user sets their avatar's body measurements, and the app builds a 3D avatar with those proportions, so clothes can be tried on it.
 
 **Primary actor(s)**: User
 
 **Main success scenario**:
 
 1. The user opens the Avatar screen.
-2. The app shows the user's current avatar and options for body size, skin tone and hair style.
-3. The user changes one or more options, and the avatar preview updates.
-4. The user taps "Save".
-5. The app saves the avatar to the user's profile and confirms the save.
+2. The app shows the user's current avatar, with a Clothes tab and a Measurements tab.
+3. The user opens the Measurements tab and changes one or more of their height, shoulder width, chest width, waist width and hip width (in cm) with sliders.
+4. The user taps "Update avatar".
+5. The app shows "Creating your avatar…" while the avatar is generated, then shows the new avatar. The avatar is saved to the user's profile and the measurements are kept on the device.
 
 **Failure scenario(s)**:
 
-- 1a. The user has never customized their avatar.
-  - 1a1. The app shows a default avatar for the user to start from.
-- 5a. The save fails because of a network problem.
-  - 5a1. The app displays an error message, keeps the user's changes on screen and lets them retry.
+- 1a. The user has never created their avatar.
+  - 1a1. The app shows "Set your measurements and tap Update avatar to create your avatar." with the measurement sliders set to default values.
+- 5a. The app can't reach the server.
+  - 5a1. The app shows "Can't reach the server. Check your connection and try again.", keeps the user's measurements and lets them tap "Update avatar" again.
+- 5b. The avatar can't be generated or saved.
+  - 5b1. The app shows "Couldn't update your avatar. Please try again.", keeps the user's measurements and lets them tap "Update avatar" again.
+- 5c. The user's session has expired.
+  - 5c1. The app shows "Your session has expired. Sign out and sign in again."
 
 ### **3.6. Screen Mock-ups**
 
@@ -249,11 +262,15 @@ Not included for CP1.
         - **Purpose**: Updates an item's details, or moves it into (`isClean: false`) or out of (`isClean: true`) the wash bin.
      5. `DELETE /clothing/{id}`, returns `204`
         - **Purpose**: Archives an item: it leaves the closet, but saved outfits still show it.
-     6. `List<ClothingItem> getItemsForUser(String userId, Boolean cleanOnly)`
-        - **Purpose**: Returns a user's items in the closet, optionally only the clean ones, for the Outfit, Recommendation Engine and Social & Rooms components.
+     6. `POST /clothing/{id}/generate`, returns `201 { downloadUrl: String, contentType: String, meshType: String, hasModel: Boolean }`
+        - **Purpose**: Builds the item's 3D model for trying it on the avatar: the base mesh for its category (top, bottom or outerwear), coloured from the front photo with its background removed. Stores the model, saves it on the item and returns a time-limited link to download it. Generating again replaces the previous model. Returns 422 if the item's category has no base mesh yet, 404 if the item isn't in the user's closet, and 503 if storage is unavailable.
+     7. `GET /clothing/{id}/model`, returns `{ downloadUrl: String, contentType: String }`
+        - **Purpose**: Returns a time-limited link to the item's 3D model. Returns 404 if no model has been generated for it.
+     8. `ClothingItem` model: `ClothingItem.find(filter)`
+        - **Purpose**: The Mongoose model of clothing items. Outfit, Recommendation Engine and Social & Rooms read a user's items through it, for example `{ owner: userId, isArchived: false, isClean: true }` for the clean clothes in their closet.
 
 3. **Outfit**
-   - **Purpose**: Stores the user's outfits and checks that every item in an outfit is in the user's closet. It is separate from Closet because an outfit refers to items without owning them: removing an item archives it in Closet, and the outfit still shows it.
+   - **Purpose**: Generates daily outfits from the weather, occasion and wash bin, stores the user's outfits and checks that every item in an outfit is in the user's closet. It is separate from Closet because an outfit refers to items without owning them: removing an item archives it in Closet, and the outfit still shows it.
    - **Interfaces**:
      1. `POST /outfits`, body `{ name: String, occasion?: String, items: List<String> }`, returns `201 Outfit`
         - **Purpose**: Saves an outfit made from items in the user's closet.
@@ -261,28 +278,28 @@ Not included for CP1.
         - **Purpose**: Returns the user's saved outfits, newest first, or one of them.
      3. `PATCH /outfits/{id}`, body with any of `{ name, occasion, items }`, returns `Outfit`, and `DELETE /outfits/{id}`, returns `204`
         - **Purpose**: Edits or deletes a saved outfit.
-     4. `Outfit getOutfit(String outfitId)` and `Outfit saveOutfit(String userId, String name, List<String> itemIds)`
-        - **Purpose**: Read and save outfits for the Avatar component's renders and for rooms' shared outfits.
+     4. `POST /outfits/generate`, body `{ occasion: String, latitude: Double, longitude: Double }`, returns `{ outfit: { name, occasion, items }, weather: Weather? }`
+        - **Purpose**: Generates an outfit from the user's clean clothes for the occasion (`casual`, `work`, `formal` or `workout`) and the current weather, without saving it; the app saves it with `POST /outfits` if the user keeps it. If the weather can't be retrieved, the outfit is generated without it and `weather` is `null`. Returns 400 listing the missing categories if the clean clothes don't include a top and a bottom, and 503 if generation is unavailable.
+     5. `Promise<Outfit> saveOutfit(String ownerId, String name, List<String> itemIds)`
+        - **Purpose**: Saves an outfit for Social & Rooms when a member saves a room's shared outfit.
 
 4. **Avatar**
    - **Purpose**: Generates and stores the user's 3D avatar, and renders realistic images of the avatar wearing an outfit.
    - **Interfaces**:
-     1. `POST /avatar`, body `{ height, shoulderWidth, chestWidth, waistWidth, hipWidth }` (numbers, in cm), returns `201 { downloadUrl: String, contentType: String }`
+     1. `POST /avatar`, body `{ height, shoulderWidth, chestWidth, waistWidth, hipWidth }` (numbers, in metres; the app shows them in cm), returns `201 { downloadUrl: String, contentType: String }`
         - **Purpose**: Generates the user's 3D avatar model (a GLB file) from their measurements, stores it in file storage, saves it to their profile, and returns a time-limited link to download it.
-     2. `POST /outfits/{id}/render`, returns `{ imageUrl: String }`
+     2. `POST /outfits/{id}/render`, returns `{ imageUrl: String }` (planned, not built yet)
         - **Purpose**: Generates a realistic image of the user's avatar wearing the outfit.
    - **Avatar generation**: The avatar is built procedurally on the back-end with Three.js. The body is defined as signed distance fields (ellipsoids, capsules and rounded boxes for each body part, joined with smooth unions) sized from the user's measurements, sampled on a 3D grid, meshed with marching tetrahedra, and exported as a GLB file that the app displays with SceneView.
 
 5. **Recommendation Engine**
-   - **Purpose**: Chooses clothes for the user: it generates daily outfits from the weather, occasion and wash bin, and runs the closet gap analysis that finds items to buy. Both read the closet the same way and reason about which items go together, so they share one component.
+   - **Purpose**: Runs the closet gap analysis that finds items to buy, and searches online stores for items that fill the gaps.
    - **Interfaces**:
-     1. `POST /outfits/generate`, body `{ occasion: String, latitude: Double, longitude: Double }`, returns `{ outfit: { name, occasion, items }, weather: Weather? }`
-        - **Purpose**: Generates an outfit from the user's clean clothes for the occasion (`casual`, `work`, `formal` or `workout`) and the current weather, without saving it; the app saves it with `POST /outfits` if the user keeps it. Returns 400 listing the missing categories if the clean clothes don't include a top and a bottom, and 503 if generation is unavailable.
-     2. `GET /recommendations?country={code}&department={department}`, returns `{ gaps: List<String>, items: List<StoreItem> }`, where a `StoreItem` has `name`, `price`, `imageUrl`, `link`, `store`, `reason` (the gap it fills) and `pairsWith: List<ClothingItem>`
+     1. `GET /recommendations?country={code}&department={department}`, returns `{ gaps: List<String>, items: List<StoreItem> }`, where a `StoreItem` has `name`, `price`, `imageUrl`, `link`, `store`, `reason` (the gap it fills) and `pairsWith: List<ClothingItem>`
         - **Purpose**: Analyzes the user's closet for gaps and returns matching items from online catalogs, each with the closet items it pairs with. `country` is a two-letter code from the device's region and defaults to `ca`. `department` is `mens` or `womens`, chosen on the Shop screen; leaving it out searches all clothing. Items in the wash bin count as part of the closet. Returns 400 listing the missing categories if the closet doesn't include a top and a bottom, and 503 if the store search is unavailable.
 
 6. **Social & Rooms**
-   - **Purpose**: Manages daily outfit posts, ratings and rooms, and delivers chat messages and shared outfit changes to room members in real time.
+   - **Purpose**: Manages daily outfit posts, ratings and rooms, and delivers chat messages and shared outfit changes to room members in real time. Posts and ratings (interfaces 1 to 3) are planned and not built yet.
    - **Interfaces**:
      1. `POST /posts`, body `{ outfitId: String }`, returns `201 Post`
         - **Purpose**: Posts the user's daily outfit for their friends.
@@ -314,8 +331,9 @@ Not included for CP1.
    - **Purpose**: Signs the user in on their device and issues a Google ID token, which the User Manager verifies with Google.
 2. **LLM: Claude API**
    - **Purpose**: Used with Claude Sonnet 5.5 (`claude-sonnet-5-5`) for two tasks: classifying clothing photos (detecting an item's category, color and style, or reporting that the photo is not clothing), and generating daily outfits by picking items from the user's clean clothes for the occasion and weather.
-3. **LLM: Gemini API**
-   - **Purpose**: Renders realistic images of the user's avatar wearing an outfit with the Nano Banana 2.1 image model (`gemini-nano-banana-2.1`).
+   - **Reason**: Both tasks need a model that reads photos and returns a fixed set of fields. The alternatives were OpenAI's GPT models and Google's Gemini, which can also do both. We chose Claude because its API can require the answer to match a JSON schema, so every response has the category, color and style fields the back-end expects, and it can retry a declined request on a fallback model within the same call. Using one provider for both tasks also means one API key and one SDK on the back-end.
+3. **LLM: Gemini API** (planned, not used yet)
+   - **Purpose**: Will render realistic images of the user's avatar wearing an outfit with the Nano Banana 2.1 image model (`gemini-nano-banana-2.1`).
 4. **OpenWeather API**
    - **Purpose**: Provides the current weather at the user's location for daily outfit generation. Chosen because it is widely used and its free plan (1,000,000 calls a month) is far more than the project needs.
 5. **Online Stores / Catalogs (Serper)**
@@ -323,8 +341,8 @@ Not included for CP1.
    - **Reason**: Store APIs don't fit a class project: Amazon's requires recent sales, eBay's needs approval, Etsy's only covers handmade goods, and ASOS and Zalando have no public API. Serper's free plan has 2,500 credits with no credit card, and a search costs 2 credits. The back-end caches each search in MongoDB for 7 days, so usage depends on how many different searches there are rather than how many users open the Shop screen. If a search fails, it shows older cached results when it has them.
 6. **Azure Blob Storage**
    - **Purpose**: Stores clothing photos, avatar models and generated outfit images, and gives the app time-limited links to download them.
-7. **Firebase Cloud Messaging**
-   - **Purpose**: Sends push notifications to the user's device, for example when a friend adds them to a room or posts their daily outfit. Social & Rooms sends the notifications and the app receives them.
+7. **Firebase Cloud Messaging** (planned, not used yet)
+   - **Purpose**: Will send push notifications to the user's device, for example when a friend adds them to a room or posts their daily outfit. Social & Rooms sends the notifications and the app receives them.
 
 ### **4.4. Frameworks and Libraries**
 
@@ -361,7 +379,10 @@ Not included for CP1.
 11. **SceneView**
     - **Purpose**: Displays the avatar's GLB model in the app.
     - **Reason**: Renders 3D models in Compose with Google's Filament engine, without writing a renderer ourselves.
-12. **Jest and mongodb-memory-server**
+12. **@imgly/background-removal-node**
+    - **Purpose**: Removes the background from a clothing item's front photo before its colours are applied to the item's 3D model.
+    - **Reason**: Runs on the back-end without calling an external service, so photos aren't sent to another provider.
+13. **Jest and mongodb-memory-server**
     - **Purpose**: Run the back-end tests and report coverage; the tests use an in-memory MongoDB server.
     - **Reason**: Jest is required by the course; an in-memory database lets the tests run without a real database or credentials.
 
@@ -388,15 +409,24 @@ sequenceDiagram
     CL->>US: requireAuth(request)
     US-->>CL: userId
     CL->>CA: classify front and back photos
-    CA-->>CL: category, color, style
-    CL->>AZ: store front photo
-    AZ-->>CL: stored
-    CL->>AZ: store back photo
-    AZ-->>CL: stored
-    CL->>DB: create clothing item
-    DB-->>CL: saved item
-    CL-->>FE: 201 ClothingItem
-    FE-->>U: Show the new item in the closet
+    alt the photos don't show clothing (5a)
+        CA-->>CL: not clothing
+        CL-->>FE: 422
+        FE-->>U: "This photo doesn't show a clothing item. Try another photo."
+    else classification or storage fails (5b)
+        CL-->>FE: 503, or no response
+        FE-->>U: "Couldn't add the item. Please try again." with "Try again"
+    else classified
+        CA-->>CL: category, color, style
+        CL->>AZ: store front photo
+        AZ-->>CL: stored
+        CL->>AZ: store back photo
+        AZ-->>CL: stored
+        CL->>DB: create clothing item
+        DB-->>CL: saved item
+        CL-->>FE: 201 ClothingItem
+        FE-->>U: Show the new item in the closet
+    end
 ```
 
 2. [**Generate Daily Outfit**](#use-case-2-generate-daily-outfit)
@@ -405,24 +435,41 @@ sequenceDiagram
 sequenceDiagram
     actor U as User
     participant FE as Front-end
-    participant OU as Recommendation Engine
+    participant OU as Outfit
     participant US as User Manager
     participant CL as Closet
     participant WE as OpenWeather API
     participant CA as Claude API
 
     U->>FE: Tap "Generate outfit", select occasion
+    alt location access denied (4c)
+        FE-->>U: "Fabricate needs your approximate location..." with "Try again"
+    end
     FE->>OU: POST /outfits/generate (occasion, location)
     OU->>US: requireAuth(request)
     US-->>OU: userId
-    OU->>CL: getItemsForUser(userId, cleanOnly = true)
+    OU->>CL: ClothingItem.find(owner, clean, not archived)
     CL-->>OU: List<ClothingItem>
+    alt no clean top or bottom (1a)
+        OU-->>FE: 400 { error, missing }
+        FE-->>U: "Your clean clothes don't include a bottom..."
+    end
     OU->>WE: get current weather (location)
-    WE-->>OU: weather
+    alt weather unavailable (4b)
+        WE-->>OU: error
+        Note over OU: generate with weather = null
+    else
+        WE-->>OU: weather
+    end
     OU->>CA: generate outfit (clean items, occasion, weather)
-    CA-->>OU: outfit name and chosen item IDs
-    OU-->>FE: 200 { outfit, weather }
-    FE-->>U: Show the outfit on the avatar
+    alt generation unavailable (4a)
+        OU-->>FE: 503
+        FE-->>U: "Outfits aren't available right now. Try again later."
+    else
+        CA-->>OU: outfit name and chosen item IDs
+        OU-->>FE: 200 { outfit, weather }
+        FE-->>U: Show the outfit's items and the weather
+    end
 ```
 
 3. [**Create Outfits in a Room**](#use-case-3-create-outfits-in-a-room)
@@ -436,7 +483,10 @@ sequenceDiagram
     participant DB as MongoDB
     participant FE2 as Front-end (other members)
 
-    U->>FE: Open room
+    U->>FE: Open Rooms, create or select a room
+    alt no friends to invite (1a)
+        FE-->>U: "Rooms are for styling with friends. Add a friend by email first."
+    end
     FE->>SO: GET /rooms/{id}
     SO->>US: requireAuth(request)
     US-->>SO: userId
@@ -454,6 +504,15 @@ sequenceDiagram
     SO-->>FE2: Message / shared outfit
     SO->>DB: save message or shared outfit
     SO-->>FE: ack { ok: true }
+    alt connection lost (3a)
+        FE-->>U: "Reconnecting…" banner, sending disabled
+        FE->>SO: reconnect (session token, roomId)
+    end
+    alt another member leaves (4a)
+        FE2-xSO: disconnect
+        SO-->>FE: room:memberLeft { name }
+        FE-->>U: "(name) left the room."
+    end
 ```
 
 4. [**Browse Online Outfit / Items**](#use-case-4-browse-online-outfit--items)
@@ -471,13 +530,22 @@ sequenceDiagram
     FE->>OU: GET /recommendations?country&department
     OU->>US: requireAuth(request)
     US-->>OU: userId
-    OU->>CL: getItemsForUser(userId, cleanOnly = false)
+    OU->>CL: ClothingItem.find(owner, not archived)
     CL-->>OU: List<ClothingItem>
+    alt no top or bottom (2a)
+        OU-->>FE: 400 { error, missing }
+        FE-->>U: "Add at least one top and one bottom to your closet..."
+    end
     OU->>OU: Analyze closet gaps
     OU->>ST: search items for each gap not cached in the last 7 days
-    ST-->>OU: matching store items
-    OU-->>FE: 200 { gaps, items }
-    FE-->>U: Show recommended items and pairings
+    alt search fails (3b)
+        OU-->>FE: 503
+        FE-->>U: "Recommendations aren't available right now. Try again."
+    else
+        ST-->>OU: matching store items
+        OU-->>FE: 200 { gaps, items }
+        FE-->>U: Show recommended items and pairings, or "No matching items are available right now" (3a)
+    end
 ```
 
 5. [**Customize Avatar Proportion**](#use-case-5-customize-avatar-proportion)
@@ -492,10 +560,18 @@ sequenceDiagram
     participant DB as MongoDB
 
     U->>FE: Change measurements, tap "Update avatar"
-    FE->>AV: POST /avatar (measurements)
+    FE->>AV: POST /avatar (measurements in metres)
     AV->>US: requireAuth(request)
+    alt session expired (5c)
+        US-->>FE: 401
+        FE-->>U: "Your session has expired. Sign out and sign in again."
+    end
     US-->>AV: userId
     AV->>AV: generate the avatar mesh and export it as GLB
+    alt generation or storage fails (5b)
+        AV-->>FE: 500 or 503
+        FE-->>U: "Couldn't update your avatar. Please try again."
+    end
     AV->>AZ: store the model
     AZ-->>AV: stored
     AV->>DB: save the model's key to the user's profile
@@ -513,6 +589,6 @@ sequenceDiagram
 1. [**Room update latency**](#nfr1)
    - **Implementation**: Social & Rooms keeps a persistent Socket.IO connection with each member's device and pushes each update to the room as soon as it arrives, so devices never wait on polling. The update is sent to members before the database write, so storage time does not add to delivery time.
 2. [**Clothing upload time**](#nfr2)
-   - **Implementation**: Photos are limited to 5 MB and checked for type and size before anything else, so invalid uploads fail immediately. The back-end checks that storage is configured before calling the classifier, and the classifier call has a timeout, so a slow or rate-limited service returns a clear 503 error instead of leaving the user waiting.
+   - **Implementation**: Photos are limited to 5 MB and checked for type and size before anything else, so invalid uploads fail immediately. The back-end checks that storage is configured before calling the classifier. Both photos are classified in one request to the Claude API with low reasoning effort, which takes about 3 seconds. The classifier call has a 30-second timeout and up to 2 retries, so when the Claude API is slow or failing, an upload can take longer than 10 seconds before the user sees an error; lowering the timeout so failures also end within 10 seconds is planned.
 3. [**Closet analysis time**](#nfr3)
    - **Implementation**: The Recommendation Engine's gap analysis loads the user's items in one database query (indexed by user ID) and runs entirely in memory, counting items per category, color and style and checking pairings without further database or network calls. The catalog search runs only after the analysis, once per gap found.
