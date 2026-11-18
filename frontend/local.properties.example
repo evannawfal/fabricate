@@ -5,7 +5,8 @@ sdk.dir=/path/to/Android/sdk
 
 # Back-end base URL baked into the APK at build time. Use the deployed server,
 # or http://10.0.2.2:3000 for a back-end running on your machine (emulator only).
-API_BASE_URL=https://api.evannawfal.com
+# API_BASE_URL=https://api.evannawfal.com
+API_BASE_URL=https://34-172-67-35.nip.io
 
 # Google OAuth Web client ID (the back-end's client ID). It is not a secret.
 GOOGLE_CLIENT_ID=361509686629-13v3sohhm7q2j8m41qke17p5ibisqon8.apps.googleusercontent.com

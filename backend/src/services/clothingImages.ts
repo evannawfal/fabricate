@@ -1,5 +1,6 @@
 import { toClothingItemResponse, type ClothingItemDocument, type ClothingItemResponse } from '../models/clothingItem.js';
 import { getFileStorage, isFileStorageConfigured } from './storage.js';
+import { referencePointsForItem } from './garmentMesh.js';
 
 // A fresh download link for one of an item's photos. Returns null (instead of failing the request)
 // when there is no such photo or storage isn't available, so the closet still loads without images.
@@ -20,7 +21,8 @@ export async function toClothingItemResponseWithImage(item: ClothingItemDocument
     downloadUrlFor(item, item.imageKey),
     downloadUrlFor(item, item.backImageKey),
   ]);
-  return toClothingItemResponse(item, imageUrl, backImageUrl);
+  const referencePoints = referencePointsForItem(item);
+  return toClothingItemResponse(item, imageUrl, backImageUrl, referencePoints);
 }
 
 export async function toClothingItemResponsesWithImages(items: ClothingItemDocument[]): Promise<ClothingItemResponse[]> {

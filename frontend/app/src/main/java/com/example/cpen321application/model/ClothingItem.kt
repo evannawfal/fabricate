@@ -26,6 +26,26 @@ enum class PhotoSide(val label: String) {
     Back("back"),
 }
 
+data class Point3D(val x: Float, val y: Float, val z: Float)
+
+data class GarmentReferencePoints(
+    val type: String,
+    val points: Map<String, Point3D> = emptyMap(),
+    val boundingBoxCenterZ: Float = 0f,
+    val sleeve: String? = null,
+) {
+    val leftShoulder: Point3D? get() = points["leftShoulder"]
+    val rightShoulder: Point3D? get() = points["rightShoulder"]
+    val bottomHem: Point3D? get() = points["bottomHem"]
+    val sleeveOpeningLeft: Point3D? get() = points["sleeveOpeningLeft"]
+    val sleeveOpeningRight: Point3D? get() = points["sleeveOpeningRight"]
+
+    val topHemLeft: Point3D? get() = points["topHemLeft"]
+    val topHemRight: Point3D? get() = points["topHemRight"]
+    val bottomHemLeft: Point3D? get() = points["bottomHemLeft"]
+    val bottomHemRight: Point3D? get() = points["bottomHemRight"]
+}
+
 data class ClothingItem(
     val id: String,
     val name: String,
@@ -35,11 +55,11 @@ data class ClothingItem(
     val tags: List<String> = emptyList(),
     val isClean: Boolean = true,
     val imageUrl: String? = null,
-    val backImageUrl: String? = null,   // new
+    val backImageUrl: String? = null,
     val hasModel: Boolean = false,
+    val referencePoints: GarmentReferencePoints? = null,
 )
 
 /** Items in [category], defaults to every item when [category] is null. */
 fun List<ClothingItem>.filterByCategory(category: ClothingCategory?): List<ClothingItem> =
     if (category == null) this else filter { it.category == category }
-

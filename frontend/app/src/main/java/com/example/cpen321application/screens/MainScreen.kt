@@ -44,6 +44,7 @@ import com.example.cpen321application.viewmodel.OutfitsViewModel
 import com.example.cpen321application.viewmodel.PostsViewModel
 import com.example.cpen321application.viewmodel.ProfileViewModel
 import com.example.cpen321application.viewmodel.ShopViewModel
+import com.example.cpen321application.screens.avatar.AvatarRoute
 
 /** Top-level tabs reachable from the bottom navigation bar. */
 enum class Tab(@StringRes val labelRes: Int, val icon: ImageVector) {
