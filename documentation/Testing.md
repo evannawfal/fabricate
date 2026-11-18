@@ -10,6 +10,7 @@
 | 2026-10-29 | 2, 3 | Updated for CP2. Added `POST /avatar` and `POST /outfits/generate` to the back-end test table and the mocked components, and pointed every test link at the current line. Updated the commit hash, the run instructions and the coverage screenshots, added a report of every back-end test together with the reasons each file below 100% can't be fully covered, and covered the error handler's branches listed for CP2. Section 3 now names the two non-functional requirements that are tested automatically; their tests come with the features they measure. |
 | 2026-11-03 | 2.1.1, 2.3, 2.5 | Updated the Clothing upload test documentation for required front and back photos. Added the front-photo upload failure case and documented cleanup attempts for both generated storage keys. |
 | 2026-11-04 | 2, 4 | Final update for CP2. Added the friends, profile (`/users/me`), rooms, room Socket.IO and garment model interfaces to the back-end test table, completed the `POST /clothing` test cases for front and back photos, and pointed every test link at the submission commit. Updated the test counts, coverage screenshots and the reasons each file below 100% can't be fully covered. Section 4 now follows the two-photo Add Clothing Items use case and has a new log. |
+| 2026-11-17 | 4 | Added the Create Outfits in a Room end-to-end test (`JoinRoomTest.kt`), with the steps the second tester (User B) follows, and its scenario-to-test-step table. |
 
 ---
 
@@ -296,6 +297,27 @@ The test opens the app's main screen, signed in as the tester, and talks to the 
 
 The test finds item cards, their photos and the loading indicator by the test tags `closet_item`, `closet_item_image` and `upload_progress`.
 
+The Create Outfits in a Room use case is tested by [`JoinRoomTest.kt`](https://github.com/evannawfal/fabricate/blob/main/frontend/app/src/androidTest/java/com/example/cpen321application/e2e/JoinRoomTest.kt) in the same folder, against the deployed back-end. A room needs two people, so the test is User A, signed in on the emulator, and a team member is User B, signed in to the app on another device and following the steps below while the test runs.
+
+- Give the test User B's account email: run `ROOM_FRIEND_EMAIL=<User B's email> scripts/run-frontend-e2e-tests.sh` (in PowerShell, set `$env:ROOM_FRIEND_EMAIL` first). Without it the room test is skipped, so the other end-to-end tests can still run on their own.
+- User B must have signed in to the app at least once and have at least one item in their closet.
+- Before the main scenario, the test makes User A and User B friends if they aren't already, and adds "E2E Room Tee" to User A's closet. It creates a room called "E2E Test Room". The app can't delete rooms, so the room stays in both users' room lists.
+- For failure 1a, the test removes all of User A's friends through `DELETE /friends/:id`, since the app has no way to remove a friend yet.
+- To lose the connection (failure 3a), the test turns off the emulator's Wi-Fi and mobile data, then turns them back on.
+- After each test, it turns the network back on, adds back any friend it removed, and deletes the item and any outfit it added.
+- Each step where the test waits for User B is logged (`adb logcat -s JoinRoomTest`), and the test waits up to 3 minutes for each.
+
+**Steps for User B**, in order:
+
+1. When User A's screen shows the new room, open the Rooms tab, open "E2E Test Room" (the first room) and send the message "Hi from User B".
+2. Check that "Hi from User A" appears in the chat.
+3. Check that "E2E Room Tee" appears on the shared outfit, then add any item from your closet to it.
+4. Check that "E2E Room Tee" disappears from the shared outfit.
+5. You'll see that User A left the room: their connection is being cut on purpose. Wait for the message "Back online" to appear in the chat.
+6. Leave the room with the Back button. The test then checks that User A can keep using the room.
+
+The test finds the rooms screens' elements by the test tags `create_room`, `room_name_field`, `friend_checkbox`, `friend_email_field`, `chat_input`, `send_message`, `chat_message`, `add_board_item`, `closet_picker_item`, `board_item`, `save_room_outfit` and `reconnecting_banner`.
+
 ### 4.2. Tests
 
 - **Use Case: Add Clothing Items**
@@ -349,3 +371,36 @@ The test finds item cards, their photos and the loading indicator by the test ta
       choosingAClothingPhoto_addsTheItemFirstWithItsDetectedDetails     PASSED (8.88 s)
       closingThePhotoPicker_leavesTheClosetUnchanged                    PASSED (5.88 s)
     ```
+
+- **Use Case: Create Outfits in a Room**
+
+  **Main success scenario**
+  1. The user opens the Rooms screen and selects a room, or creates one and invites friends from their friend list.
+  2. The app shows the room's chat and the shared outfit board.
+  3. The user sends a chat message, or adds an item from their closet to the shared outfit board or removes an item from it.
+  4. The message or outfit change appears on every room member's screen.
+  5. The user taps "Save outfit" to save the items from their own closet on the shared outfit board to their outfits.
+
+  **Failure scenarios**
+  - 1a. The user has no friends in their friend list to invite.
+    - 1a1. The app explains that friends must be added first and lets the user add a friend by email.
+  - 3a. The connection to the server is lost.
+    - 3a1. The app shows a "Reconnecting" banner and disables sending until the connection is restored.
+  - 4a. Another member leaves the room.
+    - 4a1. The app shows a notice that the member left, and the room continues for the remaining members.
+
+  - **Expected Behaviors:**
+
+    | **Scenario Steps** | **Test Case Steps** |
+    | ------------------ | ------------------- |
+    | 1. The user opens the Rooms screen and selects a room, or creates one and invites friends from their friend list. | `roomWithAFriend_sharesMessagesAndOutfitChangesLive`: make User A and User B friends, and add "E2E Room Tee" to User A's closet.<br>Click "Rooms" in the bottom navigation bar, then the button tagged `create_room`.<br>Type "E2E Test Room" in the field tagged `room_name_field`, check the box (tagged `friend_checkbox`) next to User B's name, and click "Create". |
+    | 2. The app shows the room's chat and the shared outfit board. | Wait up to 10 seconds for the room to connect: the chat input (tagged `chat_input`) is present and the banner tagged `reconnecting_banner` is not.<br>Check that the texts "E2E Test Room" and "Shared outfit" and the button tagged `add_board_item` are displayed. |
+    | 3. The user sends a chat message, or adds an item from their closet to the shared outfit board or removes an item from it. | User B sends "Hi from User B" (User B step 1).<br>Type "Hi from User A" in the chat input and click the button tagged `send_message`.<br>Click the button tagged `add_board_item`, then the item tagged `closet_picker_item` named "E2E Room Tee".<br>User B adds one of their items to the board (User B step 3).<br>After step 5, click "Remove E2E Room Tee" on the board. |
+    | 4. The message or outfit change appears on every room member's screen. | Wait up to 3 minutes for a chat message (tagged `chat_message`) showing User B's name and "Hi from User B".<br>Wait up to 10 seconds for "Hi from User A" to be present; User B checks it appears (User B step 2).<br>Wait up to 10 seconds for one item (tagged `board_item`) on the board; User B checks it appears (User B step 3).<br>Wait up to 3 minutes for User B's item: two items on the board.<br>After removing "E2E Room Tee", wait up to 10 seconds for one item on the board; User B checks it's gone (User B step 4). |
+    | 5. The user taps "Save outfit" to save the items from their own closet on the shared outfit board to their outfits. | Click the button tagged `save_room_outfit`.<br>Wait up to 10 seconds for the notice "Outfit saved to your outfits."<br>Check that the back-end has exactly one new outfit for User A, holding only "E2E Room Tee" and not User B's item. |
+    | 1a. The user has no friends in their friend list to invite. | `noFriends_explainsAndLetsTheUserAddOneByEmail`: remove all of User A's friends.<br>Click "Rooms" in the bottom navigation bar, then the button tagged `create_room`. |
+    | 1a1. The app explains that friends must be added first and lets the user add a friend by email. | Check that the text "Rooms are for styling with friends. Add a friend by email first." is displayed, that there is no room name field (tagged `room_name_field`), and that "Create" is disabled.<br>Type User B's email in the field tagged `friend_email_field` and click "Add".<br>Wait up to 10 seconds for one friend checkbox (tagged `friend_checkbox`), and check that the room name field is displayed.<br>Click "Cancel", and check that the back-end lists User B as User A's only friend. |
+    | 3a. The connection to the server is lost. | In `roomWithAFriend_sharesMessagesAndOutfitChangesLive`, after step 4: turn off the emulator's Wi-Fi and mobile data. |
+    | 3a1. The app shows a "Reconnecting" banner and disables sending until the connection is restored. | Wait up to 30 seconds for the banner tagged `reconnecting_banner`, and check that it shows "Reconnecting…".<br>Type "Back online" in the chat input, and check that the send button and the button tagged `add_board_item` are disabled.<br>Turn the Wi-Fi and mobile data back on, and wait up to 30 seconds for the banner to disappear.<br>Check that the send button is enabled, click it, and wait for "Back online" to be present; User B checks it appears (User B step 5). |
+    | 4a. Another member leaves the room. | User B leaves the room (User B step 6). |
+    | 4a1. The app shows a notice that the member left, and the room continues for the remaining members. | Wait up to 3 minutes for the notice "<User B's name> left the room."<br>Send "Still here" and wait for it to be present in the chat. |
