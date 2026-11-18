@@ -1,36 +1,55 @@
 import fs from "node:fs/promises";
-import path from "node:path";
 
 interface SolidColourOptions {
   inputPath: string;
   colour: string;
 }
 
+interface CachedGlbTemplate {
+  jsonChunk: any;
+  binChunkBuffer: Buffer | null;
+}
+
+const glbTemplateCache = new Map<string, CachedGlbTemplate>();
+
 /**
- * Converts a hex colour string to normalized RGBA array.
+ * Converts a single sRGB channel [0, 1] to Linear RGB [0, 1] per glTF 2.0 spec.
+ */
+function srgbToLinear(c: number): number {
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+
+/**
+ * Converts a hex colour string (sRGB) to Linear RGBA array.
  */
 function hexToRgba(hex: string): [number, number, number, number] {
   let c = hex.replace("#", "");
   if (c.length === 3) {
-    c = c.split("").map((char) => char + char).join("");
+    c = c
+      .split("")
+      .map((char) => char + char)
+      .join("");
   }
   const num = parseInt(c, 16);
   return [
-    ((num >> 16) & 255) / 255,
-    ((num >> 8) & 255) / 255,
-    (num & 255) / 255,
+    srgbToLinear(((num >> 16) & 255) / 255),
+    srgbToLinear(((num >> 8) & 255) / 255),
+    srgbToLinear((num & 255) / 255),
     1.0,
   ];
 }
 
 /**
- * Applies a solid colour to every material in a GLB model
- * by directly editing its JSON chunk and saving a new GLB.
+ * Loads and parses a GLB file from disk once, caching its JSON and BIN chunks in memory.
  */
-export async function applySolidColour({
-  inputPath,
-  colour,
-}: SolidColourOptions): Promise<Uint8Array> {
+async function getCachedGlbTemplate(
+  inputPath: string
+): Promise<CachedGlbTemplate> {
+  const cached = glbTemplateCache.get(inputPath);
+  if (cached) {
+    return cached;
+  }
+
   const buffer = await fs.readFile(inputPath);
 
   // Validate GLB header
@@ -54,14 +73,12 @@ export async function applySolidColour({
     const chunkType = buffer.readUInt32LE(offset + 4);
     const dataOffset = offset + 8;
 
-    if (chunkType === 0x4E4F534A) {
-      // JSON chunk (JSON)
+    if (chunkType === 0x4e4f534a) {
       const jsonString = buffer
         .toString("utf8", dataOffset, dataOffset + chunkLength)
         .replace(/\0+$/, "");
       jsonChunk = JSON.parse(jsonString);
-    } else if (chunkType === 0x004E4942) {
-      // Binary chunk (BIN)
+    } else if (chunkType === 0x004e4942) {
       binChunkBuffer = buffer.subarray(dataOffset, dataOffset + chunkLength);
     }
 
@@ -72,10 +89,27 @@ export async function applySolidColour({
     throw new Error("GLB JSON chunk not found.");
   }
 
-  const rgba = hexToRgba(colour);
-  let materialCount = 0;
+  const template: CachedGlbTemplate = { jsonChunk, binChunkBuffer };
+  glbTemplateCache.set(inputPath, template);
+  return template;
+}
 
-  // Update all materials with the solid color and clear texture maps so color applies cleanly
+/**
+ * Applies a solid colour to every material in a GLB model
+ * using the cached GLB template and saving a new GLB buffer.
+ */
+export async function applySolidColour({
+  inputPath,
+  colour,
+}: SolidColourOptions): Promise<Uint8Array> {
+  const { jsonChunk: cachedJson, binChunkBuffer } =
+    await getCachedGlbTemplate(inputPath);
+
+  // Shallow/structured clone of JSON so cached materials aren't mutated across requests
+  const jsonChunk = structuredClone(cachedJson);
+  const rgba = hexToRgba(colour);
+
+  // Update all materials with the solid color and clear texture maps
   if (jsonChunk.materials && jsonChunk.materials.length > 0) {
     jsonChunk.materials.forEach((material: any) => {
       if (!material.pbrMetallicRoughness) {
@@ -85,17 +119,14 @@ export async function applySolidColour({
       material.pbrMetallicRoughness.roughnessFactor = 0.85;
       material.pbrMetallicRoughness.metallicFactor = 0.0;
 
-      // Remove texture overrides so the flat solid color takes full effect
       delete material.pbrMetallicRoughness.baseColorTexture;
       delete material.normalTexture;
       delete material.emissiveTexture;
-      materialCount++;
     });
   } else {
     throw new Error("No materials found in input GLB JSON.");
   }
 
-  // Re-encode JSON and pad with spaces (0x20) to ensure 4-byte boundary alignment required by GLB spec
   let newJsonString = JSON.stringify(jsonChunk);
   const paddedLength = Math.ceil(newJsonString.length / 4) * 4;
   newJsonString = newJsonString.padEnd(paddedLength, " ");
@@ -120,7 +151,7 @@ export async function applySolidColour({
 
   outputBuffer.writeUInt32LE(newJsonBuffer.length, writeOffset);
   writeOffset += 4;
-  outputBuffer.writeUInt32LE(0x4E4F534A, writeOffset);
+  outputBuffer.writeUInt32LE(0x4e4f534a, writeOffset);
   writeOffset += 4;
   newJsonBuffer.copy(outputBuffer, writeOffset);
   writeOffset += newJsonBuffer.length;
@@ -128,11 +159,10 @@ export async function applySolidColour({
   if (binChunkBuffer) {
     outputBuffer.writeUInt32LE(binChunkBuffer.length, writeOffset);
     writeOffset += 4;
-    outputBuffer.writeUInt32LE(0x004E4942, writeOffset);
+    outputBuffer.writeUInt32LE(0x004e4942, writeOffset);
     writeOffset += 4;
     binChunkBuffer.copy(outputBuffer, writeOffset);
     writeOffset += binChunkBuffer.length;
   }
-
   return new Uint8Array(outputBuffer);
 }
