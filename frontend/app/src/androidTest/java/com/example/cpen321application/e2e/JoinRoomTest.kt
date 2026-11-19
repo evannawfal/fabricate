@@ -11,11 +11,14 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.cpen321application.BuildConfig
@@ -38,6 +41,7 @@ import com.example.cpen321application.screens.CREATE_ROOM_TAG
 import com.example.cpen321application.screens.FRIEND_CHECKBOX_TAG
 import com.example.cpen321application.screens.FRIEND_EMAIL_FIELD_TAG
 import com.example.cpen321application.screens.RECONNECTING_BANNER_TAG
+import com.example.cpen321application.screens.ROOM_ITEM_TAG
 import com.example.cpen321application.screens.ROOM_NAME_FIELD_TAG
 import com.example.cpen321application.screens.SAVE_ROOM_OUTFIT_TAG
 import com.example.cpen321application.screens.SEND_MESSAGE_TAG
@@ -129,11 +133,11 @@ class JoinRoomTest {
         return rooms.listFriends().firstOrNull { it.email.equals(email, ignoreCase = true) } ?: rooms.addFriend(email)
     }
 
-    private suspend fun addTestItem(): ClothingItem {
+    private suspend fun addTestItem(name: String, category: ClothingCategory): ClothingItem {
         val photo = instrumentation.context.assets.open(SHIRT_PHOTO).use { it.readBytes() }
         val uploaded = closet.uploadPhotos(photo, photo)
         addedItems += uploaded
-        return closet.updateItem(uploaded.id, ClothingItemChanges(TEST_ITEM, ClothingCategory.Top, "black", "casual"))
+        return closet.updateItem(uploaded.id, ClothingItemChanges(name, category, "black", "casual"))
     }
 
     private fun waitFor(timeoutMillis: Long, condition: () -> Boolean) = composeRule.waitUntil(timeoutMillis, condition)
@@ -169,12 +173,14 @@ class JoinRoomTest {
         assertEquals(listOf(friendEmail.lowercase()), runBlocking { rooms.listFriends() }.map { it.email.lowercase() })
     }
 
-    // Main success scenario, with failures 3a and 4a
+    // Main success scenario, with failures 3a, 4a and 4b
     @Test
     fun roomWithAFriend_sharesMessagesAndOutfitChangesLive() {
-        val (friend, item) = runBlocking { friendB() to addTestItem() }
+        val (friend, tee, jeans) = runBlocking {
+            Triple(friendB(), addTestItem(TEST_ITEM, ClothingCategory.Top), addTestItem(ITEM_FOR_B, ClothingCategory.Bottom))
+        }
 
-        // Step 1: create a room and invite User B.
+        // Step 1: create a room and invite User B. User A is its host.
         openCreateRoom()
         composeRule.onNodeWithTag(ROOM_NAME_FIELD_TAG).performTextInput(ROOM_NAME)
         composeRule.onNode(hasTestTag(FRIEND_CHECKBOX_TAG) and hasAnySibling(hasText(friend.name))).performClick()
@@ -185,6 +191,7 @@ class JoinRoomTest {
         composeRule.onNodeWithText(ROOM_NAME).assertIsDisplayed()
         composeRule.onNodeWithText("Shared outfit").assertIsDisplayed()
         composeRule.onNodeWithTag(ADD_BOARD_ITEM_TAG).assertIsDisplayed()
+        composeRule.onNodeWithTag(SAVE_ROOM_OUTFIT_TAG).assertIsDisplayed()
 
         // Steps 3-4: User B's message reaches User A.
         userB("open the Rooms tab, open \"$ROOM_NAME\" (the first room) and send \"$MESSAGE_FROM_B\".")
@@ -199,38 +206,47 @@ class JoinRoomTest {
         waitForText(MESSAGE_FROM_A, UI_TIMEOUT_MS)
         userB("check that \"$MESSAGE_FROM_A\" appears in the chat.")
 
-        // Steps 3-4: User A adds an item to the board; User B checks it appears.
+        // Steps 3-4: User A adds an item from their closet to the board; User B checks it appears.
         composeRule.onNodeWithTag(ADD_BOARD_ITEM_TAG).performClick()
         composeRule.onNode(hasTestTag(CLOSET_PICKER_ITEM_TAG) and hasText(TEST_ITEM, substring = true)).performClick()
         waitFor(UI_TIMEOUT_MS) { countOf(BOARD_ITEM_TAG) == 1 }
-        userB("check that \"$TEST_ITEM\" appears on the shared outfit, then add any item from your closet to it.")
+        userB(
+            "check that \"$TEST_ITEM\" appears on the shared outfit and that you have no \"Save outfit\" button, " +
+                "then add \"$ITEM_FOR_B\" from User A's closet.",
+        )
 
-        // Steps 3-4: User B's item reaches User A's board.
+        // Steps 3-4: the item User B picked from the host's closet reaches User A's board.
         waitFor(USER_B_TIMEOUT_MS) { countOf(BOARD_ITEM_TAG) == 2 }
+        composeRule.onNodeWithContentDescription("Remove $ITEM_FOR_B").assertExists()
 
-        // Step 5: saving keeps only User A's own item.
+        // Step 5: the host saves the whole shared outfit.
         composeRule.onNodeWithTag(SAVE_ROOM_OUTFIT_TAG).performClick()
         waitForText("Outfit saved to your outfits.", UI_TIMEOUT_MS)
         val saved = runBlocking {
             val idsBefore = requireNotNull(outfitsBefore).map { it.id }.toSet()
             outfits.listOutfits().single { it.id !in idsBefore }
         }
-        assertEquals(listOf(item.id), saved.items.map { it.id })
+        assertEquals(setOf(tee.id, jeans.id), saved.items.map { it.id }.toSet())
 
-        // Steps 3-4: User A removes their item; User B checks it's gone.
+        // Steps 3-4: User A removes an item; User B checks it's gone.
         composeRule.onNodeWithContentDescription("Remove $TEST_ITEM").performClick()
         waitFor(UI_TIMEOUT_MS) { countOf(BOARD_ITEM_TAG) == 1 }
         userB("check that \"$TEST_ITEM\" is no longer on the shared outfit.")
 
-        // Failure 3a: the connection is lost, then restored.
+        // Failures 3a and 4b: the connection is lost, User B sends a message User A misses, and
+        // User A reloads the room once the connection is back.
         setNetwork(enabled = false)
         waitFor(RECONNECT_TIMEOUT_MS) { countOf(RECONNECTING_BANNER_TAG) == 1 }
         composeRule.onNodeWithText("Reconnecting…").assertIsDisplayed()
         composeRule.onNodeWithTag(CHAT_INPUT_TAG).performTextInput(MESSAGE_OFFLINE)
         composeRule.onNodeWithTag(SEND_MESSAGE_TAG).assertIsNotEnabled()
         composeRule.onNodeWithTag(ADD_BOARD_ITEM_TAG).assertIsNotEnabled()
+        userB("User A's connection is cut for a minute: within that minute, send \"$MESSAGE_WHILE_AWAY\".")
+        Thread.sleep(OFFLINE_FOR_USER_B_MS)
         setNetwork(enabled = true)
         waitFor(RECONNECT_TIMEOUT_MS) { countOf(RECONNECTING_BANNER_TAG) == 0 }
+        composeRule.onAllNodesWithTag(CHAT_MESSAGE_TAG).onFirst().performTouchInput { swipeDown() }
+        waitForText(MESSAGE_WHILE_AWAY, UI_TIMEOUT_MS)
         composeRule.onNodeWithTag(SEND_MESSAGE_TAG).assertIsEnabled().performClick()
         waitForText(MESSAGE_OFFLINE, UI_TIMEOUT_MS)
         userB("check that \"$MESSAGE_OFFLINE\" appears in the chat, then leave the room with the Back button.")
@@ -241,16 +257,26 @@ class JoinRoomTest {
         composeRule.onNodeWithTag(SEND_MESSAGE_TAG).performClick()
         waitForText(MESSAGE_AFTER_LEAVE, UI_TIMEOUT_MS)
         userB("done.")
+
+        // Step 1: the Rooms screen shows when the new room expires, 2 days after it was created.
+        composeRule.onNodeWithContentDescription("Back").performClick()
+        waitFor(UI_TIMEOUT_MS) { countOf(ROOM_ITEM_TAG) > 0 }
+        // Earlier runs' rooms have the same name until they expire, and the newest room is listed first.
+        composeRule.onAllNodes(
+            hasTestTag(ROOM_ITEM_TAG) and hasText(ROOM_NAME) and hasText("Expires in 1 day", substring = true),
+        ).onFirst().assertExists()
     }
 
     private companion object {
         const val TAG = "JoinRoomTest"
         const val SHIRT_PHOTO = "shirt.jpg"
         const val TEST_ITEM = "E2E Room Tee"
+        const val ITEM_FOR_B = "E2E Room Jeans"
         const val ROOM_NAME = "E2E Test Room"
         const val MESSAGE_FROM_A = "Hi from User A"
         const val MESSAGE_FROM_B = "Hi from User B"
         const val MESSAGE_OFFLINE = "Back online"
+        const val MESSAGE_WHILE_AWAY = "Sent while you were away"
         const val MESSAGE_AFTER_LEAVE = "Still here"
         const val UI_TIMEOUT_MS = 10_000L
 
@@ -259,5 +285,8 @@ class JoinRoomTest {
 
         // Time for User B to read the step and do it.
         const val USER_B_TIMEOUT_MS = 180_000L
+
+        // How long User A stays offline so User B can send a message User A misses.
+        const val OFFLINE_FOR_USER_B_MS = 60_000L
     }
 }
