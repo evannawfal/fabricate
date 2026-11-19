@@ -4,10 +4,13 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.cpen321application.data.Friend
@@ -20,9 +23,12 @@ import com.example.cpen321application.screens.ADD_BOARD_ITEM_TAG
 import com.example.cpen321application.screens.CREATE_ROOM_TAG
 import com.example.cpen321application.screens.FRIEND_CHECKBOX_TAG
 import com.example.cpen321application.screens.FRIEND_EMAIL_FIELD_TAG
+import com.example.cpen321application.screens.ROOMS_LIST_TAG
 import com.example.cpen321application.screens.ROOM_NAME_FIELD_TAG
 import com.example.cpen321application.screens.RoomsRoute
 import com.example.cpen321application.screens.SAVE_ROOM_OUTFIT_TAG
+import java.time.Duration
+import java.time.Instant
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,6 +37,14 @@ import org.junit.runner.RunWith
 class RoomsScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    private fun room(id: String, name: String, hostId: String = "me", expiresIn: Duration = Duration.ofDays(2)) = Room(
+        id,
+        name,
+        listOf(RoomMember("me", "Me"), RoomMember("f1", "Sam")),
+        hostId,
+        Instant.now() + expiresIn,
+    )
 
     private fun showRooms(repository: FakeRoomsRepository) {
         composeRule.setContent { RoomsRoute(repository) }
@@ -65,8 +79,7 @@ class RoomsScreenTest {
 
     @Test
     fun opensARoomFromTheListAndBackReturns() {
-        val room = Room("r1", "Brunch", listOf(RoomMember("me", "Me"), RoomMember("f1", "Sam")), hostId = "me")
-        showRooms(FakeRoomsRepository(rooms = listOf(room)))
+        showRooms(FakeRoomsRepository(rooms = listOf(room("r1", "Brunch"))))
 
         composeRule.onNodeWithText("Me, Sam").assertIsDisplayed()
         composeRule.onNodeWithText("Brunch").performClick()
@@ -79,7 +92,7 @@ class RoomsScreenTest {
 
     @Test
     fun joinerPicksFromTheHostsClosetByCategoryAndCannotSave() {
-        val room = Room("r1", "Brunch", listOf(RoomMember("f1", "Sam"), RoomMember("me", "Me")), hostId = "f1")
+        val room = room("r1", "Brunch", hostId = "f1")
         val closet = listOf(
             ClothingItem("1", "Blue Shirt", ClothingCategory.Top, "blue", "casual"),
             ClothingItem("2", "Black Jeans", ClothingCategory.Bottom, "black", "casual"),
@@ -96,5 +109,24 @@ class RoomsScreenTest {
         composeRule.onNodeWithText("Blue Shirt").assertIsDisplayed()
         composeRule.onNodeWithText("Bottoms").assertIsDisplayed()
         composeRule.onNodeWithText("Black Jeans").assertIsDisplayed()
+    }
+
+    @Test
+    fun showsWhenEachRoomExpires() {
+        showRooms(FakeRoomsRepository(rooms = listOf(room("r1", "Brunch", expiresIn = Duration.ofHours(30).plusMinutes(5)))))
+
+        composeRule.onNodeWithText("Expires in 1 day 6 h").assertIsDisplayed()
+    }
+
+    @Test
+    fun pullingDownReloadsTheRooms() {
+        val repository = FakeRoomsRepository(rooms = listOf(room("r1", "Brunch")))
+        showRooms(repository)
+        composeRule.onNodeWithText("Brunch").assertIsDisplayed()
+
+        repository.rooms.add(0, room("r2", "Party fits"))
+        composeRule.onNodeWithTag(ROOMS_LIST_TAG).performTouchInput { swipeDown() }
+
+        composeRule.waitUntil { composeRule.onAllNodesWithText("Party fits").fetchSemanticsNodes().isNotEmpty() }
     }
 }

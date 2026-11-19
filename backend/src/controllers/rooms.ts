@@ -30,6 +30,7 @@ async function toRoomResponses(rooms: RoomDocument[]) {
     members: room.members.map((id) => ({ id: id.toString(), name: namesById.get(id.toString()) ?? 'Unknown user' })),
     createdAt: room.createdAt,
     updatedAt: room.updatedAt,
+    expiresAt: new Date(room.createdAt.getTime() + ROOM_LIMITS.lifetimeSeconds * 1000),
   }));
 }
 

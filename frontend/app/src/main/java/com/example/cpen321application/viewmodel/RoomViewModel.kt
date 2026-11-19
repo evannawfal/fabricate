@@ -25,6 +25,7 @@ data class RoomUiState(
     val hasConnected: Boolean = false,
     val loadError: String? = null,
     val isSaving: Boolean = false,
+    val isRefreshing: Boolean = false,
     val notice: String? = null,
 ) {
     val isHost: Boolean get() = room != null && room.hostId == currentUserId
@@ -50,6 +51,7 @@ class RoomViewModel(
                 val detail = rooms.getRoom(roomId)
                 _uiState.update {
                     it.copy(
+                        isRefreshing = false,
                         room = detail.room,
                         currentUserId = rooms.currentUserId(),
                         messages = detail.messages,
@@ -62,9 +64,16 @@ class RoomViewModel(
                 // The screen may have closed while the room was loading.
                 if (hasLeft) leave()
             } catch (e: ApiException) {
-                _uiState.update { it.copy(loadError = e.message) }
+                _uiState.update { it.copy(loadError = e.message, isRefreshing = false) }
             }
         }
+    }
+
+    /** Reloads the room and reconnects, in case a live update was missed. */
+    fun refresh() {
+        if (_uiState.value.isRefreshing) return
+        _uiState.update { it.copy(isRefreshing = true) }
+        load()
     }
 
     fun sendMessage(text: String) {

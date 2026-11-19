@@ -1,12 +1,19 @@
 package com.example.cpen321application.data
 
 import com.example.cpen321application.model.ClothingItem
+import java.time.Instant
 
 data class Friend(val id: String, val name: String, val email: String)
 
 data class RoomMember(val id: String, val name: String)
 
-data class Room(val id: String, val name: String, val members: List<RoomMember>, val hostId: String) {
+data class Room(
+    val id: String,
+    val name: String,
+    val members: List<RoomMember>,
+    val hostId: String,
+    val expiresAt: Instant,
+) {
     val hostName: String? get() = members.firstOrNull { it.id == hostId }?.name
 }
 

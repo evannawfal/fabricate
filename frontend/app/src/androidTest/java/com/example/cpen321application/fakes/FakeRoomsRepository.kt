@@ -8,6 +8,8 @@ import com.example.cpen321application.data.RoomListener
 import com.example.cpen321application.data.RoomMember
 import com.example.cpen321application.data.RoomsRepository
 import com.example.cpen321application.model.ClothingItem
+import java.time.Duration
+import java.time.Instant
 
 /** In-memory rooms for UI tests; [connect] reports connected right away and drops sent events. */
 class FakeRoomsRepository(
@@ -24,7 +26,8 @@ class FakeRoomsRepository(
 
     override suspend fun createRoom(name: String, friendIds: List<String>): Room {
         val members = listOf(RoomMember("me", "Me")) + friends.filter { it.id in friendIds }.map { RoomMember(it.id, it.name) }
-        return Room("room-${rooms.size + 1}", name, members, hostId = "me").also { rooms.add(0, it) }
+        val room = Room("room-${rooms.size + 1}", name, members, hostId = "me", expiresAt = Instant.now() + Duration.ofDays(2))
+        return room.also { rooms.add(0, it) }
     }
 
     override suspend fun getRoom(id: String) = RoomDetail(rooms.first { it.id == id }, emptyList(), closet, emptyList())
