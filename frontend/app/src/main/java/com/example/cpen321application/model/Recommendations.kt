@@ -18,3 +18,6 @@ data class StoreItem(
 )
 
 data class Recommendations(val gaps: List<String>, val items: List<StoreItem>)
+
+/** The store items that fill [gap], in the order the back-end ranked them. */
+fun Recommendations.itemsFor(gap: String): List<StoreItem> = items.filter { it.reason == gap }

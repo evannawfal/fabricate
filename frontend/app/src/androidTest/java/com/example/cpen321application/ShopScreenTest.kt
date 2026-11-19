@@ -6,9 +6,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -25,6 +28,7 @@ import com.example.cpen321application.model.ClothingItem
 import com.example.cpen321application.model.Recommendations
 import com.example.cpen321application.model.ShopDepartment
 import com.example.cpen321application.model.StoreItem
+import com.example.cpen321application.screens.GAP_HEADING_TAG
 import com.example.cpen321application.screens.PAIRED_ITEM_TAG
 import com.example.cpen321application.screens.SHOP_LOADING_TAG
 import com.example.cpen321application.screens.STORE_ITEM_CARD_TAG
@@ -130,6 +134,22 @@ class ShopScreenTest {
 
         composeRule.onNodeWithText(message).assertIsDisplayed()
         composeRule.onNodeWithText("Try again").assertDoesNotExist()
+    }
+
+    @Test
+    fun listsItemsUnderTheGapTheyFill() {
+        val jacket = boots.copy(name = "Navy Jacket", link = "https://stores.example/jacket", reason = "No outerwear in your closet")
+        val workGap = "Nothing to wear for work: you have no work tops or bottoms"
+        repository.result = Recommendations(listOf(boots.reason, jacket.reason, workGap), listOf(boots, jacket))
+        showShop()
+
+        composeRule.onAllNodesWithTag(GAP_HEADING_TAG).assertCountEquals(3)
+        composeRule.onAllNodesWithTag(GAP_HEADING_TAG)[0].assertTextEquals(boots.reason)
+        composeRule.onAllNodesWithTag(GAP_HEADING_TAG)[1].assertTextEquals(jacket.reason)
+        composeRule.onAllNodesWithTag(STORE_ITEM_CARD_TAG)[0].assert(hasText("Leather Boots"))
+        composeRule.onAllNodesWithTag(STORE_ITEM_CARD_TAG)[1].assert(hasText("Navy Jacket"))
+        composeRule.onNodeWithText(workGap).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("No matching items are available right now.").performScrollTo().assertIsDisplayed()
     }
 
     @Test
