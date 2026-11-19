@@ -29,7 +29,7 @@ describe('Unmocked: POST /rooms', () => {
   // Input: a room name and one of the user's friends
   // Expected status code: 201
   // Expected behavior: the room is saved with the user as host and the friend as a member
-  // Expected output: the room with the host's id and both members' ids and names
+  // Expected output: the room with the host's id, both members' ids and names, and when it expires
   test('Creates a room with a friend', async () => {
     const { user, friend } = await friends();
 
@@ -41,6 +41,7 @@ describe('Unmocked: POST /rooms', () => {
     expect(response.status).toBe(201);
     expect(response.body.name).toBe('Party fits');
     expect(response.body.hostId).toBe(user.id);
+    expect(Date.parse(response.body.expiresAt) - Date.parse(response.body.createdAt)).toBe(2 * 24 * 60 * 60 * 1000);
     expect(response.body.members).toEqual([
       { id: user.id, name: `Test ${user.familyName}` },
       { id: friend.id, name: `Test ${friend.familyName}` },
@@ -121,7 +122,14 @@ describe('Unmocked: GET /rooms', () => {
   // Expected output: the room with the first member's id as hostId
   test('Treats the first member of an older room as its host', async () => {
     const { user, friend } = await friends();
-    await Room.collection.insertOne({ name: 'Old room', members: [friend._id, user._id], outfitItems: [] });
+    const now = new Date();
+    await Room.collection.insertOne({
+      name: 'Old room',
+      members: [friend._id, user._id],
+      outfitItems: [],
+      createdAt: now,
+      updatedAt: now,
+    });
 
     const response = await request(app).get('/rooms').set('Authorization', authHeader(user.id));
 

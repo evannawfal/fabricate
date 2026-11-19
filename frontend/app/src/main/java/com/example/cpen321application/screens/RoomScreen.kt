@@ -27,6 +27,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +37,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -121,12 +123,17 @@ fun RoomScreen(viewModel: RoomViewModel, onBack: () -> Unit, modifier: Modifier 
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RoomContent(state: RoomUiState, viewModel: RoomViewModel, onAddItem: () -> Unit) {
     Column {
         if (!state.isConnected) ConnectionBanner(state.hasConnected)
-        SharedBoard(state.board, canEdit = state.isConnected, onAdd = onAddItem, onRemove = viewModel::removeItem)
-        Chat(state.messages, state.currentUserId, Modifier.weight(1f))
+        PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
+            Column(Modifier.fillMaxSize()) {
+                SharedBoard(state.board, canEdit = state.isConnected, onAdd = onAddItem, onRemove = viewModel::removeItem)
+                Chat(state.messages, state.currentUserId, Modifier.weight(1f))
+            }
+        }
         MessageInput(canSend = state.isConnected, onSend = viewModel::sendMessage)
     }
 }
