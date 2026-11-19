@@ -38,9 +38,9 @@ describe('NFR: room update latency', () => {
   // Expected behavior: the other member receives every update over its own socket connection
   // Expected output: at least 95% of each kind of update arrives within 1 second
   test('Delivers 95% of room updates to the other member within 1 second', async () => {
-    const { user, friend, userClient: sender, friendClient: receiver } = await roomWithTwoMembers();
+    const { user, userClient: sender, friendClient: receiver } = await roomWithTwoMembers();
     const shirt = await createClothingItem(user.id, { name: 'Shirt' });
-    const jeans = await createClothingItem(friend.id, { name: 'Jeans', category: 'bottom' });
+    const jeans = await createClothingItem(user.id, { name: 'Jeans', category: 'bottom' });
     const boards = [[shirt.id], [shirt.id, jeans.id]];
 
     const messageTimes: number[] = [];

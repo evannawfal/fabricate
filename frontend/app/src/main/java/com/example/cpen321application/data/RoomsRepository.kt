@@ -6,11 +6,19 @@ data class Friend(val id: String, val name: String, val email: String)
 
 data class RoomMember(val id: String, val name: String)
 
-data class Room(val id: String, val name: String, val members: List<RoomMember>)
+data class Room(val id: String, val name: String, val members: List<RoomMember>, val hostId: String) {
+    val hostName: String? get() = members.firstOrNull { it.id == hostId }?.name
+}
 
 data class ChatMessage(val id: String, val senderId: String, val senderName: String, val text: String)
 
-data class RoomDetail(val room: Room, val outfitItems: List<ClothingItem>, val messages: List<ChatMessage>)
+/** [closet] is the host's: everyone in the room styles with the host's clothes. */
+data class RoomDetail(
+    val room: Room,
+    val outfitItems: List<ClothingItem>,
+    val closet: List<ClothingItem>,
+    val messages: List<ChatMessage>,
+)
 
 /** Events from an open room. Called on a background thread. */
 interface RoomListener {

@@ -58,20 +58,20 @@ describe('Unmocked: room:message', () => {
 
 // Interface Socket.IO event room:outfitUpdate
 describe('Unmocked: room:outfitUpdate', () => {
-  // Input: { itemIds } with one item from each member's closet
+  // Input: a joiner sends { itemIds } with two items from the host's closet
   // Expected behavior: every member receives the new board, and the room's outfit is saved
-  // Expected output: ack { ok: true } and the items' details on the other client
-  test("Shares items from both members' closets", async () => {
+  // Expected output: ack { ok: true } and the items' details on the host's client
+  test("Lets a joiner style with the host's closet", async () => {
     const { user, friend, room, userClient, friendClient } = await roomWithTwoMembers();
     const shirt = await createClothingItem(user.id, { name: 'Shirt' });
-    const jeans = await createClothingItem(friend.id, { name: 'Jeans', category: 'bottom' });
-    const received = nextEvent<{ items: { name: string }[]; updatedBy: string }>(friendClient, 'room:outfitUpdate');
+    const jeans = await createClothingItem(user.id, { name: 'Jeans', category: 'bottom' });
+    const received = nextEvent<{ items: { name: string }[]; updatedBy: string }>(userClient, 'room:outfitUpdate');
 
-    const ack = await userClient.emitWithAck('room:outfitUpdate', { itemIds: [jeans.id, shirt.id] });
+    const ack = await friendClient.emitWithAck('room:outfitUpdate', { itemIds: [jeans.id, shirt.id] });
 
     expect(ack).toEqual({ ok: true });
     const update = await received;
-    expect(update.updatedBy).toBe(user.id);
+    expect(update.updatedBy).toBe(friend.id);
     expect(update.items.map((item) => item.name)).toEqual(['Jeans', 'Shirt']);
     const saved = await Room.findById(room.id);
     expect(saved?.outfitItems.map(String)).toEqual([jeans.id, shirt.id]);
@@ -89,13 +89,14 @@ describe('Unmocked: room:outfitUpdate', () => {
     expect((await Room.findById(room.id))?.outfitItems).toHaveLength(0);
   });
 
-  // Input: an item from a non-member's closet, an archived item, and malformed ids
+  // Input: an item from the joiner's closet, from a non-member's closet, an archived item, and malformed ids
   // Expected behavior: the board doesn't change
   // Expected output: ack with an error
-  test.each(['outsider item', 'archived item', 'malformed'] as const)('Rejects %s', async (kind) => {
-    const { user, room, userClient } = await roomWithTwoMembers();
+  test.each(['joiner item', 'outsider item', 'archived item', 'malformed'] as const)('Rejects %s', async (kind) => {
+    const { user, friend, room, userClient } = await roomWithTwoMembers();
     const outsider = await createUser();
     const ids = {
+      'joiner item': [(await createClothingItem(friend.id)).id],
       'outsider item': [(await createClothingItem(outsider.id)).id],
       'archived item': [(await createClothingItem(user.id, { isArchived: true })).id],
       malformed: 'nope',

@@ -37,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.cpen321application.data.ClothingRepository
 import com.example.cpen321application.data.Friend
 import com.example.cpen321application.data.Room
 import com.example.cpen321application.data.RoomsRepository
@@ -55,7 +54,6 @@ const val FRIEND_EMAIL_FIELD_TAG = "friend_email_field"
 @Composable
 fun RoomsRoute(
     roomsRepository: RoomsRepository,
-    clothingRepository: ClothingRepository,
     modifier: Modifier = Modifier,
 ) {
     val viewModel: RoomsViewModel = viewModel { RoomsViewModel(roomsRepository) }
@@ -66,7 +64,7 @@ fun RoomsRoute(
         return
     }
     // Not a stored ViewModel: the room's socket must close as soon as the room does.
-    val roomViewModel = remember(openRoomId) { RoomViewModel(openRoomId, roomsRepository, clothingRepository) }
+    val roomViewModel = remember(openRoomId) { RoomViewModel(openRoomId, roomsRepository) }
     DisposableEffect(roomViewModel) { onDispose(roomViewModel::leave) }
     BackHandler(onBack = viewModel::closeRoom)
     RoomScreen(roomViewModel, onBack = viewModel::closeRoom, modifier = modifier)
