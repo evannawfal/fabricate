@@ -15,6 +15,7 @@ import com.example.cpen321application.fakes.FakeOutfitRepository
 import com.example.cpen321application.fakes.FakeProfileRepository
 import com.example.cpen321application.fakes.FakeRecommendationRepository
 import com.example.cpen321application.fakes.FakeRoomsRepository
+import com.example.cpen321application.fakes.FakeSocialRepository
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
 import com.example.cpen321application.model.Outfit
@@ -44,6 +45,7 @@ class MainScreenTest {
                     location = FakeLocationProvider(),
                     rooms = FakeRoomsRepository(),
                     profile = FakeProfileRepository(),
+                    social = FakeSocialRepository(),
                 ),
                 onSignOut = { signOutCalls++ },
             )
