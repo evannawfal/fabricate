@@ -3,8 +3,6 @@ package com.example.cpen321application.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.cpen321application.data.ChatMessage
-import com.example.cpen321application.data.ClothingRepository
-import com.example.cpen321application.data.ClothingRepositoryException
 import com.example.cpen321application.data.Room
 import com.example.cpen321application.data.RoomConnection
 import com.example.cpen321application.data.RoomListener
@@ -27,13 +25,15 @@ data class RoomUiState(
     val hasConnected: Boolean = false,
     val loadError: String? = null,
     val isSaving: Boolean = false,
+    val isRefreshing: Boolean = false,
     val notice: String? = null,
-)
+) {
+    val isHost: Boolean get() = room != null && room.hostId == currentUserId
+}
 
 class RoomViewModel(
     private val roomId: String,
     private val rooms: RoomsRepository,
-    private val clothing: ClothingRepository,
 ) : ViewModel(), RoomListener {
     private val _uiState = MutableStateFlow(RoomUiState())
     val uiState: StateFlow<RoomUiState> = _uiState.asStateFlow()
@@ -49,14 +49,14 @@ class RoomViewModel(
         viewModelScope.launch {
             try {
                 val detail = rooms.getRoom(roomId)
-                val closet = clothing.listItems()
                 _uiState.update {
                     it.copy(
+                        isRefreshing = false,
                         room = detail.room,
                         currentUserId = rooms.currentUserId(),
                         messages = detail.messages,
                         board = detail.outfitItems,
-                        closet = closet,
+                        closet = detail.closet,
                     )
                 }
                 connection?.close()
@@ -64,11 +64,16 @@ class RoomViewModel(
                 // The screen may have closed while the room was loading.
                 if (hasLeft) leave()
             } catch (e: ApiException) {
-                _uiState.update { it.copy(loadError = e.message) }
-            } catch (e: ClothingRepositoryException) {
-                _uiState.update { it.copy(loadError = e.message) }
+                _uiState.update { it.copy(loadError = e.message, isRefreshing = false) }
             }
         }
+    }
+
+    /** Reloads the room and reconnects, in case a live update was missed. */
+    fun refresh() {
+        if (_uiState.value.isRefreshing) return
+        _uiState.update { it.copy(isRefreshing = true) }
+        load()
     }
 
     fun sendMessage(text: String) {
