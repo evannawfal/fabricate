@@ -14,6 +14,7 @@
 | 2026-11-18 | 3.1, 3.4 | 3.4 now lists the same use cases as the use case diagram (CP2 TA feedback): Sign Up, Sign In and Sign Out are separate, and Leave a room and Add viewed item to wishlist were added. The avatar use cases now say how they differ: one item, a whole outfit as a 3D model, or a realistic image. Browse past outfits says that deleting an outfit unsaves it. |
 | 2026-11-18 | 3.5 | Failure scenarios give the exact messages the app shows (CP2 TA feedback). Use case 2 shows the outfit's items, not the outfit on the avatar, which is still to be built, and has a new failure for location access being denied (peer review 5.1.2). Use case 5 matches the avatar screen: measurement sliders and "Update avatar", with failures for avatar generation and an expired session; skin tone and hair style are still to be built. |
 | 2026-11-18 | 4.1, 4.3, 4.4, 4.6, 4.7 | Interfaces match the code (CP2 TA feedback and peer review 2.3). Outfit generation moved from Recommendation Engine to Outfit, where its code is. Closet documents the garment model routes `POST /clothing/{id}/generate` and `GET /clothing/{id}/model`, and other components read clothing items through the `ClothingItem` model rather than a `getItemsForUser` function. `POST /avatar` takes measurements in metres. Interfaces and modules that aren't built yet (posts, ratings, outfit renders, Gemini and Firebase Cloud Messaging) are marked as planned. Added why we chose the Claude API, and the background removal library. Sequence diagrams show the failure scenarios. The upload time design describes the classifier's actual timeout and retries. |
+| 2026-11-18 | 3.4, 3.5, 4.1 | Rooms are for styling the host's closet: the user who creates a room is its host, every member builds the outfit from the host's clothes, and only the host can save it. Rooms and their messages are deleted 2 days after the room is created, and the room list shows when each room expires. Room responses gain `hostId` and `expiresAt`, and `GET /rooms/{id}` also returns the host's closet. |
 
 ---
 
@@ -83,8 +84,8 @@ Each use case below has the same name as in the use case diagram. **Major** use 
 23. **Create a room** (minor): The user names a new room and invites friends from their friend list.
 24. **Join a room** (minor): The user opens one of the rooms they belong to and sees its chat and shared outfit board.
 25. **Leave a room** (minor): The user leaves a room, which then no longer appears in their room list.
-26. **Browse room owner's outfit** (minor): The user browses the outfit on the room's shared board, including items from other members' closets.
-27. **Create outfits in a room** (major): The user builds an outfit together with the room's members, where every chat message and outfit change appears live on all members' devices.
+26. **Browse room owner's outfit** (minor): The user browses the outfit on the room's shared board, made from the closet of the room's host (the member who created it).
+27. **Create outfits in a room** (major): The user builds an outfit from the host's closet together with the room's members, where every chat message and outfit change appears live on all members' devices.
 
 ### **3.5. Formal Use Case Specifications (5 Most Major Use Cases)**
 
@@ -142,17 +143,17 @@ Each use case below has the same name as in the use case diagram. **Major** use 
 
 #### Use Case 3: Create Outfits in a Room
 
-**Description**: The user joins a room with friends, where members chat and build a shared outfit together, and every message and outfit change appears live on all members' devices.
+**Description**: The user joins a room with friends, where members chat and build an outfit together from the closet of the room's host, the member who created it. Every message and outfit change appears live on all members' devices, and the room is deleted 2 days after it is created.
 
 **Primary actor(s)**: User
 
 **Main success scenario**:
 
-1. The user opens the Rooms screen and selects a room, or creates one and invites friends from their friend list.
+1. The user opens the Rooms screen, which shows when each room expires, and selects a room, or creates one and invites friends from their friend list. Creating a room makes the user its host.
 2. The app shows the room's chat and the shared outfit board.
-3. The user sends a chat message, or adds an item from their closet to the shared outfit board or removes an item from it.
+3. The user sends a chat message, or adds an item from the host's closet to the shared outfit board or removes an item from it.
 4. The message or outfit change appears on every room member's screen.
-5. The user taps "Save outfit" to save the items from their own closet on the shared outfit board to their outfits.
+5. If the user is the host, they tap "Save outfit" to save the shared outfit to their outfits. Other members don't see the button.
 
 **Failure scenario(s)**:
 
@@ -162,6 +163,8 @@ Each use case below has the same name as in the use case diagram. **Major** use 
   - 3a1. The app shows a "Reconnecting…" banner and disables sending until the connection is restored.
 - 4a. Another member leaves the room.
   - 4a1. The app shows the notice "(member's name) left the room." in the chat, and the room continues for the remaining members.
+- 4b. The user missed a live update, for example while their connection was down.
+  - 4b1. The user pulls down on the room to reload its outfit, closet and chat and reconnect.
 
 #### Use Case 4: Browse Online Outfit / Items
 
@@ -281,7 +284,7 @@ Not included for CP1.
      4. `POST /outfits/generate`, body `{ occasion: String, latitude: Double, longitude: Double }`, returns `{ outfit: { name, occasion, items }, weather: Weather? }`
         - **Purpose**: Generates an outfit from the user's clean clothes for the occasion (`casual`, `work`, `formal` or `workout`) and the current weather, without saving it; the app saves it with `POST /outfits` if the user keeps it. If the weather can't be retrieved, the outfit is generated without it and `weather` is `null`. Returns 400 listing the missing categories if the clean clothes don't include a top and a bottom, and 503 if generation is unavailable.
      5. `Promise<Outfit> saveOutfit(String ownerId, String name, List<String> itemIds)`
-        - **Purpose**: Saves an outfit for Social & Rooms when a member saves a room's shared outfit.
+        - **Purpose**: Saves an outfit for Social & Rooms when a room's host saves its shared outfit.
 
 4. **Avatar**
    - **Purpose**: Generates and stores the user's 3D avatar, and renders realistic images of the avatar wearing an outfit.
@@ -308,17 +311,17 @@ Not included for CP1.
      3. `POST /posts/{id}/ratings`, body `{ stars: Int }` (1 to 5), returns `Rating`
         - **Purpose**: Rates a friend's posted outfit; rating again replaces the user's previous rating.
      4. `POST /rooms`, body `{ name: String, friendIds: List<String> }`, returns `201 Room`, and `GET /rooms`, returns `{ rooms: List<Room> }`
-        - **Purpose**: Creates a room with the user and their friends as members (400 if an ID is not a friend), or returns the rooms the user belongs to, most recently updated first.
-     5. `GET /rooms/{id}`, returns `Room` with `outfitItems: List<ClothingItem>` and `messages: List<Message>`
-        - **Purpose**: Returns a room's shared outfit and its 50 most recent messages, oldest first, when the user opens it. Returns 403 if the user is not a member.
+        - **Purpose**: Creates a room with the user as host and their friends as members (400 if an ID is not a friend), or returns the rooms the user belongs to, most recently updated first. Each `Room` has its `hostId` and `expiresAt`, 2 days after it was created, when MongoDB deletes it and its messages.
+     5. `GET /rooms/{id}`, returns `Room` with `outfitItems: List<ClothingItem>`, `closet: List<ClothingItem>` and `messages: List<Message>`
+        - **Purpose**: Returns a room's shared outfit, the host's closet to build it from, and its 50 most recent messages, oldest first, when the user opens it. Returns 403 if the user is not a member.
      6. Socket.IO connection, auth `{ token: String, roomId: String }`
         - **Purpose**: The app opens one connection per room while the room screen is open. The connection is refused unless the token is valid and the user is a member of the room. When it closes, the other members receive `room:memberLeft` with `{ roomId, userId, name }`.
      7. Socket.IO event `room:message`, payload `{ text: String }`, sent to the members as `Message`
         - **Purpose**: Sends a chat message to every member of the room, then saves it. The sender's acknowledgement is `{ ok: true }` or `{ error: String }`.
      8. Socket.IO event `room:outfitUpdate`, payload `{ itemIds: List<String> }`, sent to the members as `{ roomId, updatedBy, items: List<ClothingItem> }`
-        - **Purpose**: Replaces the room's shared outfit for every member, then saves it. Items must be in a room member's closet; the item details are sent so members can see items from each other's closets.
+        - **Purpose**: Replaces the room's shared outfit for every member, then saves it. Items must be in the host's closet; the item details are sent so every member can see them.
      9. `POST /rooms/{id}/save`, returns `201 Outfit`
-        - **Purpose**: Saves the items from the user's own closet on the shared outfit board as one of their outfits, named after the room. Returns 400 if the board has none of the user's items.
+        - **Purpose**: Saves the shared outfit as one of the host's outfits, named after the room. Returns 403 if the user is not the host, and 400 if the board is empty.
 
 ### **4.2. Databases**
 
@@ -490,7 +493,7 @@ sequenceDiagram
     FE->>SO: GET /rooms/{id}
     SO->>US: requireAuth(request)
     US-->>SO: userId
-    SO->>DB: load room, shared outfit and recent messages
+    SO->>DB: load room, shared outfit, host's closet and recent messages
     DB-->>SO: room
     SO-->>FE: 200 Room
     FE->>SO: Connect (session token, roomId)
