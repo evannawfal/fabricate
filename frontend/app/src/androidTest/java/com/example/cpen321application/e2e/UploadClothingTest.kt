@@ -2,6 +2,7 @@ package com.example.cpen321application.e2e
 
 import android.content.ContentValues
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.MediaStore
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
@@ -19,6 +20,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Configurator
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.example.cpen321application.MainActivity
@@ -128,9 +130,21 @@ class UploadClothingTest {
     private fun pickNewestPhoto() {
         waitForPhotoPicker()
         device.findObject(PICKER_PHOTO).click()
-        // Newer versions of the picker only select the photo until "Done" is tapped.
-        device.wait(Until.findObject(PICKER_DONE), PICKER_DONE_TIMEOUT_MS)?.click()
-        waitForAppAfterPicker()
+        // UI Automator waits for the screen to be idle before each call, which it never is while the
+        // app's loading indicator spins, so the upload could finish before the test sees it.
+        val configurator = Configurator.getInstance()
+        val idleTimeout = configurator.waitForIdleTimeout
+        configurator.waitForIdleTimeout = 0
+        try {
+            // Newer versions of the picker only select the photo until "Done" is tapped.
+            val deadline = SystemClock.uptimeMillis() + PICKER_TIMEOUT_MS
+            while (!device.hasObject(By.pkg(context.packageName)) && SystemClock.uptimeMillis() < deadline) {
+                device.findObject(PICKER_DONE)?.click()
+            }
+            waitForAppAfterPicker()
+        } finally {
+            configurator.waitForIdleTimeout = idleTimeout
+        }
     }
 
     // The same photo is used for the front and the back: a plain T-shirt looks the same from behind.
@@ -248,7 +262,6 @@ class UploadClothingTest {
         const val BACK_STEP = "Step 2 of 2: the back"
         const val NOT_CLOTHING_MESSAGE = "This photo doesn't show a clothing item. Try another photo."
         const val PICKER_TIMEOUT_MS = 10_000L
-        const val PICKER_DONE_TIMEOUT_MS = 2_000L
 
         // Classifying a photo calls the back-end's AI service, which can take a while.
         const val CLASSIFY_TIMEOUT_MS = 30_000L

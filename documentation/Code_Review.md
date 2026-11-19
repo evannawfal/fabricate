@@ -6,6 +6,7 @@
 | ----------------- | --------------------- | ------------- |
 | Nov 4, 2026 | 2 | Complete section 2 for CP2 |
 | Nov 9, 2026 | 3.1 | Record the review we performed of Donut's project for CP3 |
+| Nov 18, 2026 | 3.2, 3.3 | Record TimeTravel's review of our project for CP3, and the actions we took or planned in response |
 
 ---
 
@@ -145,34 +146,67 @@ Each advisory is reported twice: once in `backend/package-lock.json`, and once i
 
 ### 3.2. Review You Received
 
-- **Reviewing group:** [WRITE_HERE]
-- **Commit SHA that was reviewed:** `[Insert Commit SHA here]`
-- **Review report received:** [`<CP#>_<YourGroupName>_Review.pdf`](#)
+- **Reviewing group:** TimeTravel (Noah Ndambuki, Abhi Verma, Nikhil Sinclair, Ansh Gandhi)
+- **Commit SHA that was reviewed:** [`806591443242123301b911c90ae8b78649186610`](https://github.com/evannawfal/fabricate/commit/806591443242123301b911c90ae8b78649186610)
+- **Date the artifacts were exchanged:** Nov 4, 2026
+- **Review report received:** [`CP3_Fabricate_Review.pdf`](reviews/CP3_Fabricate_Review.pdf)
 
 | **Section**          | **Item**                                                                                                                                             | **Score** |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| Manual code review   | Code is maintainable, efficient, handles error cases well                                                                                               | x/10      |
-| Manual test review   | Tests are complete, errors and edge cases are thoroughly tested, correct assertions are used                                                            | x/10      |
-| Manual test review   | Test code is maintainable and well-structured                                                                                                          | x/10      |
-| Manual test review   | Test implementation matches the requirements and design                                                                                                | x/10      |
-| Manual test review   | Non-functional requirements are tested well                                                                                                            | x/10      |
-| Manual test review   | Tests achieve high coverage and cases of < 100% coverage are well-justified                                                                            | x/10      |
-| Manual test review   | All back-end tests can be run automatically                                                                                                            | x/10      |
-| Automated code review| Codacy runs with the required setup                                                                                                                    | x/10      |
-| Automated code review| All remaining Codacy issues are well-justified                                                                                                          | x/10      |
+| Manual code review   | Code is maintainable, efficient, handles error cases well                                                                                               | 7/10      |
+| Manual test review   | Tests are complete, errors and edge cases are thoroughly tested, correct assertions are used                                                            | 8/10      |
+| Manual test review   | Test code is maintainable and well-structured                                                                                                          | 8/10      |
+| Manual test review   | Test implementation matches the requirements and design                                                                                                | 6/10      |
+| Manual test review   | Non-functional requirements are tested well                                                                                                            | 5/10      |
+| Manual test review   | Tests achieve high coverage and cases of < 100% coverage are well-justified                                                                            | 8/10      |
+| Manual test review   | All back-end tests can be run automatically                                                                                                            | 9/10      |
+| Automated code review| Codacy runs with the required setup                                                                                                                    | 9/10      |
+| Automated code review| All remaining Codacy issues are well-justified                                                                                                          | 6/10      |
 
 **Major fault reported against your project**
 
-- **Description:** ...
-- **Severity:** ...
+- **Description:** Friends and rooms need no consent, and removing a friend keeps their room access. `POST /friends` adds any registered email as a friend with no accept step and returns that user's name ([`friends.ts#L21-L39`](https://github.com/evannawfal/fabricate/blob/806591443242123301b911c90ae8b78649186610/backend/src/controllers/friends.ts#L21-L39)). That friend can then be added to a room, which they can't leave. After either user removes the other with `DELETE /friends`, both can still read the room, post in it and get signed links to each other's clothing photos, because room access only checks membership ([`rooms.ts#L50-L57`](https://github.com/evannawfal/fabricate/blob/806591443242123301b911c90ae8b78649186610/backend/src/sockets/rooms.ts#L50-L57)).
+- **Severity:** High. Anyone who knows a user's email can learn their name, pull them into a room they can't leave, and keep access to their photos after being removed.
 
 ### 3.3. Actions Taken in Response to the Review
 
 | **Finding** | **Action Taken** | **Commit / Location in Git** |
 | ----------- | ---------------- | ---------------------------- |
-| ...         | ...              | [`src/...`](#)               |
-| ...         | ...              | ...                          |
+| 2.4: The 10-second upload requirement has no test. | Added a test that runs in the app against the deployed back-end and its real classifier, timing 5 uploads each of photos of about 0.5, 2 and 5 MB. The slowest took 4.5 seconds. | [`ClothingUploadTimeTest.kt`](https://github.com/evannawfal/fabricate/pull/152) |
+| 5.2.3: The try-on slider overlaps the Height slider. | Split the avatar screen's controls into Clothes and Measurements tabs, so the try-on controls and the measurement sliders are no longer on the same screen. | [`e155f10`](https://github.com/evannawfal/fabricate/commit/e155f10) |
 
-- **Findings not acted on.** For each finding you decided not to address, give the reason:
-  1. **Finding:** ...
-     - **Justification:** ...
+- **Findings not acted on.** We prioritized finishing and testing the remaining use cases for CP3. These findings are planned for M3 unless the justification says otherwise:
+  1. **Finding:** Major fault: friends and rooms need no consent, and removing a friend keeps room access.
+     - **Justification:** We agree it's high severity. The fix changes both the back-end and the app: a friend request the other user accepts, a way to leave a room, and a friendship check on every room request and socket connection. We're doing it for M3 together with room invite notifications ([#135](https://github.com/evannawfal/fabricate/issues/135)), which change the same flow.
+  2. **Finding:** 1.2: Building garment and avatar models blocks the server.
+     - **Justification:** Planned for M3: move model building to a `worker_threads` worker, with a room latency test that runs while a model is being built.
+  3. **Finding:** 1.3: The classifier's 30-second timeout with 2 retries lets an upload take about 90 seconds.
+     - **Justification:** The timeout and retries only matter when the Anthropic API is slow or failing. In normal operation, uploads take 3 to 4.5 seconds (see the upload time test above). Planned for M3: lower the timeout so a failing upload ends with an error within 10 seconds.
+  4. **Finding:** 1.4: A dress counts as a top and a bottom in closet gaps, but outfits and Shop need a top and a bottom.
+     - **Justification:** Planned for M3: accept a dress in place of a top and a bottom when generating outfits.
+  5. **Finding:** 1.5: Sessions expire after 30 minutes with no refresh, and the room socket keeps its first token.
+     - **Justification:** Planned for M3: refresh tokens, and reconnecting the room socket with the current token.
+  6. **Finding:** 1.6: Release builds use the debug keystore committed to the repository.
+     - **Justification:** This is deliberate ([#42](https://github.com/evannawfal/fabricate/issues/42)). Google Sign-In only accepts apps signed with a key registered in our Google Cloud project, and the course staff must be able to build a working app from a fresh clone, so the key has to be in the repository. A production release would use a private key kept out of the repository.
+  7. **Finding:** 1.7: Three HTTP clients with different error types, and only two handle 401.
+     - **Justification:** Planned for M3: merge them into one client that handles 401 the same way everywhere.
+  8. **Finding:** 2.1: The test for deleting another user's item can't fail, and `PATCH` with `isClean: true`, an expired token and combined filters are untested.
+     - **Justification:** Planned for M3, together with the remaining coverage work ([#89](https://github.com/evannawfal/fabricate/issues/89)).
+  9. **Finding:** 2.2: Some `describe` groups mix interfaces.
+     - **Justification:** Planned for M3, with the test changes in finding 8.
+  10. **Finding:** 2.3: The design lists interfaces that don't exist yet (posts, ratings, outfit render, FCM, `getItemsForUser`), `POST /clothing/:id/generate` and `GET /clothing/:id/model` aren't documented, and avatar units are cm in the design but metres in the code.
+      - **Justification:** Posts ([#128](https://github.com/evannawfal/fabricate/issues/128), [#129](https://github.com/evannawfal/fabricate/issues/129)), ratings ([#84](https://github.com/evannawfal/fabricate/issues/84)), outfit render ([#85](https://github.com/evannawfal/fabricate/issues/85)) and FCM ([#135](https://github.com/evannawfal/fabricate/issues/135)) are features still being built, so the design keeps them. The garment model routes will be added to the design, and `POST /avatar` will be documented in metres, the unit the app sends.
+  11. **Finding:** 2.4: The room latency test runs on localhost with no load, and the closet analysis test times its own query instead of the controller's.
+      - **Justification:** Planned for M3, with the worker change in finding 2.
+  12. **Finding:** 2.5: `exportAvatar.ts` is excluded from coverage although it's used, and the classifier and storage constructors could be covered with a dummy key.
+      - **Justification:** Planned for M3, as part of [#89](https://github.com/evannawfal/fabricate/issues/89).
+  13. **Finding:** 2.6: The first local test run can fail when MongoMemoryServer times out on start.
+      - **Justification:** The reviewers' rerun passed. Planned for M3: raise the start timeout.
+  14. **Finding:** 3.1 and 3.2: Section 2 cited an old commit, the sharp justification has no source, and six issues come from the root `package.json` and lock file.
+      - **Justification:** Section 2 will cite the latest Codacy analysis. Removing the unused root `package.json` and lock file, and raising the nested versions with npm `overrides`, are planned for M3.
+  15. **Finding:** 5.1: The avatar carries over between accounts, use case 2 failure 4b is missing when location is denied, documented features have no UI, and the Outfits and Rooms lists don't refresh.
+      - **Justification:** Planned for M3. The features without a UI are the ones in finding 10, plus the wash bin ([#83](https://github.com/evannawfal/fabricate/issues/83)).
+  16. **Finding:** 5.2: Seven bottom-bar items including Sign out, the template app name, icon and theme, and the keyboard pushing the room screen's top bar off screen.
+      - **Justification:** Planned for M3, when we polish the app's look.
+  17. **Finding:** 5.3: Show the avatar wearing the generated outfit, add chat timestamps and missed-message sync, and warn when the closet lacks weather-suitable items.
+      - **Justification:** Showing outfits on the avatar is planned ([#58](https://github.com/evannawfal/fabricate/issues/58)). The other two are good ideas but outside our use cases, so we'll consider them after M3's required work.

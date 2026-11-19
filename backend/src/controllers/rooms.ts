@@ -2,7 +2,7 @@ import type { Response } from 'express';
 import { getUserId, type AuthedRequest } from '../middleware/middleware.js';
 import { ClothingItem } from '../models/clothingItem.js';
 import { saveOutfit, toOutfitResponse } from '../models/outfit.js';
-import { Message, ROOM_LIMITS, Room, toMessageResponse, type RoomDocument } from '../models/room.js';
+import { Message, ROOM_LIMITS, Room, hostIdOf, toMessageResponse, type RoomDocument } from '../models/room.js';
 import { User, displayName, getFriendIds } from '../models/user.js';
 import { toClothingItemResponsesWithImages } from '../services/clothingImages.js';
 import { isObjectId } from '../validation/common.js';
@@ -26,9 +26,11 @@ async function toRoomResponses(rooms: RoomDocument[]) {
   return rooms.map((room) => ({
     id: room.id as string,
     name: room.name,
+    hostId: hostIdOf(room),
     members: room.members.map((id) => ({ id: id.toString(), name: namesById.get(id.toString()) ?? 'Unknown user' })),
     createdAt: room.createdAt,
     updatedAt: room.updatedAt,
+    expiresAt: new Date(room.createdAt.getTime() + ROOM_LIMITS.lifetimeSeconds * 1000),
   }));
 }
 
@@ -41,7 +43,7 @@ export async function createRoom(req: AuthedRequest, res: Response) {
   if (!input.value.friendIds.every((id) => friendIds.has(id))) {
     return res.status(400).json({ error: 'Rooms can only include your friends' });
   }
-  const room = await Room.create({ name: input.value.name, members: [userId, ...input.value.friendIds] });
+  const room = await Room.create({ name: input.value.name, host: userId, members: [userId, ...input.value.friendIds] });
   const [response] = await toRoomResponses([room]);
   res.status(201).json(response);
 }
@@ -57,9 +59,10 @@ export async function getRoom(req: AuthedRequest, res: Response) {
   const access = await findRoomForMember(req.params.id, getUserId(req));
   if (!('room' in access)) return res.status(access.status).json({ error: access.error });
   const { room } = access;
-  const [[response], items, messages] = await Promise.all([
+  const [[response], items, closet, messages] = await Promise.all([
     toRoomResponses([room]),
     ClothingItem.find({ _id: { $in: room.outfitItems } }),
+    ClothingItem.find({ owner: hostIdOf(room), isArchived: false }).sort({ createdAt: -1, _id: -1 }),
     Message.find({ room: room._id }).sort({ createdAt: -1, _id: -1 }).limit(ROOM_LIMITS.recentMessages),
   ]);
   const itemsById = new Map(items.map((item) => [item.id as string, item]));
@@ -67,23 +70,23 @@ export async function getRoom(req: AuthedRequest, res: Response) {
   res.json({
     ...response,
     outfitItems: await toClothingItemResponsesWithImages(boardItems),
+    closet: await toClothingItemResponsesWithImages(closet),
     messages: messages.reverse().map(toMessageResponse),
   });
 }
 
 // POST /rooms/:id/save
-// Only the user's own items are saved, since outfits can only show items from the user's closet.
 export async function saveRoomOutfit(req: AuthedRequest, res: Response) {
   const userId = getUserId(req);
   const access = await findRoomForMember(req.params.id, userId);
   if (!('room' in access)) return res.status(access.status).json({ error: access.error });
   const { room } = access;
+  if (hostIdOf(room) !== userId) return res.status(403).json({ error: 'Only the host can save the outfit' });
+  // Items the host has since removed from their closet are left out.
   const owned = await ClothingItem.find({ _id: { $in: room.outfitItems }, owner: userId, isArchived: false });
   const ownedById = new Map(owned.map((item) => [item.id as string, item]));
   const items = room.outfitItems.flatMap((id) => ownedById.get(id.toString()) ?? []);
-  if (items.length === 0) {
-    return res.status(400).json({ error: 'The shared outfit has none of your clothing items' });
-  }
+  if (items.length === 0) return res.status(400).json({ error: 'The shared outfit is empty' });
   const outfit = await saveOutfit(userId, room.name, items.map((item) => item.id as string));
   res.status(201).json(toOutfitResponse(outfit, await toClothingItemResponsesWithImages(items)));
 }

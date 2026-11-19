@@ -10,6 +10,7 @@
 | 2026-10-29 | 2, 3 | Updated for CP2. Added `POST /avatar` and `POST /outfits/generate` to the back-end test table and the mocked components, and pointed every test link at the current line. Updated the commit hash, the run instructions and the coverage screenshots, added a report of every back-end test together with the reasons each file below 100% can't be fully covered, and covered the error handler's branches listed for CP2. Section 3 now names the two non-functional requirements that are tested automatically; their tests come with the features they measure. |
 | 2026-11-03 | 2.1.1, 2.3, 2.5 | Updated the Clothing upload test documentation for required front and back photos. Added the front-photo upload failure case and documented cleanup attempts for both generated storage keys. |
 | 2026-11-04 | 2, 4 | Final update for CP2. Added the friends, profile (`/users/me`), rooms, room Socket.IO and garment model interfaces to the back-end test table, completed the `POST /clothing` test cases for front and back photos, and pointed every test link at the submission commit. Updated the test counts, coverage screenshots and the reasons each file below 100% can't be fully covered. Section 4 now follows the two-photo Add Clothing Items use case and has a new log. |
+| 2026-11-17 | 3 | Added the test of the clothing upload time requirement (`ClothingUploadTimeTest.kt`). It runs in the app against the deployed back-end, so all three non-functional requirements are now tested automatically. |
 | 2026-11-17 | 4 | Added the Generate Daily Outfit end-to-end test (`GenerateOutfitTest.kt`), its scenario-to-test-step table and its logs. |
 
 ---
@@ -251,7 +252,10 @@ In the interface tests alone, `middleware/errorHandler.ts` (26-27) is also uncov
 
 ## 3. Tests of Non-Functional Requirements
 
-Two of the three non-functional requirements in `Requirements_and_Design.md` will be tested automatically: [room update latency](Requirements_and_Design.md#nfr1) and [closet analysis time](Requirements_and_Design.md#nfr3). Their tests are in `backend/tests/nfr/`. Run them with `scripts/run-backend-nfr-tests.sh` (or `.ps1`); CI also runs them on every pull request as part of `npm test`.
+All three non-functional requirements in `Requirements_and_Design.md` are tested automatically.
+
+- [Room update latency](Requirements_and_Design.md#nfr1) and [closet analysis time](Requirements_and_Design.md#nfr3) are tested in `backend/tests/nfr/`. Run them with `scripts/run-backend-nfr-tests.sh` (or `.ps1`); CI also runs them on every pull request as part of `npm test`.
+- [Clothing upload time](Requirements_and_Design.md#nfr2) is tested in the app, in `frontend/app/src/androidTest/java/com/example/cpen321application/nfr/`. Run it with `scripts/run-frontend-nfr-tests.sh` (or `.ps1`), and sign in to the app on the emulator when the script asks. It runs in the app, not in the back-end tests, because the requirement is about how long the user waits: that includes the app preparing the photos, the network, storage and the real AI classifier, none of which a back-end test with a test database and a mocked classifier would measure. It isn't run in CI, since it needs a signed-in emulator and calls the paid classifier.
 
 ### 3.1. Test Locations in Git
 
@@ -259,6 +263,7 @@ Two of the three non-functional requirements in `Requirements_and_Design.md` wil
 | ------------------------------ | ------------------- |
 | Room updates reach members within 1 second | [`backend/tests/nfr/roomUpdateLatency.test.ts`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/nfr/roomUpdateLatency.test.ts) |
 | Closet gap analysis finishes within 2 seconds for 500 items | [`backend/tests/nfr/closetAnalysisTime.test.ts`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/nfr/closetAnalysisTime.test.ts) |
+| Clothing upload finishes within 10 seconds for photos up to 5 MB | [`frontend/app/src/androidTest/java/com/example/cpen321application/nfr/ClothingUploadTimeTest.kt`](https://github.com/evannawfal/fabricate/blob/main/frontend/app/src/androidTest/java/com/example/cpen321application/nfr/ClothingUploadTimeTest.kt) |
 
 ### 3.2. Test Verification and Logs
 
@@ -276,6 +281,16 @@ Two of the three non-functional requirements in `Requirements_and_Design.md` wil
   - **Log Output**
     ```
     Closet analysis of 500 items over 10 runs (limit 2000 ms): max 19.5 ms, mean 10.6 ms, runs [19.5, 13.7, 11.9, 9.2, 8.9, 9.4, 11.3, 7.9, 7.7, 6.8] ms, 0 gap(s) found
+    ```
+
+- **Clothing upload finishes within 10 seconds for photos up to 5 MB**
+  - **Verification:** The test runs in the app on the emulator, signed in as the tester, against the deployed back-end and its real AI classifier. It makes three photos of the test T-shirt (`shirt.jpg`) at a phone camera's 12-megapixel size, saved as JPEGs of about 0.5 MB, 2 MB and just under the back-end's 5 MB limit per photo; faint noise stands in for camera detail so the files reach those sizes. Each photo is uploaded 5 times as both the front and the back photo. Each upload is timed from when the user has picked both photos until the new item comes back from the back-end, ready to be shown first in the closet: the app reads, scales and re-encodes both photos (as it does for every upload), then `POST /clothing` stores them and classifies the item. The test fails if any upload takes longer than 10 seconds, and logs the slowest and mean times and every run for each size. It deletes every item it added. Run from the emulator, this includes the network between the emulator and the server.
+  - **Log Output** (from `adb logcat -s ClothingUploadTime`)
+    ```
+    Clothing upload time, 5 uploads per photo size (limit 10000 ms):
+    0.5 MB photo: max 4502 ms, mean 3374 ms, runs [4502, 3284, 3026, 3027, 3035] ms
+    1.9 MB photo: max 3347 ms, mean 3082 ms, runs [2996, 2962, 3347, 2989, 3118] ms
+    4.8 MB photo: max 2980 ms, mean 2724 ms, runs [2980, 2526, 2775, 2647, 2692] ms
     ```
 
 ---
