@@ -109,7 +109,7 @@ class AvatarScreenTest {
 
     private fun showTryOn(uiState: AvatarUiState): MutableList<ClothingItem> {
         val toggled = mutableListOf<ClothingItem>()
-        composeRule.setContent { AvatarClothesTab(uiState, onToggleGarment = { toggled += it }, onGarmentSizeChange = { _, _ -> }) }
+        composeRule.setContent { AvatarClothesTab(uiState, onToggleGarment = { toggled += it }) }
         return toggled
     }
 
@@ -130,20 +130,16 @@ class AvatarScreenTest {
 
     @Test
     fun tryOn_eachWornGarmentHasASizeSlider() {
-        composeRule.setContent {
-            AvatarClothesTab(
-                AvatarUiState(
-                    wardrobe = listOf(shirt, jeans),
-                    worn = mapOf(ClothingCategory.Top to WornGarment(shirt.id, File("shirt.glb"))),
-                ),
-                onToggleGarment = {},
-                onGarmentSizeChange = { _, _ -> },
-            )
-        }
+        showAvatarScreen(
+            AvatarUiState(
+                wardrobe = listOf(shirt, jeans),
+                worn = mapOf(ClothingCategory.Top to WornGarment(shirt.id, File("shirt.glb"))),
+            ),
+        )
 
-        composeRule.onNodeWithText("Blue Shirt size").assertIsDisplayed()
+        composeRule.onNodeWithText("Top size").assertIsDisplayed()
         composeRule.onNodeWithTag("avatar_garment_size_${shirt.id}").assertIsDisplayed()
-        composeRule.onNodeWithText("Black Jeans size").assertDoesNotExist()
+        composeRule.onNodeWithText("Bottom size").assertDoesNotExist()
     }
 
     @Test
