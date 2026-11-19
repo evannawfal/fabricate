@@ -4,7 +4,7 @@ import { findRoomForMember } from '../controllers/rooms.js';
 import { verifyToken } from '../middleware/middleware.js';
 import { ClothingItem } from '../models/clothingItem.js';
 import { OUTFIT_LIMITS } from '../models/outfit.js';
-import { Message, ROOM_LIMITS, Room, toMessageResponse } from '../models/room.js';
+import { Message, ROOM_LIMITS, Room, hostIdOf, toMessageResponse } from '../models/room.js';
 import { User, displayName } from '../models/user.js';
 import { toClothingItemResponsesWithImages } from '../services/clothingImages.js';
 import { parseIdList, parseText, valid, type ValidationResult } from '../validation/common.js';
@@ -15,7 +15,7 @@ interface RoomSocketData {
   userId: string;
   userName: string;
   roomId: string;
-  memberIds: string[];
+  hostId: string;
 }
 
 type Ack = (response: { ok: true } | { error: string }) => void;
@@ -54,7 +54,7 @@ export function attachRoomSockets(server: http.Server): Server {
           userId,
           userName: user ? displayName(user) : 'Unknown user',
           roomId: access.room.id as string,
-          memberIds: access.room.members.map((id) => id.toString()),
+          hostId: hostIdOf(access.room),
         };
         socket.data = data;
         next();
@@ -67,7 +67,7 @@ export function attachRoomSockets(server: http.Server): Server {
   });
 
   io.on('connection', (socket: Socket) => {
-    const { userId, userName, roomId, memberIds } = socket.data as RoomSocketData;
+    const { userId, userName, roomId, hostId } = socket.data as RoomSocketData;
     void socket.join(roomId);
 
     // Broadcast first, then save, so storage time doesn't delay delivery (room latency NFR).
@@ -89,8 +89,8 @@ export function attachRoomSockets(server: http.Server): Server {
         const parsed = parseItemIds(itemIds);
         if (!parsed.ok) return parsed.error;
         const ids = parsed.value;
-        const items = await ClothingItem.find({ _id: { $in: ids }, owner: { $in: memberIds }, isArchived: false });
-        if (items.length !== ids.length) return "All items must be in a room member's closet";
+        const items = await ClothingItem.find({ _id: { $in: ids }, owner: hostId, isArchived: false });
+        if (items.length !== ids.length) return "All items must be in the host's closet";
         const itemsById = new Map(items.map((item) => [item.id as string, item]));
         const ordered = ids.flatMap((id) => itemsById.get(id) ?? []);
         io.to(roomId).emit('room:outfitUpdate', {

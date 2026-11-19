@@ -18,6 +18,7 @@ import io.socket.client.Socket
 import io.socket.engineio.client.transports.WebSocket
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.Instant
 
 /** Rooms and friends on the back-end (`/rooms`, `/friends`, and the room socket). */
 class BackendRoomsRepository(
@@ -41,6 +42,7 @@ class BackendRoomsRepository(
         RoomDetail(
             room = parseRoom(json),
             outfitItems = parseItems(json.getJSONArray("outfitItems")),
+            closet = parseItems(json.getJSONArray("closet")),
             messages = json.getJSONArray("messages").map(::parseMessage),
         )
     }
@@ -116,6 +118,8 @@ private fun parseRoom(json: JSONObject) = Room(
     id = json.getString("id"),
     name = json.getString("name"),
     members = json.getJSONArray("members").map { RoomMember(it.getString("id"), it.getString("name")) },
+    hostId = json.getString("hostId"),
+    expiresAt = Instant.parse(json.getString("expiresAt")),
 )
 
 private fun parseMessage(json: JSONObject) = ChatMessage(

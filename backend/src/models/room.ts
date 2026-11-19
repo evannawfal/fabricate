@@ -5,11 +5,13 @@ export const ROOM_LIMITS = {
   maxFriends: 20,
   messageLength: 1000,
   recentMessages: 50,
+  lifetimeSeconds: 2 * 24 * 60 * 60,
 } as const;
 
 const roomSchema = new Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: ROOM_LIMITS.nameLength },
+    host: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     members: [{ type: Schema.Types.ObjectId, ref: 'User', required: true }],
     outfitItems: [{ type: Schema.Types.ObjectId, ref: 'ClothingItem' }],
   },
@@ -17,10 +19,17 @@ const roomSchema = new Schema(
 );
 
 roomSchema.index({ members: 1, updatedAt: -1 });
+// MongoDB deletes rooms, and their messages below, once they're older than their lifetime.
+roomSchema.index({ createdAt: 1 }, { expireAfterSeconds: ROOM_LIMITS.lifetimeSeconds });
 
 export type RoomDocument = HydratedDocument<InferSchemaType<typeof roomSchema>>;
 
 export const Room = model('Room', roomSchema);
+
+// Rooms made before rooms had hosts were created by their first member.
+export function hostIdOf(room: RoomDocument): string {
+  return String(room.host ?? room.members[0]);
+}
 
 const messageSchema = new Schema(
   {
@@ -33,6 +42,7 @@ const messageSchema = new Schema(
 );
 
 messageSchema.index({ room: 1, createdAt: -1 });
+messageSchema.index({ createdAt: 1 }, { expireAfterSeconds: ROOM_LIMITS.lifetimeSeconds });
 
 export type MessageDocument = HydratedDocument<InferSchemaType<typeof messageSchema>>;
 
