@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -182,7 +183,11 @@ fun MainScreen(
     val closet by closetViewModel.uiState.collectAsState()
     when (destination) {
       Destination.Closet -> ClosetScreen(closetViewModel, contentModifier)
-      Destination.Outfits -> OutfitsScreen(outfitsViewModel, closet.items, contentModifier)
+      Destination.Outfits -> {
+        // Outfits can also be saved from a room, so the list is reloaded each time the tab opens.
+        LaunchedEffect(Unit) { outfitsViewModel.loadOutfits() }
+        OutfitsScreen(outfitsViewModel, closet.items, contentModifier)
+      }
       Destination.Social -> SocialScreen(contentModifier) // Placeholder composable for your new Social tab
       Destination.Avatar -> AvatarRoute(repositories.clothing, contentModifier)
       Destination.Shop -> ShopScreen(shopViewModel, closet.items, contentModifier)
