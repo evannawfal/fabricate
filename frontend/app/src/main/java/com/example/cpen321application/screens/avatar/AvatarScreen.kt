@@ -4,11 +4,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -22,11 +28,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cpen321application.R
@@ -36,16 +45,16 @@ import com.example.cpen321application.data.ClothingRepository
 import com.example.cpen321application.model.BodyMeasurement
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
-import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
+import com.example.cpen321application.model.GarmentSizeRange
 import com.example.cpen321application.viewmodel.AvatarSaveState
 import com.example.cpen321application.viewmodel.AvatarUiState
 import com.example.cpen321application.viewmodel.AvatarViewModel
+import com.example.cpen321application.viewmodel.WornGarment
 
 internal val ScreenPadding = 16.dp
 internal val ControlSpacing = 8.dp
 private const val SCRIM_ALPHA = 0.4f
 
-/** The Avatar tab: wires [AvatarScreen] to an [AvatarViewModel]. */
 @Composable
 fun AvatarRoute(clothingRepository: ClothingRepository, modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -65,11 +74,6 @@ fun AvatarRoute(clothingRepository: ClothingRepository, modifier: Modifier = Mod
     )
 }
 
-/**
- * Avatar screen with:
- *  - Top half: 3-D SceneView of the avatar + worn garments with automatic body-part hiding & relocation.
- *  - Bottom half: TabRow with "Clothes" and "Measurements" tabs.
- */
 @Composable
 fun AvatarScreen(
     uiState: AvatarUiState,
@@ -84,7 +88,6 @@ fun AvatarScreen(
     val tabs = listOf("Clothes", "Measurements")
 
     Column(modifier.fillMaxSize()) {
-        // ── 3-D view (top half) ──────────────────────────────────────────
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -110,10 +113,20 @@ fun AvatarScreen(
                     modifier = Modifier.padding(ScreenPadding),
                 )
             }
+
+            if (uiState.worn.isNotEmpty() && selectedTab == 0) {
+                GarmentSizeOverlay(
+                    worn = uiState.worn,
+                    onGarmentSizeChange = onGarmentSizeChange,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 8.dp),
+                )
+            }
+
             if (saving) SavingOverlay()
         }
 
-        // ── Bottom panel: tab bar + content ─────────────────────────────
         Column(Modifier.weight(1f)) {
             TabRow(selectedTabIndex = selectedTab) {
                 tabs.forEachIndexed { index, title ->
@@ -129,7 +142,6 @@ fun AvatarScreen(
                 0 -> AvatarClothesTab(
                     uiState = uiState,
                     onToggleGarment = onToggleGarment,
-                    onGarmentSizeChange = onGarmentSizeChange,
                 )
                 1 -> AvatarMeasurementsTab(
                     uiState = uiState,
@@ -140,6 +152,84 @@ fun AvatarScreen(
             }
         }
     }
+}
+
+@Composable
+private fun GarmentSizeOverlay(
+    worn: Map<ClothingCategory, WornGarment>,
+    onGarmentSizeChange: (ClothingCategory, Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        tonalElevation = 2.dp,
+        modifier = modifier,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            worn.forEach { (category, garment) ->
+                val label = when (category) {
+                    ClothingCategory.Top -> "Top size"
+                    ClothingCategory.Bottom -> "Bottom size"
+                    ClothingCategory.Outerwear -> "Outerwear size"
+                    else -> "${category.name} size"
+                }
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        textAlign = TextAlign.Center,
+                    )
+                    VerticalSlider(
+                        value = garment.size,
+                        onValueChange = { onGarmentSizeChange(category, it) },
+                        modifier = Modifier
+                            .height(140.dp)
+                            .width(32.dp)
+                            .testTag("avatar_garment_size_${garment.itemId}"),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VerticalSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Slider(
+        value = value,
+        onValueChange = onValueChange,
+        valueRange = GarmentSizeRange,
+        modifier = modifier
+            .graphicsLayer {
+                rotationZ = 270f
+                transformOrigin = TransformOrigin(0f, 0f)
+            }
+            .layout { measurable, constraints ->
+                val placeable = measurable.measure(
+                    Constraints(
+                        minWidth = constraints.minHeight,
+                        maxWidth = constraints.maxHeight,
+                        minHeight = constraints.minWidth,
+                        maxHeight = constraints.maxHeight,
+                    )
+                )
+                layout(placeable.height, placeable.width) {
+                    placeable.place(-placeable.width, 0)
+                }
+            },
+    )
 }
 
 @Composable
@@ -155,26 +245,6 @@ private fun SavingOverlay() {
         Text(
             text = stringResource(R.string.avatar_saving),
             color = MaterialTheme.colorScheme.inverseOnSurface,
-        )
-    }
-}
-
-@Preview(showBackground = true, name = "No avatar yet")
-@Composable
-private fun AvatarScreenPreview() {
-    CPEN321ApplicationTheme {
-        AvatarScreen(uiState = AvatarUiState(), onMeasurementChange = { _, _ -> }, onSave = {})
-    }
-}
-
-@Preview(showBackground = true, name = "Error")
-@Composable
-private fun AvatarScreenErrorPreview() {
-    CPEN321ApplicationTheme {
-        AvatarScreen(
-            uiState = AvatarUiState(saveState = AvatarSaveState.Error(R.string.avatar_error_generic)),
-            onMeasurementChange = { _, _ -> },
-            onSave = {},
         )
     }
 }
