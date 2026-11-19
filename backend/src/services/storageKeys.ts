@@ -22,3 +22,7 @@ export function avatarModelKey(userId: string): string {
 export function garmentModelKey(userId: string, itemId: string): string {
   return `garments/${userId}/${itemId}/${randomUUID()}.glb`;
 }
+
+export function postImageKey(userId: string, extension: ImageExtension): string {
+  return `posts/${userId}/${randomUUID()}.${extension}`;
+}
