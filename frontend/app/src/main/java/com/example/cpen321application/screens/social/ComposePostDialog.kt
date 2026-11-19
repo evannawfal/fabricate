@@ -73,7 +73,7 @@ internal fun ComposePostDialog(
 ) {
     AlertDialog(
         onDismissRequest = { if (!isPosting) onDismiss() },
-        title = { Text("Post OOTD") },
+        title = { Text("Post Outfit") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 AsyncImage(

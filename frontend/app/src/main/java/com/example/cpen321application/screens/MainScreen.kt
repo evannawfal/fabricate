@@ -113,7 +113,6 @@ fun MainScreen(
           )
         },
         actions = {
-          // 1. Shop action button
           IconButton(onClick = { destination = Destination.Shop }) {
             Icon(
               imageVector = Icons.Filled.ShoppingCart,
@@ -121,7 +120,6 @@ fun MainScreen(
               tint = if (destination == Destination.Shop) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
-          // 2. Rooms action button
           IconButton(onClick = { destination = Destination.Rooms }) {
             Icon(
               imageVector = Icons.Filled.Person,
@@ -129,7 +127,6 @@ fun MainScreen(
               tint = if (destination == Destination.Rooms) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
-          // 3. Profile icon button with DropdownMenu (Profile & Sign Out)
           Box {
             IconButton(onClick = { profileMenuExpanded = true }) {
               Icon(

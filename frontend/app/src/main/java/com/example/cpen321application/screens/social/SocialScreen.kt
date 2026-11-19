@@ -71,7 +71,7 @@ fun SocialScreen(viewModel: SocialViewModel, modifier: Modifier = Modifier) {
                 .testTag(CREATE_POST_BUTTON_TAG),
         ) {
             Icon(Icons.Filled.Add, contentDescription = null)
-            Text("Post OOTD", modifier = Modifier.padding(start = 12.dp))
+            Text("Post Outfit", modifier = Modifier.padding(start = 12.dp))
         }
     }
 
@@ -105,7 +105,7 @@ fun SocialScreen(viewModel: SocialViewModel, modifier: Modifier = Modifier) {
         AlertDialog(
             onDismissRequest = { deletingPost = null },
             title = { Text("Delete post?") },
-            text = { Text("This OOTD post will be removed from your friends' feeds.") },
+            text = { Text("This Outfit of the Day post will be removed from your friends' feeds.") },
             confirmButton = {
                 TextButton(onClick = {
                     deletingPost = null
@@ -156,7 +156,7 @@ private fun SocialFeedContent(
         ) {
             if (state.posts.isEmpty()) {
                 EmptyState(
-                    title = "No OOTDs today yet",
+                    title = "No outfit today yet",
                     message = "Share today's outfit with your friends—posts disappear at midnight.",
                 )
             } else {
