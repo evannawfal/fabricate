@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.example.cpen321application.network.BackendSocialRepository
 
 private object Routes {
   const val LOGIN = "login"
@@ -118,6 +119,14 @@ private fun HomeDestination(sessionStore: SessionStore, navController: NavHostCo
       onUnauthorized = { endRejectedSession(sessionStore, navController) },
     )
   }
+
+  val socialRepository = remember {
+    BackendSocialRepository(
+      tokenProvider = { sessionStore.token.first() },
+      onUnauthorized = { endRejectedSession(sessionStore, navController) },
+    )
+  }
+
   val repositories = remember {
     MainScreenRepositories(
       clothing = clothingRepository,
@@ -126,8 +135,10 @@ private fun HomeDestination(sessionStore: SessionStore, navController: NavHostCo
       location = DeviceLocationProvider(context),
       rooms = roomsRepository,
       profile = profileRepository,
+      social = socialRepository,
     )
   }
+
   MainScreen(
     repositories = repositories,
     onSignOut = {
