@@ -62,6 +62,13 @@ class BackendClothingRepository(
             .put("category", changes.category.apiValue)
             .put("color", changes.color)
             .put("style", changes.style)
+        return patch(id, json)
+    }
+
+    override suspend fun setClean(id: String, isClean: Boolean): ClothingItem =
+        patch(id, JSONObject().put("isClean", isClean))
+
+    private suspend fun patch(id: String, json: JSONObject): ClothingItem {
         val request = Request.Builder().url("$clothingUrl/$id").patch(json.toString().toRequestBody(JSON))
         return parseItem(send(request))
     }

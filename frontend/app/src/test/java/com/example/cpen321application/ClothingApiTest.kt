@@ -204,6 +204,19 @@ class ClothingApiTest {
     }
 
     @Test
+    fun setClean_sendsOnlyTheCleanStatus() {
+        respond(200, itemJson().put("isClean", false).toString())
+
+        val item = runBlocking { repository.setClean("abc123", false) }
+
+        val request = server.takeRequest()
+        assertEquals("PATCH", request.method)
+        assertEquals("/clothing/abc123", request.path)
+        assertEquals("{\"isClean\":false}", request.body.readUtf8())
+        assertFalse(item.isClean)
+    }
+
+    @Test
     fun deleteItem_sendsDelete() {
         respond(204)
 

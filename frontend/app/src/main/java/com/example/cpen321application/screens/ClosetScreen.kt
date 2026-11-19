@@ -3,7 +3,7 @@ package com.example.cpen321application.screens
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -56,6 +56,8 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -65,7 +67,6 @@ import com.example.cpen321application.data.readPhotoForUpload
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
 import com.example.cpen321application.model.PhotoSide
-import com.example.cpen321application.model.filterByCategory
 import com.example.cpen321application.model.supportsModel
 import com.example.cpen321application.viewmodel.ClosetError
 import com.example.cpen321application.viewmodel.ClosetUiState
@@ -78,7 +79,8 @@ const val CLOSET_ITEM_IMAGE_TAG = "closet_item_image"
 /**
  * The user's closet: a category filter over a grid of their clothing items.
  * Items are added from a front and a back photo with the Add button. Tapping an
- * item opens its details, where it can be edited or deleted.
+ * item opens its details, where it can be edited, deleted or moved to the wash bin.
+ * Long-pressing an item, or tapping Select, picks several to move at once.
  */
 @Composable
 fun ClosetScreen(viewModel: ClosetViewModel, modifier: Modifier = Modifier) {
@@ -150,7 +152,12 @@ private fun OpenItemDetail(
         onBack = viewModel::closeItem,
         onEdit = { viewModel.startEditing(item.id) },
         onDelete = { viewModel.deleteItem(item.id) },
-        modelButton = {
+        actions = {
+            WashBinButton(
+                item = item,
+                isUpdating = item.id in state.updatingCleanIds,
+                onSetClean = { isClean -> viewModel.setClean(listOf(item.id), isClean) },
+            )
             ModelButton(
                 item = item,
                 isGenerating = state.generatingModelId == item.id,
@@ -169,21 +176,27 @@ private fun ClosetBrowser(
     onAddClothing: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val selectedIds = state.selectedIds
+    BackHandler(enabled = selectedIds != null) { viewModel.setSelection(null) }
     Box(modifier = modifier.fillMaxSize()) {
-        ClosetGrid(
-            state = state,
-            onSelectCategory = viewModel::selectCategory,
-            onOpenItem = { viewModel.openItem(it.id) },
-            onRetry = viewModel::loadItems,
-        )
-        ExtendedFloatingActionButton(
-            onClick = onAddClothing,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp),
-        ) {
-            Icon(Icons.Filled.Add, contentDescription = null)
-            Text("Add clothing", modifier = Modifier.padding(start = 12.dp))
+        ClosetGrid(state, viewModel)
+        if (selectedIds != null) {
+            SelectionActions(
+                selected = state.selectedItems,
+                isUpdating = state.updatingCleanIds.isNotEmpty(),
+                onSetClean = { isClean -> viewModel.setClean(selectedIds, isClean) },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        } else {
+            ExtendedFloatingActionButton(
+                onClick = onAddClothing,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null)
+                Text("Add clothing", modifier = Modifier.padding(start = 12.dp))
+            }
         }
     }
 }
@@ -225,25 +238,16 @@ private fun ClosetDialogs(state: ClosetUiState, viewModel: ClosetViewModel) {
 }
 
 @Composable
-private fun ClosetGrid(
-    state: ClosetUiState,
-    onSelectCategory: (ClothingCategory?) -> Unit,
-    onOpenItem: (ClothingItem) -> Unit,
-    onRetry: () -> Unit,
-) {
+private fun ClosetGrid(state: ClosetUiState, viewModel: ClosetViewModel) {
     val items = state.items
+    val visibleItems = state.visibleItems
     Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            "My Closet",
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
-        )
+        ClosetHeader(state, viewModel)
 
         if (items.isNotEmpty()) {
-            CategoryFilter(state.selectedCategory, onSelectCategory)
+            CategoryFilter(state.selectedCategory) { viewModel.setFilter(it, state.washBinOnly) }
         }
 
-        val visibleItems = items.filterByCategory(state.selectedCategory)
         when {
             state.isLoading && items.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                 CircularProgressIndicator()
@@ -251,31 +255,89 @@ private fun ClosetGrid(
             state.loadError != null -> EmptyState(
                 title = "Couldn't load your closet",
                 message = state.loadError,
-                action = { TextButton(onClick = onRetry) { Text("Try again") } },
+                action = { TextButton(onClick = viewModel::loadItems) { Text("Try again") } },
             )
             items.isEmpty() -> EmptyState(
                 title = "Your closet is empty",
                 message = "Tap Add clothing to photograph the front and back of your first item.",
             )
+            visibleItems.isEmpty() && state.washBinOnly -> EmptyState(
+                title = state.selectedCategory?.let { "No ${it.label.lowercase()} in the wash bin" }
+                    ?: "Your wash bin is empty",
+                message = "Clothes in the wash bin are left out of generated outfits.",
+            )
             visibleItems.isEmpty() -> EmptyState(
                 title = "No ${state.selectedCategory?.label?.lowercase()} yet",
                 message = "Try another category.",
             )
-            else -> LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                // Extra space at the bottom so the Add button doesn't cover the last row.
-                contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                items(visibleItems, key = { it.id }) { item ->
-                    ClothingItemCard(item, onClick = { onOpenItem(item) })
-                }
-            }
+            else -> ClothingItemGrid(visibleItems, state.selectedIds, viewModel)
         }
     }
 }
+
+@Composable
+private fun ClosetHeader(state: ClosetUiState, viewModel: ClosetViewModel) {
+    val selectedIds = state.selectedIds
+    if (selectedIds != null) {
+        SelectionHeader(
+            count = selectedIds.size,
+            onClose = { viewModel.setSelection(null) },
+            onSelectAll = { viewModel.setSelection(state.visibleItems.map { it.id }.toSet()) },
+        )
+        return
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
+    ) {
+        Text(
+            "My Closet",
+            style = MaterialTheme.typography.headlineSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (state.items.isNotEmpty()) {
+            WashBinFilterChip(
+                selected = state.washBinOnly,
+                count = state.items.count { !it.isClean },
+                onClick = { viewModel.setFilter(state.selectedCategory, !state.washBinOnly) },
+            )
+            TextButton(onClick = { viewModel.setSelection(emptySet()) }) { Text("Select") }
+        }
+    }
+}
+
+// [selectedIds] is null when not selecting, so tapping an item opens it instead.
+@Composable
+private fun ClothingItemGrid(items: List<ClothingItem>, selectedIds: Set<String>?, viewModel: ClosetViewModel) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        // Extra space at the bottom so the Add button or the selection actions don't cover the last row.
+        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        items(items, key = { it.id }) { item ->
+            ClothingItemCard(
+                item = item,
+                isSelected = selectedIds?.let { item.id in it },
+                onClick = {
+                    if (selectedIds == null) {
+                        viewModel.openItem(item.id)
+                    } else {
+                        viewModel.setSelection(selectedIds.toggle(item.id))
+                    }
+                },
+                onLongClick = { viewModel.setSelection(selectedIds.orEmpty().toggle(item.id)) },
+            )
+        }
+    }
+}
+
+private fun Set<String>.toggle(id: String): Set<String> = if (id in this) this - id else this + id
 
 @Composable
 private fun CategoryFilter(
@@ -297,15 +359,28 @@ private fun CategoryFilter(
     }
 }
 
+// [isSelected] is null when not selecting.
 @Composable
-private fun ClothingItemCard(item: ClothingItem, onClick: () -> Unit) {
+private fun ClothingItemCard(item: ClothingItem, isSelected: Boolean?, onClick: () -> Unit, onLongClick: () -> Unit) {
     Column(
         modifier = Modifier
             .testTag(CLOSET_ITEM_TAG)
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = "Select")
+            .semantics { isSelected?.let { selected = it } },
     ) {
-        ClothingThumbnail(item, Modifier.fillMaxWidth())
+        Box {
+            val selectedBorder = if (isSelected == true) {
+                Modifier.border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+            } else {
+                Modifier
+            }
+            ClothingThumbnail(item, Modifier.fillMaxWidth().then(selectedBorder))
+            if (!item.isClean) {
+                WashBinBadge(Modifier.align(Alignment.TopEnd).padding(8.dp))
+            }
+            isSelected?.let { SelectionMark(it, Modifier.align(Alignment.TopStart).padding(8.dp)) }
+        }
         Text(
             item.name,
             style = MaterialTheme.typography.bodyMedium,
@@ -394,7 +469,7 @@ private fun ClothingItemDetail(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    modelButton: @Composable () -> Unit,
+    actions: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -425,7 +500,7 @@ private fun ClothingItemDetail(
         DetailRow("Type", item.category.label)
         DetailRow("Colour", item.color.replaceFirstChar(Char::uppercase))
         DetailRow("Style", item.style.replaceFirstChar(Char::uppercase))
-        DetailRow("Status", if (item.isClean) "Clean" else "In the laundry")
+        DetailRow("Status", if (item.isClean) "Clean" else "In the wash bin")
 
         Text("Tags", style = MaterialTheme.typography.labelMedium)
         if (item.tags.isEmpty()) {
@@ -440,7 +515,7 @@ private fun ClothingItemDetail(
             Icon(Icons.Filled.Edit, contentDescription = null)
             Text("Edit details", modifier = Modifier.padding(start = 8.dp))
         }
-        modelButton()
+        actions()
         ConfirmDeleteButton(
             label = "Delete item",
             title = "Delete ${item.name}?",

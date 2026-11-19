@@ -1,13 +1,19 @@
 package com.example.cpen321application
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.cpen321application.fakes.FakeClothingRepository
 import com.example.cpen321application.model.ClothingCategory
@@ -16,6 +22,8 @@ import com.example.cpen321application.screens.ClosetScreen
 import com.example.cpen321application.viewmodel.ClosetViewModel
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -30,6 +38,10 @@ class ClosetScreenTest {
         ClothingItem("2", "Black Jeans", ClothingCategory.Bottom, "black", "casual", listOf("denim")),
         ClothingItem("3", "White Sneakers", ClothingCategory.Shoes, "white", "casual"),
     )
+
+    private val washBinBadges get() = composeRule.onAllNodesWithContentDescription("In the wash bin")
+
+    private fun FakeClothingRepository.isClean(id: String) = items.first { it.id == id }.isClean
 
     private fun showCloset(closet: List<ClothingItem> = items): FakeClothingRepository {
         val repository = FakeClothingRepository(closet)
@@ -67,9 +79,9 @@ class ClosetScreenTest {
         composeRule.onNodeWithText("Grey Hoodie").performClick()
         composeRule.onNodeWithText("Tops").assertIsDisplayed()
         composeRule.onNodeWithText("comfy").assertIsDisplayed()
-        composeRule.onNodeWithText("Delete item").assertIsDisplayed()
+        composeRule.onNodeWithText("Delete item").performScrollTo().assertIsDisplayed()
 
-        composeRule.onNodeWithContentDescription("Back").performClick()
+        composeRule.onNodeWithContentDescription("Back").performScrollTo().performClick()
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()
     }
 
@@ -126,5 +138,124 @@ class ClosetScreenTest {
         showCloset(emptyList())
 
         composeRule.onNodeWithText("Your closet is empty").assertIsDisplayed()
+    }
+
+    @Test
+    fun onlyItemsInTheWashBinShowABadge() {
+        showCloset(listOf(items[0].copy(isClean = false), items[1], items[2]))
+
+        washBinBadges.assertCountEquals(1)
+    }
+
+    @Test
+    fun washBinFilterShowsOnlyItemsInTheWashBin() {
+        showCloset(listOf(items[0].copy(isClean = false), items[1], items[2]))
+
+        composeRule.onNodeWithText("Wash bin (1)").performClick()
+        composeRule.onNodeWithText("Grey Hoodie").assertIsDisplayed()
+        composeRule.onNodeWithText("Black Jeans").assertDoesNotExist()
+
+        composeRule.onNodeWithText("Bottoms").performClick()
+        composeRule.onNodeWithText("No bottoms in the wash bin").assertIsDisplayed()
+
+        composeRule.onNodeWithText("Wash bin (1)").performClick()
+        composeRule.onNodeWithText("Black Jeans").assertIsDisplayed()
+    }
+
+    @Test
+    fun emptyWashBinShowsEmptyState() {
+        showCloset()
+
+        composeRule.onNodeWithText("Wash bin").performClick()
+
+        composeRule.onNodeWithText("Your wash bin is empty").assertIsDisplayed()
+    }
+
+    @Test
+    fun itemDetails_moveTheItemToTheWashBinAndBack() {
+        val repository = showCloset()
+        val gate = CompletableDeferred<Unit>().also { repository.cleanGate = it }
+
+        composeRule.onNodeWithText("Grey Hoodie").performClick()
+        composeRule.onNodeWithText("Move to wash bin").performScrollTo().performClick()
+        composeRule.onNodeWithText("Move to wash bin").assertIsNotEnabled()
+        gate.complete(Unit)
+
+        composeRule.onNodeWithText("In the wash bin").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Left out of generated outfits until it's clean.").assertExists()
+        assertFalse(repository.isClean("1"))
+
+        composeRule.onNodeWithText("Mark clean").performScrollTo().performClick()
+        composeRule.onNodeWithText("Clean").performScrollTo().assertIsDisplayed()
+        assertTrue(repository.isClean("1"))
+
+        composeRule.onNodeWithContentDescription("Back").performClick()
+        washBinBadges.assertCountEquals(0)
+    }
+
+    @Test
+    fun selectingSeveralItems_movesThemToTheWashBin() {
+        val repository = showCloset()
+
+        composeRule.onNodeWithText("Select").performClick()
+        composeRule.onNodeWithText("Grey Hoodie").performClick()
+        composeRule.onNodeWithText("Black Jeans").performClick()
+        composeRule.onNodeWithText("2 selected").assertIsDisplayed()
+        composeRule.onNodeWithText("Mark clean").assertIsNotEnabled()
+        composeRule.onNodeWithText("Move to wash bin").performClick()
+
+        composeRule.onNodeWithText("Add clothing").assertIsDisplayed()
+        washBinBadges.assertCountEquals(2)
+        assertFalse(repository.isClean("1"))
+        assertFalse(repository.isClean("2"))
+        assertTrue(repository.isClean("3"))
+    }
+
+    @Test
+    fun longPressingAnItem_startsSelectingWithIt() {
+        showCloset()
+
+        composeRule.onNodeWithText("Black Jeans").performTouchInput { longClick() }
+
+        composeRule.onNodeWithText("1 selected").assertIsDisplayed()
+        composeRule.onNodeWithText("Black Jeans").assertIsSelected()
+        composeRule.onNodeWithText("Grey Hoodie").assertIsNotSelected()
+
+        composeRule.onNodeWithContentDescription("Stop selecting").performClick()
+        composeRule.onNodeWithText("Add clothing").assertIsDisplayed()
+    }
+
+    @Test
+    fun emptyingTheWashBin_withSelectAll() {
+        val repository = showCloset(items.map { it.copy(isClean = false) })
+
+        composeRule.onNodeWithText("Wash bin (3)").performClick()
+        composeRule.onNodeWithText("Select").performClick()
+        composeRule.onNodeWithText("Select all").performClick()
+        composeRule.onNodeWithText("3 selected").assertIsDisplayed()
+        composeRule.onNodeWithText("Move to wash bin").assertIsNotEnabled()
+        composeRule.onNodeWithText("Mark clean").performClick()
+
+        composeRule.onNodeWithText("Your wash bin is empty").assertIsDisplayed()
+        assertTrue(repository.items.all { it.isClean })
+    }
+
+    @Test
+    fun itemsThatFailToMove_stayInTheSelection() {
+        val repository = showCloset()
+        repository.cleanErrors["2"] = "Couldn't reach the server. Check your connection and try again."
+
+        composeRule.onNodeWithText("Select").performClick()
+        composeRule.onNodeWithText("Grey Hoodie").performClick()
+        composeRule.onNodeWithText("Black Jeans").performClick()
+        composeRule.onNodeWithText("Move to wash bin").performClick()
+
+        composeRule.onNodeWithText("Couldn't move 1 item to the wash bin").assertIsDisplayed()
+        composeRule.onNodeWithText("OK").performClick()
+        composeRule.onNodeWithText("1 selected").assertIsDisplayed()
+        composeRule.onNodeWithText("Black Jeans").assertIsSelected()
+        washBinBadges.assertCountEquals(1)
+        assertFalse(repository.isClean("1"))
+        assertTrue(repository.isClean("2"))
     }
 }
