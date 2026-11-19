@@ -1,11 +1,7 @@
 import { performance } from 'node:perf_hooks';
 
-import {
-  CLOSET_ANALYSIS_MAX_ITEMS,
-  CLOSET_ANALYSIS_TIME_LIMIT_MS,
-  COLOR_FAMILIES,
-  STYLE_PAIRINGS,
-} from '../../src/config/constants.js';
+import { CLOSET_ANALYSIS_MAX_ITEMS, CLOSET_ANALYSIS_TIME_LIMIT_MS } from '../../src/config/constants.js';
+import { COLORS, STYLES } from '../../src/config/clothingVocabulary.js';
 import { ClothingItem, type ClothingCategory } from '../../src/models/clothingItem.js';
 import { analyzeClosetGaps } from '../../src/services/closetGaps.js';
 import { DATABASE_SETUP_TIMEOUT_MS, startTestDatabase, stopTestDatabase } from '../helpers/database.js';
@@ -13,7 +9,7 @@ import { createUser } from '../helpers/fixtures.js';
 
 const RUNS = 10;
 
-// Every category clears its minimum share, so the analysis also runs the versatile-item search, its slowest path.
+// A large closet spread over every category, colour and style.
 const ITEMS_PER_CATEGORY: Record<ClothingCategory, number> = {
   top: 200,
   bottom: 125,
@@ -23,8 +19,7 @@ const ITEMS_PER_CATEGORY: Record<ClothingCategory, number> = {
   accessory: 25,
 };
 
-const COLORS = Object.values(COLOR_FAMILIES).flat();
-const STYLES = Object.keys(STYLE_PAIRINGS);
+const COLOR_NAMES = Object.keys(COLORS);
 
 beforeAll(startTestDatabase, DATABASE_SETUP_TIMEOUT_MS);
 afterAll(stopTestDatabase);
@@ -38,7 +33,7 @@ async function seedCloset(ownerId: string): Promise<void> {
       owner: ownerId,
       name: `Item ${index}`,
       category,
-      color: COLORS[index % COLORS.length],
+      color: COLOR_NAMES[index % COLOR_NAMES.length],
       style: STYLES[index % STYLES.length],
       imageKey: `clothing/nfr-${index}.jpg`,
     }))

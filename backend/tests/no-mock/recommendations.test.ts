@@ -89,17 +89,20 @@ describe('Unmocked: GET /recommendations', () => {
     expect(response.body).toEqual({ error });
   });
 
-  // Input: a small closet with every everyday category, the top in the wash bin, in a colour
-  // the analysis doesn't recognise, so there is nothing to pair a new item with
+  // Input: tops, bottoms and shoes for every occasion and a jacket, in a colour the analysis doesn't
+  // recognise, with one top in the wash bin
   // Expected status code: 200
-  // Expected behavior: clothes in the wash bin count; no gaps are found, so no store is searched
+  // Expected behavior: clothes in the wash bin count; nothing is missing and nothing new would pair
+  // with the closet, so no gaps are found and no store is searched
   // Expected output: { gaps: [], items: [] }
   test('Returns no recommendations when the closet has no gaps', async () => {
     const user = await createUser();
-    await createClothingItem(user.id, { category: 'top', color: 'plaid', isClean: false });
-    for (const category of ['bottom', 'shoes', 'outerwear'] as const) {
-      await createClothingItem(user.id, { category, color: 'plaid' });
+    for (const style of ['casual', 'business', 'sporty', 'formal']) {
+      for (const category of ['top', 'bottom', 'shoes'] as const) {
+        await createClothingItem(user.id, { category, style, color: 'iridescent', isClean: !(category === 'top' && style === 'formal') });
+      }
     }
+    await createClothingItem(user.id, { category: 'outerwear', color: 'iridescent' });
 
     const response = await recommend(user.id);
 

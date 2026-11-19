@@ -12,6 +12,7 @@
 | 2026-11-04 | 2, 4 | Final update for CP2. Added the friends, profile (`/users/me`), rooms, room Socket.IO and garment model interfaces to the back-end test table, completed the `POST /clothing` test cases for front and back photos, and pointed every test link at the submission commit. Updated the test counts, coverage screenshots and the reasons each file below 100% can't be fully covered. Section 4 now follows the two-photo Add Clothing Items use case and has a new log. |
 | 2026-11-17 | 3 | Added the test of the clothing upload time requirement (`ClothingUploadTimeTest.kt`). It runs in the app against the deployed back-end, so all three non-functional requirements are now tested automatically. |
 | 2026-11-17 | 4 | Added the Generate Daily Outfit end-to-end test (`GenerateOutfitTest.kt`), its scenario-to-test-step table and its logs. |
+| 2026-11-19 | 2.5, 3 | Updated for the reworked closet gap analysis: the lines of `controllers/recommendations.ts` that only the mocked tests reach, and the closet analysis time test's description and log, since the analysis no longer uses category shares. |
 
 ---
 
@@ -216,7 +217,7 @@ The mocked tests focus on error handling (failing classifiers, the outfit genera
 
 ![Jest coverage without mocks](images/coverage-no-mock.png)
 
-Without mocks, the controllers miss the parts that only run once an external service is configured or has answered: `controllers/clothing.ts` (50-77) after the photos are classified and (155-189) when a garment model is generated, `controllers/outfits.ts` (88-105) after the outfit generator is reached, `controllers/recommendations.ts` (39-43, 70-76) after the store search returns items, `controllers/avatar.ts` (19-44) after the avatar is generated, and `controllers/auth.ts` (35-56) after Google accepts the sign-in. The mocked tests cover these, along with the database errors the controllers handle (for example `controllers/clothing.ts` 215-216 and `controllers/outfits.ts` 161).
+Without mocks, the controllers miss the parts that only run once an external service is configured or has answered: `controllers/clothing.ts` (50-77) after the photos are classified and (155-189) when a garment model is generated, `controllers/outfits.ts` (88-105) after the outfit generator is reached, `controllers/recommendations.ts` (34-40, 67-73) after the store search returns items, `controllers/avatar.ts` (19-44) after the avatar is generated, and `controllers/auth.ts` (35-56) after Google accepts the sign-in. The mocked tests cover these, along with the database errors the controllers handle (for example `controllers/clothing.ts` 215-216 and `controllers/outfits.ts` 161).
 
 ### 2.5. Jest Coverage Report Screenshots With and Without Mocks Combined
 
@@ -277,10 +278,10 @@ All three non-functional requirements in `Requirements_and_Design.md` are tested
     ```
 
 - **Closet gap analysis finishes within 2 seconds for 500 items**
-  - **Verification:** The test seeds a 500-item closet in a test MongoDB database. The closet has every category above its minimum share and every colour and style, so the analysis also runs its slowest step, the search for a versatile item. Each run times what the Recommendation Engine does for a request: it loads the closet with one indexed query and finds the gaps in memory. The test does 10 runs, including the first one before Node has warmed up, and fails if any run takes 2 seconds or longer. It logs the slowest and mean times and every run.
+  - **Verification:** The test seeds a 500-item closet in a test MongoDB database. The closet has every category, colour and style, so the analysis checks every occasion, and counts the new outfits each item it could suggest would make with all 500 items. Each run times what the Recommendation Engine does for a request: it loads the closet with one indexed query and finds the gaps in memory. The test does 10 runs, including the first one before Node has warmed up, and fails if any run takes 2 seconds or longer. It logs the slowest and mean times and every run.
   - **Log Output**
     ```
-    Closet analysis of 500 items over 10 runs (limit 2000 ms): max 19.5 ms, mean 10.6 ms, runs [19.5, 13.7, 11.9, 9.2, 8.9, 9.4, 11.3, 7.9, 7.7, 6.8] ms, 0 gap(s) found
+    Closet analysis of 500 items over 10 runs (limit 2000 ms): max 21.1 ms, mean 9.1 ms, runs [21.1, 9.6, 8.6, 7.5, 7.1, 7.6, 8.0, 6.9, 7.3, 7.1] ms, 0 gap(s) found
     ```
 
 - **Clothing upload finishes within 10 seconds for photos up to 5 MB**
