@@ -27,6 +27,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +37,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -91,11 +93,14 @@ fun RoomScreen(viewModel: RoomViewModel, onBack: () -> Unit, modifier: Modifier 
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(
-                    onClick = viewModel::saveOutfit,
-                    enabled = state.board.isNotEmpty() && !state.isSaving,
-                    modifier = Modifier.testTag(SAVE_ROOM_OUTFIT_TAG),
-                ) { Text("Save outfit") }
+                // The outfit is made from the host's clothes, so only the host can save it.
+                if (state.isHost) {
+                    TextButton(
+                        onClick = viewModel::saveOutfit,
+                        enabled = state.board.isNotEmpty() && !state.isSaving,
+                        modifier = Modifier.testTag(SAVE_ROOM_OUTFIT_TAG),
+                    ) { Text("Save outfit") }
+                }
             }
             when {
                 state.loadError != null -> LoadError(state.loadError!!, onRetry = viewModel::load)
@@ -107,6 +112,7 @@ fun RoomScreen(viewModel: RoomViewModel, onBack: () -> Unit, modifier: Modifier 
 
     if (picking) {
         ClosetPicker(
+            title = if (state.isHost) "Add from your closet" else "Add from ${state.room?.hostName ?: "the host"}'s closet",
             items = state.closet.filter { item -> state.board.none { it.id == item.id } },
             onPick = {
                 viewModel.addItem(it)
@@ -117,12 +123,17 @@ fun RoomScreen(viewModel: RoomViewModel, onBack: () -> Unit, modifier: Modifier 
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RoomContent(state: RoomUiState, viewModel: RoomViewModel, onAddItem: () -> Unit) {
     Column {
         if (!state.isConnected) ConnectionBanner(state.hasConnected)
-        SharedBoard(state.board, canEdit = state.isConnected, onAdd = onAddItem, onRemove = viewModel::removeItem)
-        Chat(state.messages, state.currentUserId, Modifier.weight(1f))
+        PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
+            Column(Modifier.fillMaxSize()) {
+                SharedBoard(state.board, canEdit = state.isConnected, onAdd = onAddItem, onRemove = viewModel::removeItem)
+                Chat(state.messages, state.currentUserId, Modifier.weight(1f))
+            }
+        }
         MessageInput(canSend = state.isConnected, onSend = viewModel::sendMessage)
     }
 }
@@ -150,7 +161,7 @@ private fun SharedBoard(items: List<ClothingItem>, canEdit: Boolean, onAdd: () -
         item {
             Card(Modifier.size(96.dp).clickable(enabled = canEdit, onClick = onAdd).testTag(ADD_BOARD_ITEM_TAG)) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.Add, contentDescription = "Add from your closet")
+                    Icon(Icons.Filled.Add, contentDescription = "Add an item")
                 }
             }
         }
@@ -242,22 +253,32 @@ private fun ChatBubble(message: ChatMessage, isMine: Boolean) {
 }
 
 @Composable
-private fun ClosetPicker(items: List<ClothingItem>, onPick: (ClothingItem) -> Unit, onDismiss: () -> Unit) {
+private fun ClosetPicker(title: String, items: List<ClothingItem>, onPick: (ClothingItem) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add from your closet") },
+        title = { Text(title) },
         text = {
             if (items.isEmpty()) {
-                Text("No more items in your closet to add.")
+                Text("No more items in this closet to add.")
             } else {
+                // Grouped by category, like the avatar's try-on list.
                 LazyColumn(Modifier.heightIn(max = 400.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(items, key = ClothingItem::id) { item ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().clickable { onPick(item) }.testTag(CLOSET_PICKER_ITEM_TAG),
-                        ) {
-                            ItemImage(item, Modifier.size(56.dp))
-                            Text(item.name, modifier = Modifier.padding(start = 12.dp))
+                    items.groupBy(ClothingItem::category).toSortedMap().forEach { (category, itemsInCategory) ->
+                        item(key = category.apiValue) {
+                            Text(
+                                category.label,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        items(itemsInCategory, key = ClothingItem::id) { item ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().clickable { onPick(item) }.testTag(CLOSET_PICKER_ITEM_TAG),
+                            ) {
+                                ItemImage(item, Modifier.size(56.dp))
+                                Text(item.name, modifier = Modifier.padding(start = 12.dp))
+                            }
                         }
                     }
                 }

@@ -13,7 +13,8 @@ const INVALID_ID = { error: 'Invalid outfit id' };
 const NOT_FOUND = { error: 'Outfit not found' };
 const ITEMS_NOT_OWNED = { error: 'All items must be clothing items in your closet' };
 
-// Items must be in the user's closet. Archived items are only allowed if the outfit already had them.
+// Items must be in the user's closet. Archived items are only 
+// allowed if the outfit already had them.
 async function ownsAllItems(userId: string, itemIds: string[], existingItemIds: string[] = []): Promise<boolean> {
   const count = await ClothingItem.countDocuments({
     _id: { $in: itemIds },

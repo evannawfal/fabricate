@@ -10,7 +10,9 @@
 | 2026-10-29 | 2, 3 | Updated for CP2. Added `POST /avatar` and `POST /outfits/generate` to the back-end test table and the mocked components, and pointed every test link at the current line. Updated the commit hash, the run instructions and the coverage screenshots, added a report of every back-end test together with the reasons each file below 100% can't be fully covered, and covered the error handler's branches listed for CP2. Section 3 now names the two non-functional requirements that are tested automatically; their tests come with the features they measure. |
 | 2026-11-03 | 2.1.1, 2.3, 2.5 | Updated the Clothing upload test documentation for required front and back photos. Added the front-photo upload failure case and documented cleanup attempts for both generated storage keys. |
 | 2026-11-04 | 2, 4 | Final update for CP2. Added the friends, profile (`/users/me`), rooms, room Socket.IO and garment model interfaces to the back-end test table, completed the `POST /clothing` test cases for front and back photos, and pointed every test link at the submission commit. Updated the test counts, coverage screenshots and the reasons each file below 100% can't be fully covered. Section 4 now follows the two-photo Add Clothing Items use case and has a new log. |
-| 2026-11-17 | 4 | Added the Create Outfits in a Room end-to-end test (`JoinRoomTest.kt`), with the steps the second tester (User B) follows, and its scenario-to-test-step table. |
+| 2026-11-17 | 3 | Added the test of the clothing upload time requirement (`ClothingUploadTimeTest.kt`). It runs in the app against the deployed back-end, so all three non-functional requirements are now tested automatically. |
+| 2026-11-17 | 4 | Added the Generate Daily Outfit end-to-end test (`GenerateOutfitTest.kt`), its scenario-to-test-step table and its logs. |
+| 2026-11-19 | 2.5, 3 | Updated for the reworked closet gap analysis: the lines of `controllers/recommendations.ts` that only the mocked tests reach, and the closet analysis time test's description and log, since the analysis no longer uses category shares. |
 
 ---
 
@@ -215,7 +217,7 @@ The mocked tests focus on error handling (failing classifiers, the outfit genera
 
 ![Jest coverage without mocks](images/coverage-no-mock.png)
 
-Without mocks, the controllers miss the parts that only run once an external service is configured or has answered: `controllers/clothing.ts` (50-77) after the photos are classified and (155-189) when a garment model is generated, `controllers/outfits.ts` (88-105) after the outfit generator is reached, `controllers/recommendations.ts` (39-43, 70-76) after the store search returns items, `controllers/avatar.ts` (19-44) after the avatar is generated, and `controllers/auth.ts` (35-56) after Google accepts the sign-in. The mocked tests cover these, along with the database errors the controllers handle (for example `controllers/clothing.ts` 215-216 and `controllers/outfits.ts` 161).
+Without mocks, the controllers miss the parts that only run once an external service is configured or has answered: `controllers/clothing.ts` (50-77) after the photos are classified and (155-189) when a garment model is generated, `controllers/outfits.ts` (88-105) after the outfit generator is reached, `controllers/recommendations.ts` (34-40, 67-73) after the store search returns items, `controllers/avatar.ts` (19-44) after the avatar is generated, and `controllers/auth.ts` (35-56) after Google accepts the sign-in. The mocked tests cover these, along with the database errors the controllers handle (for example `controllers/clothing.ts` 215-216 and `controllers/outfits.ts` 161).
 
 ### 2.5. Jest Coverage Report Screenshots With and Without Mocks Combined
 
@@ -251,7 +253,10 @@ In the interface tests alone, `middleware/errorHandler.ts` (26-27) is also uncov
 
 ## 3. Tests of Non-Functional Requirements
 
-Two of the three non-functional requirements in `Requirements_and_Design.md` will be tested automatically: [room update latency](Requirements_and_Design.md#nfr1) and [closet analysis time](Requirements_and_Design.md#nfr3). Their tests are in `backend/tests/nfr/`. Run them with `scripts/run-backend-nfr-tests.sh` (or `.ps1`); CI also runs them on every pull request as part of `npm test`.
+All three non-functional requirements in `Requirements_and_Design.md` are tested automatically.
+
+- [Room update latency](Requirements_and_Design.md#nfr1) and [closet analysis time](Requirements_and_Design.md#nfr3) are tested in `backend/tests/nfr/`. Run them with `scripts/run-backend-nfr-tests.sh` (or `.ps1`); CI also runs them on every pull request as part of `npm test`.
+- [Clothing upload time](Requirements_and_Design.md#nfr2) is tested in the app, in `frontend/app/src/androidTest/java/com/example/cpen321application/nfr/`. Run it with `scripts/run-frontend-nfr-tests.sh` (or `.ps1`), and sign in to the app on the emulator when the script asks. It runs in the app, not in the back-end tests, because the requirement is about how long the user waits: that includes the app preparing the photos, the network, storage and the real AI classifier, none of which a back-end test with a test database and a mocked classifier would measure. It isn't run in CI, since it needs a signed-in emulator and calls the paid classifier.
 
 ### 3.1. Test Locations in Git
 
@@ -259,6 +264,7 @@ Two of the three non-functional requirements in `Requirements_and_Design.md` wil
 | ------------------------------ | ------------------- |
 | Room updates reach members within 1 second | [`backend/tests/nfr/roomUpdateLatency.test.ts`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/nfr/roomUpdateLatency.test.ts) |
 | Closet gap analysis finishes within 2 seconds for 500 items | [`backend/tests/nfr/closetAnalysisTime.test.ts`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/nfr/closetAnalysisTime.test.ts) |
+| Clothing upload finishes within 10 seconds for photos up to 5 MB | [`frontend/app/src/androidTest/java/com/example/cpen321application/nfr/ClothingUploadTimeTest.kt`](https://github.com/evannawfal/fabricate/blob/main/frontend/app/src/androidTest/java/com/example/cpen321application/nfr/ClothingUploadTimeTest.kt) |
 
 ### 3.2. Test Verification and Logs
 
@@ -272,10 +278,20 @@ Two of the three non-functional requirements in `Requirements_and_Design.md` wil
     ```
 
 - **Closet gap analysis finishes within 2 seconds for 500 items**
-  - **Verification:** The test seeds a 500-item closet in a test MongoDB database. The closet has every category above its minimum share and every colour and style, so the analysis also runs its slowest step, the search for a versatile item. Each run times what the Recommendation Engine does for a request: it loads the closet with one indexed query and finds the gaps in memory. The test does 10 runs, including the first one before Node has warmed up, and fails if any run takes 2 seconds or longer. It logs the slowest and mean times and every run.
+  - **Verification:** The test seeds a 500-item closet in a test MongoDB database. The closet has every category, colour and style, so the analysis checks every occasion, and counts the new outfits each item it could suggest would make with all 500 items. Each run times what the Recommendation Engine does for a request: it loads the closet with one indexed query and finds the gaps in memory. The test does 10 runs, including the first one before Node has warmed up, and fails if any run takes 2 seconds or longer. It logs the slowest and mean times and every run.
   - **Log Output**
     ```
-    Closet analysis of 500 items over 10 runs (limit 2000 ms): max 19.5 ms, mean 10.6 ms, runs [19.5, 13.7, 11.9, 9.2, 8.9, 9.4, 11.3, 7.9, 7.7, 6.8] ms, 0 gap(s) found
+    Closet analysis of 500 items over 10 runs (limit 2000 ms): max 21.1 ms, mean 9.1 ms, runs [21.1, 9.6, 8.6, 7.5, 7.1, 7.6, 8.0, 6.9, 7.3, 7.1] ms, 0 gap(s) found
+    ```
+
+- **Clothing upload finishes within 10 seconds for photos up to 5 MB**
+  - **Verification:** The test runs in the app on the emulator, signed in as the tester, against the deployed back-end and its real AI classifier. It makes three photos of the test T-shirt (`shirt.jpg`) at a phone camera's 12-megapixel size, saved as JPEGs of about 0.5 MB, 2 MB and just under the back-end's 5 MB limit per photo; faint noise stands in for camera detail so the files reach those sizes. Each photo is uploaded 5 times as both the front and the back photo. Each upload is timed from when the user has picked both photos until the new item comes back from the back-end, ready to be shown first in the closet: the app reads, scales and re-encodes both photos (as it does for every upload), then `POST /clothing` stores them and classifies the item. The test fails if any upload takes longer than 10 seconds, and logs the slowest and mean times and every run for each size. It deletes every item it added. Run from the emulator, this includes the network between the emulator and the server.
+  - **Log Output** (from `adb logcat -s ClothingUploadTime`)
+    ```
+    Clothing upload time, 5 uploads per photo size (limit 10000 ms):
+    0.5 MB photo: max 4502 ms, mean 3374 ms, runs [4502, 3284, 3026, 3027, 3035] ms
+    1.9 MB photo: max 3347 ms, mean 3082 ms, runs [2996, 2962, 3347, 2989, 3118] ms
+    4.8 MB photo: max 2980 ms, mean 2724 ms, runs [2980, 2526, 2775, 2647, 2692] ms
     ```
 
 ---
@@ -297,26 +313,14 @@ The test opens the app's main screen, signed in as the tester, and talks to the 
 
 The test finds item cards, their photos and the loading indicator by the test tags `closet_item`, `closet_item_image` and `upload_progress`.
 
-The Create Outfits in a Room use case is tested by [`JoinRoomTest.kt`](https://github.com/evannawfal/fabricate/blob/main/frontend/app/src/androidTest/java/com/example/cpen321application/e2e/JoinRoomTest.kt) in the same folder, against the deployed back-end. A room needs two people, so the test is User A, signed in on the emulator, and a team member is User B, signed in to the app on another device and following the steps below while the test runs.
+The Generate Daily Outfit use case is tested by [`GenerateOutfitTest.kt`](https://github.com/evannawfal/fabricate/blob/main/frontend/app/src/androidTest/java/com/example/cpen321application/e2e/GenerateOutfitTest.kt) in the same folder, run by the same script. It also runs against the deployed back-end, with its real outfit generator (Claude) and weather service. Each scenario is its own test:
 
-- Give the test User B's account email: run `ROOM_FRIEND_EMAIL=<User B's email> scripts/run-frontend-e2e-tests.sh` (in PowerShell, set `$env:ROOM_FRIEND_EMAIL` first). Without it the room test is skipped, so the other end-to-end tests can still run on their own.
-- User B must have signed in to the app at least once and have at least one item in their closet.
-- Before the main scenario, the test makes User A and User B friends if they aren't already, and adds "E2E Room Tee" to User A's closet. It creates a room called "E2E Test Room". The app can't delete rooms, so the room stays in both users' room lists.
-- For failure 1a, the test removes all of User A's friends through `DELETE /friends/:id`, since the app has no way to remove a friend yet.
-- To lose the connection (failure 3a), the test turns off the emulator's Wi-Fi and mobile data, then turns them back on.
-- After each test, it turns the network back on, adds back any friend it removed, and deletes the item and any outfit it added.
-- Each step where the test waits for User B is logged (`adb logcat -s JoinRoomTest`), and the test waits up to 3 minutes for each.
+- Before each test, it grants the app approximate location access and gives the emulator a fixed location (UBC) through a test GPS provider, since the emulator has no location of its own and the weather is looked up for it.
+- Each test adds the clothes it needs to the tester's closet through the back-end: `shirt.jpg` is uploaded as the front and back photos, then the item is renamed and recategorized to "E2E Test Tee" (a top) or "E2E Test Jeans" (a bottom). This way the test has a top and a bottom whatever the classifier makes of the photo.
+- For failure 1a, the test marks every clean bottom in the tester's closet as dirty with `PATCH /clothing/:id`, since the app has no wash bin yet.
+- After each test, it removes the test location, marks those bottoms clean again, and deletes the clothes and any outfit it added.
 
-**Steps for User B**, in order:
-
-1. When User A's screen shows the new room, open the Rooms tab, open "E2E Test Room" (the first room) and send the message "Hi from User B".
-2. Check that "Hi from User A" appears in the chat.
-3. Check that "E2E Room Tee" appears on the shared outfit, then add any item from your closet to it.
-4. Check that "E2E Room Tee" disappears from the shared outfit.
-5. You'll see that User A left the room: their connection is being cut on purpose. Wait for the message "Back online" to appear in the chat.
-6. Leave the room with the Back button. The test then checks that User A can keep using the room.
-
-The test finds the rooms screens' elements by the test tags `create_room`, `room_name_field`, `friend_checkbox`, `friend_email_field`, `chat_input`, `send_message`, `chat_message`, `add_board_item`, `closet_picker_item`, `board_item`, `save_room_outfit` and `reconnecting_banner`.
+The test finds the outfit screens' elements by the test tags `generate_outfit_button`, `occasion_<occasion>`, `generating_outfit`, `generated_outfit_name`, `generated_outfit_weather`, `generated_outfit_item`, `generated_outfit_error`, `save_generated_outfit`, `regenerate_outfit` and `outfit_card`.
 
 ### 4.2. Tests
 
@@ -372,35 +376,54 @@ The test finds the rooms screens' elements by the test tags `create_room`, `room
       closingThePhotoPicker_leavesTheClosetUnchanged                    PASSED (5.88 s)
     ```
 
-- **Use Case: Create Outfits in a Room**
+- **Use Case: Generate Daily Outfit**
 
   **Main success scenario**
-  1. The user opens the Rooms screen and selects a room, or creates one and invites friends from their friend list.
-  2. The app shows the room's chat and the shared outfit board.
-  3. The user sends a chat message, or adds an item from their closet to the shared outfit board or removes an item from it.
-  4. The message or outfit change appears on every room member's screen.
-  5. The user taps "Save outfit" to save the items from their own closet on the shared outfit board to their outfits.
+  1. The user taps "Generate outfit" on the Outfits screen.
+  2. The app shows a list of occasions (casual, work, formal and workout).
+  3. The user selects an occasion.
+  4. The app shows a loading indicator while the outfit is generated from the user's clean clothes, the occasion and the current weather.
+  5. The app displays the generated outfit's items, with the weather it was based on (for example "Based on the weather: 12°C, light rain").
+  6. The user saves the outfit, or taps "Regenerate" to get a different one.
 
   **Failure scenarios**
-  - 1a. The user has no friends in their friend list to invite.
-    - 1a1. The app shows "Rooms are for styling with friends. Add a friend by email first." and a field to add a friend by email.
-  - 3a. The connection to the server is lost.
-    - 3a1. The app shows a "Reconnecting…" banner and disables sending until the connection is restored.
-  - 4a. Another member leaves the room.
-    - 4a1. The app shows the notice "(member's name) left the room." in the chat, and the room continues for the remaining members.
+  - 1a. The user's clean clothes do not include at least one shirt and one pair of pants.
+    - 1a1. The app shows "Couldn't generate an outfit" with a message naming what is missing, for example "Your clean clothes don't include a bottom. Add one to your closet or empty your wash bin."
+  - 4a. The outfit generation service is unavailable or does not respond in time.
+    - 4a1. The app shows "Couldn't generate an outfit" with the message "Outfits aren't available right now. Try again later." and a "Try again" button.
+  - 4b. The current weather cannot be retrieved.
+    - 4b1. The app generates the outfit without the weather and shows "The weather wasn't considered for this outfit."
+  - 4c. The user doesn't allow the app to use their location.
+    - 4c1. The app shows "Couldn't generate an outfit" with the message "Fabricate needs your approximate location to dress you for the weather. Allow location access and try again, or turn it on in your device's settings." and a "Try again" button.
 
   - **Expected Behaviors:**
 
     | **Scenario Steps** | **Test Case Steps** |
     | ------------------ | ------------------- |
-    | 1. The user opens the Rooms screen and selects a room, or creates one and invites friends from their friend list. | `roomWithAFriend_sharesMessagesAndOutfitChangesLive`: make User A and User B friends, and add "E2E Room Tee" to User A's closet.<br>Click "Rooms" in the bottom navigation bar, then the button tagged `create_room`.<br>Type "E2E Test Room" in the field tagged `room_name_field`, check the box (tagged `friend_checkbox`) next to User B's name, and click "Create". |
-    | 2. The app shows the room's chat and the shared outfit board. | Wait up to 10 seconds for the room to connect: the chat input (tagged `chat_input`) is present and the banner tagged `reconnecting_banner` is not.<br>Check that the texts "E2E Test Room" and "Shared outfit" and the button tagged `add_board_item` are displayed. |
-    | 3. The user sends a chat message, or adds an item from their closet to the shared outfit board or removes an item from it. | User B sends "Hi from User B" (User B step 1).<br>Type "Hi from User A" in the chat input and click the button tagged `send_message`.<br>Click the button tagged `add_board_item`, then the item tagged `closet_picker_item` named "E2E Room Tee".<br>User B adds one of their items to the board (User B step 3).<br>After step 5, click "Remove E2E Room Tee" on the board. |
-    | 4. The message or outfit change appears on every room member's screen. | Wait up to 3 minutes for a chat message (tagged `chat_message`) showing User B's name and "Hi from User B".<br>Wait up to 10 seconds for "Hi from User A" to be present; User B checks it appears (User B step 2).<br>Wait up to 10 seconds for one item (tagged `board_item`) on the board; User B checks it appears (User B step 3).<br>Wait up to 3 minutes for User B's item: two items on the board.<br>After removing "E2E Room Tee", wait up to 10 seconds for one item on the board; User B checks it's gone (User B step 4). |
-    | 5. The user taps "Save outfit" to save the items from their own closet on the shared outfit board to their outfits. | Click the button tagged `save_room_outfit`.<br>Wait up to 10 seconds for the notice "Outfit saved to your outfits."<br>Check that the back-end has exactly one new outfit for User A, holding only "E2E Room Tee" and not User B's item. |
-    | 1a. The user has no friends in their friend list to invite. | `noFriends_explainsAndLetsTheUserAddOneByEmail`: remove all of User A's friends.<br>Click "Rooms" in the bottom navigation bar, then the button tagged `create_room`. |
-    | 1a1. The app shows "Rooms are for styling with friends. Add a friend by email first." and a field to add a friend by email. | Check that the text "Rooms are for styling with friends. Add a friend by email first." is displayed, that there is no room name field (tagged `room_name_field`), and that "Create" is disabled.<br>Type User B's email in the field tagged `friend_email_field` and click "Add".<br>Wait up to 10 seconds for one friend checkbox (tagged `friend_checkbox`), and check that the room name field is displayed.<br>Click "Cancel", and check that the back-end lists User B as User A's only friend. |
-    | 3a. The connection to the server is lost. | In `roomWithAFriend_sharesMessagesAndOutfitChangesLive`, after step 4: turn off the emulator's Wi-Fi and mobile data. |
-    | 3a1. The app shows a "Reconnecting…" banner and disables sending until the connection is restored. | Wait up to 30 seconds for the banner tagged `reconnecting_banner`, and check that it shows "Reconnecting…".<br>Type "Back online" in the chat input, and check that the send button and the button tagged `add_board_item` are disabled.<br>Turn the Wi-Fi and mobile data back on, and wait up to 30 seconds for the banner to disappear.<br>Check that the send button is enabled, click it, and wait for "Back online" to be present; User B checks it appears (User B step 5). |
-    | 4a. Another member leaves the room. | User B leaves the room (User B step 6). |
-    | 4a1. The app shows the notice "(member's name) left the room." in the chat, and the room continues for the remaining members. | Wait up to 3 minutes for the notice "(User B's name) left the room."<br>Send "Still here" and wait for it to be present in the chat. |
+    | 1. The user taps "Generate outfit" on the Outfits screen. | Add the test top and bottom to the tester's closet.<br>Click "Outfits" in the bottom navigation bar.<br>Check that the text "My Outfits" is present on screen.<br>Click the button tagged `generate_outfit_button`. |
+    | 2. The app shows a list of occasions (casual, work, formal and workout). | Check that the text "What's the occasion?" and the options tagged `occasion_casual`, `occasion_work`, `occasion_formal` and `occasion_workout` are displayed. |
+    | 3. The user selects an occasion. | Click the option tagged `occasion_casual` (`occasion_work` in `regenerating_showsAnotherOutfitWithoutSavingTheFirst`). |
+    | 4. The app shows a loading indicator while the outfit is generated from the user's clean clothes, the occasion and the current weather. | Wait up to 10 seconds for the loading indicator (tagged `generating_outfit`), and check that it is displayed.<br>Wait up to 120 seconds for the generated outfit's name (tagged `generated_outfit_name`). |
+    | 5. The app displays the generated outfit's items, with the weather it was based on (for example "Based on the weather: 12°C, light rain"). | Check that the heading "Casual outfit" (or "Work outfit") is present.<br>Check that the weather text (tagged `generated_outfit_weather`) contains "Based on the weather:".<br>Check that there is at least one item (tagged `generated_outfit_item`), and that each one shows the name of one of the tester's clean clothes, read from the back-end (`GET /clothing`). |
+    | 6. The user saves the outfit, or taps "Regenerate" to get a different one. | `generatingAnOutfit_showsItWithTheWeatherAndSavesIt`: click the button tagged `save_generated_outfit`.<br>Wait for the generated outfit to close, then check that the text "My Outfits" is present and that the first outfit card (tagged `outfit_card`) shows the outfit's name.<br>Check that the back-end has exactly one new outfit, with that name and the occasion "casual".<br><br>`regenerating_showsAnotherOutfitWithoutSavingTheFirst`: after steps 1-5 for a Work outfit, click the button tagged `regenerate_outfit`.<br>Repeat the checks of steps 4 and 5.<br>Check that the back-end has no new outfit. |
+    | 1a. The user's clean clothes do not include at least one shirt and one pair of pants. | `noCleanBottom_showsWhatIsMissing`: add only the test top to the tester's closet, and mark every clean bottom in it as dirty.<br>Do steps 1-3 with the Casual occasion. |
+    | 1a1. The app shows "Couldn't generate an outfit" with a message naming what is missing, for example "Your clean clothes don't include a bottom. Add one to your closet or empty your wash bin." | Wait up to 120 seconds for the error (tagged `generated_outfit_error`).<br>Check that the texts "Couldn't generate an outfit" and "Your clean clothes don't include a bottom. Add one to your closet or empty your wash bin." are present.<br>Check that there is no "Try again" button.<br>Check that the back-end has no new outfit. |
+    | 4a. The outfit generation service is unavailable or does not respond in time. | Not automated: it needs the generator to fail on purpose, and the front-end end-to-end tests use the real back-end with no mocking. The back-end side is covered by the mocked `POST /outfits/generate` test "Generator unavailable", and the app's error message and "Try again" button by `OutfitsScreenTest.kt` (`unavailableServiceCanBeRetried`), which runs the Outfits screen with a fake back-end. |
+    | 4b. The current weather cannot be retrieved. | Not automated, for the same reason. The back-end side is covered by the mocked `POST /outfits/generate` test "Weather unavailable", and the app's message by `OutfitsScreenTest.kt` (`missingWeatherIsCalledOut`). |
+    | 4c. The user doesn't allow the app to use their location. | Not automated end to end: the test grants location access, and taking it away mid-test would affect the other end-to-end tests. The error "Couldn't generate an outfit", its "Try again" button and that no request is sent to the back-end are covered by `OutfitsScreenTest.kt` (`unavailableLocationExplainsWhyItsNeededWithoutCallingTheBackEnd`). |
+
+  - **Test Logs:**
+    ```
+    > Task :app:connectedDebugAndroidTest
+    Starting 3 tests on Pixel_API_35(AVD) - 15
+    Pixel_API_35(AVD) - 15 Tests 0/3 completed. (0 skipped) (0 failed)
+    Pixel_API_35(AVD) - 15 Tests 1/3 completed. (0 skipped) (0 failed)
+    Pixel_API_35(AVD) - 15 Tests 2/3 completed. (0 skipped) (0 failed)
+    Finished 3 tests on Pixel_API_35(AVD) - 15
+    BUILD SUCCESSFUL in 2m 1s
+
+    com.example.cpen321application.e2e.GenerateOutfitTest (Pixel emulator, API 35, deployed back-end):
+      regenerating_showsAnotherOutfitWithoutSavingTheFirst              PASSED (49.71 s)
+      noCleanBottom_showsWhatIsMissing                                  PASSED (20.63 s)
+      generatingAnOutfit_showsItWithTheWeatherAndSavesIt                PASSED (20.67 s)
+    ```

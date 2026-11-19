@@ -162,7 +162,11 @@ export async function generateClothingItemMesh(req: AuthedRequest, res: Response
     throw new UnsupportedGarmentError(`3D models aren't available for ${item.category} items yet`);
   }
 
-  const glb = await generateGarmentModel(await storage.downloadFile(item.imageKey), meshType);
+  const glb = await generateGarmentModel(
+    await storage.downloadFile(item.imageKey),
+    item.backImageKey ? await storage.downloadFile(item.backImageKey) : null,
+    meshType
+  );
   const key = garmentModelKey(userId, id);
   await storage.uploadFile(key, glb, CONTENT_TYPES.glb);
 

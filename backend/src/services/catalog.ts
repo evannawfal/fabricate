@@ -1,8 +1,8 @@
 import {
   CATALOG_CACHE_MAX_AGE_MS,
   CATALOG_CATEGORY_WORDS,
-  CATALOG_COLOR_WORDS,
   CATALOG_DEPARTMENT_WORDS,
+  CATALOG_STYLE_WORDS,
   CATALOG_REQUEST_TIMEOUT_MS,
   DEFAULT_CATALOG_COUNTRY,
   MAX_CATALOG_ITEMS,
@@ -23,7 +23,7 @@ export interface CatalogItem {
 
 export type CatalogDepartment = keyof typeof CATALOG_DEPARTMENT_WORDS;
 
-export interface CatalogSearch extends Pick<ClosetGap, 'category' | 'colorFamily' | 'style'> {
+export interface CatalogSearch extends Pick<ClosetGap, 'category' | 'color' | 'style'> {
   department?: CatalogDepartment | undefined;
   country?: string | undefined;
 }
@@ -58,11 +58,11 @@ interface SerperResult {
   source?: unknown;
 }
 
-export function toSearchTerm({ category, colorFamily, style, department }: CatalogSearch): string {
+export function toSearchTerm({ category, color, style, department }: CatalogSearch): string {
   const words = [
     department === undefined ? undefined : CATALOG_DEPARTMENT_WORDS[department],
-    style,
-    colorFamily === undefined ? undefined : CATALOG_COLOR_WORDS[colorFamily],
+    CATALOG_STYLE_WORDS[style],
+    color,
     CATALOG_CATEGORY_WORDS[category],
   ];
   return words.filter((word) => word !== undefined).join(' ');

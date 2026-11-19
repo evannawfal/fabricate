@@ -8,8 +8,15 @@ export const DEFAULT_CATALOG_COUNTRY = 'ca';
 export const MAX_CATALOG_ITEMS = 8;
 export const MAX_CATALOG_ITEMS_PER_STORE = 2;
 export const CATALOG_CATEGORY_WORDS = { top: 'shirt', bottom: 'pants', shoes: 'shoes', outerwear: 'jacket' } as const;
-// Searches need a real colour: Google reads "warm" as cozy and ignores "cool".
-export const CATALOG_COLOR_WORDS = { neutral: 'black', warm: 'burgundy', cool: 'blue' } as const;
+export const CATALOG_STYLE_WORDS = {
+  casual: 'casual',
+  business: 'business',
+  formal: 'formal',
+  sporty: 'athletic',
+  streetwear: 'streetwear',
+  loungewear: 'lounge',
+  outdoor: 'outdoor',
+} as const;
 // Searches with neither word come back mostly women's.
 export const CATALOG_DEPARTMENT_WORDS = { mens: "men's", womens: "women's" } as const;
 
@@ -35,25 +42,22 @@ export const HIP_WIDTH_RANGE = { min: 0.1, max: 1.5 };
 // Outfit generation and recommendations both need at least one of each to work with.
 export const REQUIRED_CLOSET_CATEGORIES = ['top', 'bottom'] as const;
 
-// A closet this small is too thin for shares to mean much, so only empty categories count as gaps.
-export const MIN_ITEMS_FOR_CLOSET_SHARES = 10;
-export const MIN_CATEGORY_SHARES = { top: 0.2, bottom: 0.15, shoes: 0.08, outerwear: 0.05 } as const;
-export const MIN_VERSATILE_PAIRINGS = 2;
+export const MAX_CLOSET_GAPS = 3;
+export const MAX_STORE_ITEMS_PER_GAP = 4;
+// Below this many tops and bottoms together, their balance says little about what's missing.
+export const MIN_TOPS_AND_BOTTOMS_FOR_BALANCE = 8;
+// People usually own more tops than bottoms, so tops are only short once they're outnumbered,
+// and bottoms once each has to go with more than this many tops.
+export const MAX_TOPS_PER_BOTTOM = 4;
+// A suggestion that only adds an outfit or two isn't worth a store search.
+export const MIN_NEW_OUTFITS = 3;
+// Beyond this, the exact number of new outfits means little, so reasons say "100+".
+export const MAX_OUTFITS_IN_REASON = 100;
+// A closet of at least this many clothes with at most this share in colours or patterns is mostly
+// neutrals, so a coloured piece is suggested.
+export const MIN_ITEMS_FOR_ACCENT = 8;
+export const MAX_ACCENT_SHARE = 0.1;
 export const MAX_PAIRED_ITEMS = 6;
-export const COLOR_FAMILIES = {
-  neutral: ['black', 'white', 'grey', 'gray', 'beige', 'cream', 'tan', 'khaki', 'brown', 'navy', 'denim', 'charcoal', 'ivory', 'camel'],
-  warm: ['red', 'orange', 'yellow', 'pink', 'coral', 'burgundy', 'maroon', 'gold', 'mustard', 'rust'],
-  cool: ['blue', 'green', 'purple', 'teal', 'turquoise', 'olive', 'mint', 'lavender', 'silver'],
-} as const;
-export const STYLE_PAIRINGS = {
-  casual: ['casual', 'streetwear', 'sporty', 'outdoor', 'loungewear'],
-  formal: ['formal', 'business'],
-  business: ['business', 'formal', 'casual'],
-  sporty: ['sporty', 'casual', 'streetwear', 'outdoor'],
-  streetwear: ['streetwear', 'casual', 'sporty'],
-  loungewear: ['loungewear', 'casual'],
-  outdoor: ['outdoor', 'casual', 'sporty'],
-} as const;
 
 // Closet analysis time NFR (Requirements_and_Design.md section 3.7), checked by tests/nfr/.
 export const CLOSET_ANALYSIS_TIME_LIMIT_MS = 2_000;

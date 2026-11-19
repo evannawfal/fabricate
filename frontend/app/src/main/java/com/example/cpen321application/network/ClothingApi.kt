@@ -62,6 +62,13 @@ class BackendClothingRepository(
             .put("category", changes.category.apiValue)
             .put("color", changes.color)
             .put("style", changes.style)
+        return patch(id, json)
+    }
+
+    override suspend fun setClean(id: String, isClean: Boolean): ClothingItem =
+        patch(id, JSONObject().put("isClean", isClean))
+
+    private suspend fun patch(id: String, json: JSONObject): ClothingItem {
         val request = Request.Builder().url("$clothingUrl/$id").patch(json.toString().toRequestBody(JSON))
         return parseItem(send(request))
     }
@@ -157,42 +164,6 @@ internal fun modelErrorMessageFor(status: Int, serverError: String?): String = w
 internal fun parseClothingItem(json: JSONObject): ClothingItem? {
     val category = ClothingCategory.fromApiValue(json.getString("category")) ?: return null
     val tags = json.optJSONArray("tags")
-    val refJson = json.optJSONObject("referencePoints")
-    val refPoints = if (refJson != null) {
-        val type = refJson.optString("type", "")
-        val ptsObj = refJson.optJSONObject("points")
-        val ptsMap = mutableMapOf<String, Point3D>()
-        if (ptsObj != null) {
-            val keys = ptsObj.keys()
-            while (keys.hasNext()) {
-                val key = keys.next()
-                val p = ptsObj.optJSONObject(key)
-                if (p != null) {
-                    ptsMap[key] = Point3D(
-                        x = p.optDouble("x", 0.0).toFloat(),
-                        y = p.optDouble("y", 0.0).toFloat(),
-                        z = p.optDouble("z", 0.0).toFloat(),
-                    )
-                }
-            }
-        }
-        val bbox = refJson.optJSONObject("boundingBox")
-        val cz = if (bbox != null) {
-            val minArr = bbox.optJSONArray("min")
-            val maxArr = bbox.optJSONArray("max")
-            if (minArr != null && maxArr != null) {
-                ((minArr.optDouble(2, 0.0) + maxArr.optDouble(2, 0.0)) / 2.0).toFloat()
-            } else 0f
-        } else 0f
-        val sleeve = refJson.optString("sleeve", "").ifBlank { null }
-        GarmentReferencePoints(
-            type = type,
-            points = ptsMap,
-            boundingBoxCenterZ = cz,
-            sleeve = sleeve,
-        )
-    } else null
-
     return ClothingItem(
         id = json.getString("id"),
         name = json.getString("name"),
@@ -204,6 +175,32 @@ internal fun parseClothingItem(json: JSONObject): ClothingItem? {
         imageUrl = if (json.isNull("imageUrl")) null else json.getString("imageUrl"),
         backImageUrl = if (json.isNull("backImageUrl")) null else json.getString("backImageUrl"),
         hasModel = json.optBoolean("hasModel", false),
-        referencePoints = refPoints,
+        referencePoints = json.optJSONObject("referencePoints")?.let(::parseReferencePoints),
     )
+}
+
+private fun parseReferencePoints(json: JSONObject): GarmentReferencePoints {
+    val pointsJson = json.optJSONObject("points")
+    val points = pointsJson?.keys()?.asSequence()
+        ?.mapNotNull { key -> pointsJson.optJSONObject(key)?.let { key to parsePoint(it) } }
+        ?.toMap()
+        .orEmpty()
+    return GarmentReferencePoints(
+        type = json.optString("type", ""),
+        points = points,
+        boundingBoxCenterZ = json.optJSONObject("boundingBox")?.let(::boundingBoxCenterZ) ?: 0f,
+        sleeve = json.optString("sleeve", "").ifBlank { null },
+    )
+}
+
+private fun parsePoint(json: JSONObject) = Point3D(
+    x = json.optDouble("x", 0.0).toFloat(),
+    y = json.optDouble("y", 0.0).toFloat(),
+    z = json.optDouble("z", 0.0).toFloat(),
+)
+
+private fun boundingBoxCenterZ(box: JSONObject): Float {
+    val min = box.optJSONArray("min") ?: return 0f
+    val max = box.optJSONArray("max") ?: return 0f
+    return ((min.optDouble(2, 0.0) + max.optDouble(2, 0.0)) / 2.0).toFloat()
 }
