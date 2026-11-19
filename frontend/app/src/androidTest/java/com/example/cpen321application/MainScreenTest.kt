@@ -5,6 +5,9 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.espresso.Espresso.pressBack
@@ -52,6 +55,11 @@ class MainScreenTest {
         }
     }
 
+    private fun openSignOut() {
+        composeRule.onNodeWithContentDescription("Profile").performClick()
+        composeRule.onNodeWithText("Sign out").performClick()
+    }
+
     @Test
     fun opensOnTheClosetTab() {
         showMainScreen()
@@ -87,8 +95,8 @@ class MainScreenTest {
         composeRule.onNodeWithText("My Closet").assertIsDisplayed()
         assertEquals(0, recommendations.requests.size)
 
-        composeRule.onNodeWithText("Shop").performClick()
-        composeRule.onNodeWithText("Recommended for you").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Shop").performClick()
+        composeRule.onAllNodesWithText("Recommended for you").onFirst().assertIsDisplayed()
         composeRule.waitForIdle()
         assertEquals(1, recommendations.requests.size)
 
@@ -118,7 +126,7 @@ class MainScreenTest {
     fun cancellingSignOutStaysSignedIn() {
         showMainScreen()
 
-        composeRule.onNodeWithText("Sign out").performClick()
+        openSignOut()
         composeRule.onNodeWithText("Sign out?").assertIsDisplayed()
         composeRule.onNodeWithText("Cancel").performClick()
 
@@ -131,7 +139,7 @@ class MainScreenTest {
     fun confirmingSignOutSignsOut() {
         showMainScreen()
 
-        composeRule.onNodeWithText("Sign out").performClick()
+        openSignOut()
         composeRule.onNode(hasText("Sign out") and hasAnyAncestor(isDialog())).performClick()
 
         composeRule.onNodeWithText("Sign out?").assertDoesNotExist()
