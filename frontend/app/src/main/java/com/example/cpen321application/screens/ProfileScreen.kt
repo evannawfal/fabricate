@@ -53,7 +53,6 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val avatarStore = remember { AvatarStore(context) }
     val savedMeasurements by avatarStore.measurements.collectAsState(initial = null)
-    val measurements = savedMeasurements ?: AvatarMeasurements()
     var showFriendsModal by rememberSaveable { mutableStateOf(false) }
 
     Column(
@@ -65,75 +64,16 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
         if (profile == null) {
             if (state.error == null) CircularProgressIndicator()
         } else {
-            var pronouns by rememberSaveable(profile.pronouns) { mutableStateOf(profile.pronouns) }
-
-            // Clickable Friends Count Card (Instagram-style)
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showFriendsModal = true },
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = state.friends.size.toString(),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = if (state.friends.size == 1) "Friend" else "Friends",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
+            FriendCountCard(count = state.friends.size, onClick = { showFriendsModal = true })
             ProfileInfoRow(title = "Name", value = profile.name)
             ProfileInfoRow(title = "Email", value = profile.email)
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = "Pronouns:",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                OutlinedTextField(
-                    value = pronouns,
-                    onValueChange = { if (it.length <= MAX_PRONOUNS_LENGTH) pronouns = it },
-                    placeholder = { Text("e.g. they/them") },
-                    singleLine = true,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag(PRONOUNS_FIELD_TAG),
-                )
-            }
-
-            Button(
-                onClick = { viewModel.savePronouns(pronouns) },
-                enabled = !state.isSaving && pronouns.trim() != profile.pronouns,
-                modifier = Modifier.testTag(SAVE_PROFILE_TAG),
-            ) {
-                Text("Save")
-            }
-
-            HorizontalDivider()
-
-            Text(
-                text = "Measurements",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+            PronounsEditor(
+                savedPronouns = profile.pronouns,
+                isSaving = state.isSaving,
+                onSave = viewModel::savePronouns,
             )
-            ProfileInfoRow(title = "Height", value = "${measurements[BodyMeasurement.Height]} cm")
-            ProfileInfoRow(title = "Shoulder width", value = "${measurements[BodyMeasurement.Shoulders]} cm")
-            ProfileInfoRow(title = "Hip width", value = "${measurements[BodyMeasurement.Hips]} cm")
+            HorizontalDivider()
+            MeasurementsSection(savedMeasurements ?: AvatarMeasurements())
         }
         state.error?.let { error ->
             Text(error, color = MaterialTheme.colorScheme.error)
@@ -147,6 +87,79 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
             onDismiss = { showFriendsModal = false },
         )
     }
+}
+
+@Composable
+private fun FriendCountCard(count: Int, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = if (count == 1) "Friend" else "Friends",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PronounsEditor(savedPronouns: String, isSaving: Boolean, onSave: (String) -> Unit) {
+    var pronouns by rememberSaveable(savedPronouns) { mutableStateOf(savedPronouns) }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = "Pronouns:",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        OutlinedTextField(
+            value = pronouns,
+            onValueChange = { if (it.length <= MAX_PRONOUNS_LENGTH) pronouns = it },
+            placeholder = { Text("e.g. they/them") },
+            singleLine = true,
+            modifier = Modifier
+                .weight(1f)
+                .testTag(PRONOUNS_FIELD_TAG),
+        )
+    }
+
+    Button(
+        onClick = { onSave(pronouns) },
+        enabled = !isSaving && pronouns.trim() != savedPronouns,
+        modifier = Modifier.testTag(SAVE_PROFILE_TAG),
+    ) {
+        Text("Save")
+    }
+}
+
+@Composable
+private fun MeasurementsSection(measurements: AvatarMeasurements) {
+    Text(
+        text = "Measurements",
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+    )
+    ProfileInfoRow(title = "Height", value = "${measurements[BodyMeasurement.Height]} cm")
+    ProfileInfoRow(title = "Shoulder width", value = "${measurements[BodyMeasurement.Shoulders]} cm")
+    ProfileInfoRow(title = "Hip width", value = "${measurements[BodyMeasurement.Hips]} cm")
 }
 
 @Composable
