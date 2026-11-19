@@ -14,7 +14,12 @@ import { authHeader, createClothingItem, createUser } from '../helpers/fixtures.
 // 3D model, which takes seconds and is covered by running the garment scripts. ES modules must be
 // mocked before the app is imported. The app loads this module on demand, so the real
 // garmentMesh service (mesh choice, errors) still runs.
-type GarmentOptions = { frontImageBuffer: Buffer; category: string; baseMeshesDir: string };
+type GarmentOptions = {
+  frontImageBuffer: Buffer;
+  backImageBuffer: Buffer | null;
+  category: string;
+  baseMeshesDir: string;
+};
 const processAndApplyGarment = jest.fn<(options: GarmentOptions) => Promise<Uint8Array>>();
 jest.unstable_mockModule('../../src/garment/imgToGlb/processGarment.js', () => ({ processAndApplyGarment }));
 const { createApp } = await import('../../src/app.js');
@@ -112,6 +117,35 @@ describe('Mocked: POST /clothing/:id/generate', () => {
     });
     expect(await modelKeyOf(item.id)).toBe(key);
     expect(storage.deleteFile).not.toHaveBeenCalled();
+  });
+
+  // Mocked behavior: storage returns a different photo for the front and the back; the garment
+  //   builder returns a model
+  // Input: id of an item with a front and a back photo
+  // Expected status code: 201
+  // Expected behavior: both photos are downloaded and the builder gets each one on its own side
+  // Expected output: { downloadUrl, contentType: "model/gltf-binary", meshType: "t-shirt", hasModel: true }
+  test('Builds the model from the front and back photos', async () => {
+    const backPhoto = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 4, 5, 6]);
+    const storage = mockStorage();
+    storage.downloadFile.mockImplementation((key) =>
+      Promise.resolve(key === 'clothing/tee-back.jpg' ? backPhoto : FRONT_PHOTO)
+    );
+    const user = await createUser();
+    const item = await createClothingItem(user.id, {
+      name: 'Band tee',
+      imageKey: 'clothing/tee-front.jpg',
+      backImageKey: 'clothing/tee-back.jpg',
+    });
+
+    const response = await generate(user.id, item.id);
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({ meshType: 't-shirt', hasModel: true });
+    expect(storage.downloadFile.mock.calls.map(([key]) => key)).toEqual(['clothing/tee-front.jpg', 'clothing/tee-back.jpg']);
+    const [options] = processAndApplyGarment.mock.calls[0] ?? [];
+    expect(Buffer.from(FRONT_PHOTO).equals(options?.frontImageBuffer as Buffer)).toBe(true);
+    expect(Buffer.from(backPhoto).equals(options?.backImageBuffer as Buffer)).toBe(true);
   });
 
   // Mocked behavior: storage and the garment builder succeed

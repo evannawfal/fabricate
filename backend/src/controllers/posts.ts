@@ -2,7 +2,7 @@ import type { Response } from 'express';
 import { getUserId, type AuthedRequest } from '../middleware/middleware.js';
 import { POST_LIMITS, Post, toPostResponse, type PostDocument } from '../models/posts.js';
 import { User, displayName, getFriendIds } from '../models/user.js';
-import { InvalidImageError, MAX_IMAGE_BYTES, SUPPORTED_IMAGE_TYPES } from '../services/classifier.js';
+import { InvalidImageError, SUPPORTED_IMAGE_TYPES } from '../services/classifier.js';
 import { getFileStorage, isFileStorageConfigured } from '../services/storage.js';
 import { postImageKey, type ImageExtension } from '../services/storageKeys.js';
 import { isObjectId, parseText } from '../validation/common.js';
@@ -26,9 +26,6 @@ function checkPostPhoto(file: Express.Multer.File | undefined): ImageExtension {
   }
   if (file.buffer.byteLength === 0) {
     throw new InvalidImageError('The image is empty');
-  }
-  if (file.buffer.byteLength > MAX_IMAGE_BYTES) {
-    throw new InvalidImageError(`The image must be at most ${MAX_IMAGE_BYTES / (1024 * 1024)} MB`);
   }
   return extension;
 }

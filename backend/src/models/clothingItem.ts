@@ -65,8 +65,8 @@ export interface ClothingItemResponse {
 export function toClothingItemResponse(
   item: ClothingItemDocument,
   imageUrl: string | null,
-  backImageUrl: string | null = null,
-  referencePoints: unknown | null = null
+  backImageUrl: string | null,
+  referencePoints: unknown | null
 ): ClothingItemResponse {
   return {
     id: item._id.toString(),
