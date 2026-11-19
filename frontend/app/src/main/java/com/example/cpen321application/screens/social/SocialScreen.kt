@@ -32,19 +32,19 @@ import androidx.compose.ui.unit.dp
 import com.example.cpen321application.data.readPhotoForUpload
 import com.example.cpen321application.model.SocialPost
 import com.example.cpen321application.screens.EmptyState
+import com.example.cpen321application.screens.PhotoPicker
 import com.example.cpen321application.screens.rememberPhotoPicker
 import com.example.cpen321application.viewmodel.SocialUiState
 import com.example.cpen321application.viewmodel.SocialViewModel
 
 const val CREATE_POST_BUTTON_TAG = "create_post_button"
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SocialScreen(viewModel: SocialViewModel, modifier: Modifier = Modifier) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var choosingPhotoSource by rememberSaveable { mutableStateOf(false) }
-    var deletingPost by rememberSaveable { mutableStateOf<String?>(null) }
+    var deletingPostId by rememberSaveable { mutableStateOf<String?>(null) }
 
     val photoPicker = rememberPhotoPicker(
         onPhoto = { uri -> viewModel.preparePost { readPhotoForUpload(context, uri) } },
@@ -60,32 +60,59 @@ fun SocialScreen(viewModel: SocialViewModel, modifier: Modifier = Modifier) {
             onRefresh = viewModel::refresh,
             onRetry = viewModel::loadPosts,
             onToggleLike = viewModel::toggleLike,
-            onRequestDelete = { deletingPost = it },
+            onRequestDelete = { deletingPostId = it },
         )
-
-        ExtendedFloatingActionButton(
+        PostOutfitFab(
             onClick = { choosingPhotoSource = true },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-                .testTag(CREATE_POST_BUTTON_TAG),
-        ) {
-            Icon(Icons.Filled.Add, contentDescription = null)
-            Text("Post Outfit", modifier = Modifier.padding(start = 12.dp))
-        }
+            modifier = Modifier.align(Alignment.BottomEnd),
+        )
     }
 
+    SocialDialogs(
+        state = state,
+        viewModel = viewModel,
+        photoPicker = photoPicker,
+        choosingPhotoSource = choosingPhotoSource,
+        onDismissPhotoSource = { choosingPhotoSource = false },
+        deletingPostId = deletingPostId,
+        onDismissDelete = { deletingPostId = null },
+    )
+}
+
+@Composable
+private fun PostOutfitFab(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    ExtendedFloatingActionButton(
+        onClick = onClick,
+        modifier = modifier
+            .padding(16.dp)
+            .testTag(CREATE_POST_BUTTON_TAG),
+    ) {
+        Icon(Icons.Filled.Add, contentDescription = null)
+        Text("Post Outfit", modifier = Modifier.padding(start = 12.dp))
+    }
+}
+
+@Composable
+private fun SocialDialogs(
+    state: SocialUiState,
+    viewModel: SocialViewModel,
+    photoPicker: PhotoPicker,
+    choosingPhotoSource: Boolean,
+    onDismissPhotoSource: () -> Unit,
+    deletingPostId: String?,
+    onDismissDelete: () -> Unit,
+) {
     if (choosingPhotoSource) {
         OotdPhotoSourceSheet(
             onTakePhoto = {
-                choosingPhotoSource = false
+                onDismissPhotoSource()
                 photoPicker.takePhoto()
             },
             onChooseFromGallery = {
-                choosingPhotoSource = false
+                onDismissPhotoSource()
                 photoPicker.chooseFromGallery()
             },
-            onDismiss = { choosingPhotoSource = false },
+            onDismiss = onDismissPhotoSource,
         )
     }
 
@@ -101,34 +128,47 @@ fun SocialScreen(viewModel: SocialViewModel, modifier: Modifier = Modifier) {
         )
     }
 
-    deletingPost?.let { postId ->
-        AlertDialog(
-            onDismissRequest = { deletingPost = null },
-            title = { Text("Delete post?") },
-            text = { Text("This Outfit of the Day post will be removed from your friends' feeds.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    deletingPost = null
-                    viewModel.deletePost(postId)
-                }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
-                }
+    deletingPostId?.let { postId ->
+        DeletePostDialog(
+            onConfirm = {
+                onDismissDelete()
+                viewModel.deletePost(postId)
             },
-            dismissButton = {
-                TextButton(onClick = { deletingPost = null }) { Text("Cancel") }
-            },
+            onDismiss = onDismissDelete,
         )
     }
 
     state.actionError?.let { error ->
-        AlertDialog(
-            onDismissRequest = viewModel::dismissActionError,
-            text = { Text(error) },
-            confirmButton = {
-                TextButton(onClick = viewModel::dismissActionError) { Text("OK") }
-            },
-        )
+        ActionErrorDialog(message = error, onDismiss = viewModel::dismissActionError)
     }
+}
+
+@Composable
+private fun DeletePostDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete post?") },
+        text = { Text("This Outfit of the Day post will be removed from your friends' feeds.") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Delete", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+@Composable
+private fun ActionErrorDialog(message: String, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = { Text(message) },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("OK") }
+        },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -154,28 +194,41 @@ private fun SocialFeedContent(
             onRefresh = onRefresh,
             modifier = Modifier.fillMaxSize(),
         ) {
-            if (state.posts.isEmpty()) {
-                EmptyState(
-                    title = "No outfit today yet",
-                    message = "Share today's outfit with your friends—posts disappear at midnight.",
+            SocialPostsList(
+                state = state,
+                onToggleLike = onToggleLike,
+                onRequestDelete = onRequestDelete,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SocialPostsList(
+    state: SocialUiState,
+    onToggleLike: (SocialPost) -> Unit,
+    onRequestDelete: (String) -> Unit,
+) {
+    if (state.posts.isEmpty()) {
+        EmptyState(
+            title = "No outfit today yet",
+            message = "Share today's outfit with your friends—posts disappear at midnight.",
+        )
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 88.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            items(state.posts, key = SocialPost::id) { post ->
+                SocialPostCard(
+                    post = post,
+                    isMine = post.authorId == state.currentUserId,
+                    isLiking = post.id in state.likingPostIds,
+                    isDeleting = state.deletingPostId == post.id,
+                    onToggleLike = { onToggleLike(post) },
+                    onDelete = { onRequestDelete(post.id) },
                 )
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 88.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    items(state.posts, key = SocialPost::id) { post ->
-                        SocialPostCard(
-                            post = post,
-                            isMine = post.authorId == state.currentUserId,
-                            isLiking = post.id in state.likingPostIds,
-                            isDeleting = state.deletingPostId == post.id,
-                            onToggleLike = { onToggleLike(post) },
-                            onDelete = { onRequestDelete(post.id) },
-                        )
-                    }
-                }
             }
         }
     }
