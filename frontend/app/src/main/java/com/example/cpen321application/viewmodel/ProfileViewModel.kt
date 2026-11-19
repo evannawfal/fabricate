@@ -64,58 +64,57 @@ class ProfileViewModel(
     fun sendFriendRequest(email: String) {
         val trimmed = email.trim()
         if (trimmed.isEmpty()) return
-        updateFriends {
-            when (val result = roomsRepository.sendFriendRequest(trimmed)) {
-                is FriendRequestResult.Sent -> { state ->
-                    state.copy(
+        updateFriends(
+            action = { roomsRepository.sendFriendRequest(trimmed) },
+            apply = { state, result ->
+                val updated = when (result) {
+                    is FriendRequestResult.Sent -> state.copy(
                         outgoingRequests = listOf(result.request) + state.outgoingRequests,
                         friendMessage = "Friend request sent to ${result.request.user.name}.",
-                        requestsSent = state.requestsSent + 1,
                     )
+                    is FriendRequestResult.BecameFriends -> state.withFriend(result.friend)
                 }
-                is FriendRequestResult.BecameFriends -> { state ->
-                    state.withFriend(result.friend).copy(requestsSent = state.requestsSent + 1)
-                }
-            }
-        }
+                updated.copy(requestsSent = state.requestsSent + 1)
+            },
+        )
     }
 
-    fun acceptFriendRequest(request: FriendRequest) = updateFriends {
-        val friend = roomsRepository.acceptFriendRequest(request.id)
-        return@updateFriends { state -> state.withFriend(friend) }
-    }
+    fun acceptFriendRequest(request: FriendRequest) = updateFriends(
+        action = { roomsRepository.acceptFriendRequest(request.id) },
+        apply = { state, friend -> state.withFriend(friend) },
+    )
 
     /** Declines a request sent to the user, or cancels one they sent. */
-    fun removeFriendRequest(request: FriendRequest) = updateFriends {
-        roomsRepository.deleteFriendRequest(request.id)
-        return@updateFriends { state ->
+    fun removeFriendRequest(request: FriendRequest) = updateFriends(
+        action = { roomsRepository.deleteFriendRequest(request.id) },
+        apply = { state, _ ->
             state.copy(
                 incomingRequests = state.incomingRequests.filterNot { it.id == request.id },
                 outgoingRequests = state.outgoingRequests.filterNot { it.id == request.id },
             )
-        }
-    }
+        },
+    )
 
-    fun removeFriend(friend: Friend) = updateFriends {
-        roomsRepository.removeFriend(friend.id)
-        return@updateFriends { state ->
+    fun removeFriend(friend: Friend) = updateFriends(
+        action = { roomsRepository.removeFriend(friend.id) },
+        apply = { state, _ ->
             state.copy(
                 friends = state.friends.filterNot { it.id == friend.id },
                 friendMessage = "Removed ${friend.name} from your friends.",
             )
-        }
-    }
+        },
+    )
 
     fun clearFriendMessages() = _uiState.update { it.copy(friendError = null, friendMessage = null) }
 
-    // One friend change at a time; [action] returns how to apply its result to the latest state.
-    private fun updateFriends(action: suspend () -> (ProfileUiState) -> ProfileUiState) {
+    // One friend change at a time; [apply] updates the latest state with what [action] returned.
+    private fun <T> updateFriends(action: suspend () -> T, apply: (ProfileUiState, T) -> ProfileUiState) {
         if (_uiState.value.isUpdatingFriends) return
         _uiState.update { it.copy(isUpdatingFriends = true, friendError = null, friendMessage = null) }
         viewModelScope.launch {
             try {
-                val change = action()
-                _uiState.update { change(it).copy(isUpdatingFriends = false) }
+                val result = action()
+                _uiState.update { apply(it, result).copy(isUpdatingFriends = false) }
             } catch (e: ApiException) {
                 _uiState.update { it.copy(isUpdatingFriends = false, friendError = e.message) }
             }
