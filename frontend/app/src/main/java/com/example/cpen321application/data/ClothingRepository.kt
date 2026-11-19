@@ -25,6 +25,9 @@ interface ClothingRepository {
 
     suspend fun updateItem(id: String, changes: ClothingItemChanges): ClothingItem
 
+    /** Takes the item out of the wash bin when [isClean], or puts it in. */
+    suspend fun setClean(id: String, isClean: Boolean): ClothingItem
+
     suspend fun deleteItem(id: String)
 
     /** Has the back-end build the item's 3D model, replacing any earlier one, and returns it. */
