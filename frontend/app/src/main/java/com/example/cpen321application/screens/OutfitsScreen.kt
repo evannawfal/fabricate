@@ -161,11 +161,6 @@ private fun OutfitActions(onGenerate: () -> Unit, onCreate: () -> Unit, modifier
 @Composable
 private fun OutfitList(state: OutfitsUiState, onOpenOutfit: (Outfit) -> Unit, onRetry: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            "My Outfits",
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
-        )
         when {
             state.isLoading && state.outfits.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                 CircularProgressIndicator()
