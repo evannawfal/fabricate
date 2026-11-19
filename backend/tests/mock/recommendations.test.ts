@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import request from 'supertest';
 
 import { createApp } from '../../src/app.js';
+import { MAX_STORE_ITEMS_PER_GAP } from '../../src/config/constants.js';
 import { ClothingItem } from '../../src/models/clothingItem.js';
 import {
   CatalogUnavailableError,
@@ -32,6 +33,7 @@ function storeItem(name: string, store = 'Uniqlo'): CatalogItem {
 
 const SNEAKERS = storeItem('Black canvas sneakers');
 const JACKET = storeItem('Black denim jacket', 'Gap');
+const GAPS = ['No shoes in your closet', 'No outerwear in your closet', 'Nothing to wear for work: you have no work tops or bottoms'];
 
 // Stand-in for the store search (Serper), answering each search by the category it asks for.
 function mockCatalog(results: Partial<Record<string, CatalogItem[] | Error>>) {
@@ -43,7 +45,7 @@ function mockCatalog(results: Partial<Record<string, CatalogItem[] | Error>>) {
   return search;
 }
 
-// Missing shoes and outerwear, so the analysis finds two gaps that pair with both items.
+// Missing shoes and outerwear, which pair with both items, and nothing for work.
 async function userWithShirtAndJeans() {
   const user = await createUser();
   const shirt = await createClothingItem(user.id, { name: 'White shirt', category: 'top', color: 'white' });
@@ -81,7 +83,7 @@ describe('Mocked: GET /recommendations', () => {
     const response = await recommend(user.id, '?country=US&department=womens');
 
     expect(response.status).toBe(200);
-    expect(response.body.gaps).toEqual(['No shoes in your closet', 'No outerwear in your closet']);
+    expect(response.body.gaps).toEqual(GAPS);
     expect(response.body.items).toEqual([
       expect.objectContaining({ ...SNEAKERS, reason: 'No shoes in your closet' }),
       expect.objectContaining({ ...JACKET, reason: 'No outerwear in your closet' }),
@@ -92,9 +94,10 @@ describe('Mocked: GET /recommendations', () => {
         expect.objectContaining({ id: shirt.id, name: 'White shirt' }),
       ]);
     }
-    expect(search).toHaveBeenCalledTimes(2);
-    expect(search).toHaveBeenCalledWith({ category: 'shoes', colorFamily: 'neutral', style: 'casual', country: 'us', department: 'womens' });
-    expect(search).toHaveBeenCalledWith({ category: 'outerwear', colorFamily: 'neutral', style: 'casual', country: 'us', department: 'womens' });
+    expect(search).toHaveBeenCalledTimes(3);
+    expect(search).toHaveBeenCalledWith({ category: 'shoes', color: 'white', style: 'casual', country: 'us', department: 'womens' });
+    expect(search).toHaveBeenCalledWith({ category: 'outerwear', color: 'black', style: 'casual', country: 'us', department: 'womens' });
+    expect(search).toHaveBeenCalledWith({ category: 'top', color: 'white', style: 'business', country: 'us', department: 'womens' });
   });
 
   // Mocked behavior: the store search returns sneakers for shoes
@@ -110,33 +113,51 @@ describe('Mocked: GET /recommendations', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.items).toEqual([expect.objectContaining(SNEAKERS)]);
-    expect(search).toHaveBeenCalledWith({ category: 'shoes', colorFamily: 'neutral', style: 'casual' });
+    expect(search).toHaveBeenCalledWith({ category: 'shoes', color: 'white', style: 'casual' });
   });
 
   // Mocked behavior: the store search returns sneakers for shoes
   // Input: a closet with a top and a bottom in a colour the analysis doesn't recognise
   // Expected status code: 200
-  // Expected behavior: the gaps have no look to match, so each search only names the category
+  // Expected behavior: the gap is still searched for in its most versatile colour
   // Expected output: the sneakers, paired with nothing
-  test('Searches by category alone when nothing in the closet pairs with the gap', async () => {
+  test('Recommends items for a gap that nothing in the closet pairs with', async () => {
     const user = await createUser();
-    await createClothingItem(user.id, { category: 'top', color: 'plaid' });
-    await createClothingItem(user.id, { category: 'bottom', color: 'plaid' });
+    await createClothingItem(user.id, { category: 'top', color: 'iridescent' });
+    await createClothingItem(user.id, { category: 'bottom', color: 'iridescent' });
     const search = mockCatalog({ shoes: [SNEAKERS] });
 
     const response = await recommend(user.id);
 
     expect(response.status).toBe(200);
     expect(response.body.items).toEqual([{ ...SNEAKERS, reason: 'No shoes in your closet', pairsWith: [] }]);
-    expect(search).toHaveBeenCalledWith({ category: 'shoes' });
-    expect(search).toHaveBeenCalledWith({ category: 'outerwear' });
+    expect(search).toHaveBeenCalledWith({ category: 'shoes', color: 'white', style: 'casual' });
+  });
+
+  // Mocked behavior: the store search returns 6 pairs of shoes and a jacket
+  // Input: a closet with a shirt and jeans
+  // Expected status code: 200
+  // Expected behavior: each gap keeps at most MAX_STORE_ITEMS_PER_GAP items, so one gap doesn't crowd out the rest
+  // Expected output: the first 4 pairs of shoes, then the jacket
+  test('Keeps a few items per gap', async () => {
+    const { user } = await userWithShirtAndJeans();
+    const shoes = Array.from({ length: 6 }, (_, index) => storeItem(`Sneakers ${index}`));
+    mockCatalog({ shoes, outerwear: [JACKET] });
+
+    const response = await recommend(user.id);
+
+    expect(response.status).toBe(200);
+    expect(response.body.items.map(({ name }: { name: string }) => name)).toEqual([
+      ...shoes.slice(0, MAX_STORE_ITEMS_PER_GAP).map(({ name }) => name),
+      JACKET.name,
+    ]);
   });
 
   // Mocked behavior: the store search finds nothing for any gap
   // Input: a closet with a shirt and jeans
   // Expected status code: 200
   // Expected behavior: the gaps are still returned (use case 4, failure 3a)
-  // Expected output: both gaps and no items
+  // Expected output: the gaps and no items
   test('Returns the gaps when the stores have no matching items', async () => {
     const { user } = await userWithShirtAndJeans();
     mockCatalog({});
@@ -144,7 +165,7 @@ describe('Mocked: GET /recommendations', () => {
     const response = await recommend(user.id);
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ gaps: ['No shoes in your closet', 'No outerwear in your closet'], items: [] });
+    expect(response.body).toEqual({ gaps: GAPS, items: [] });
   });
 
   // Mocked behavior: the store search returns the same product for shoes and for outerwear

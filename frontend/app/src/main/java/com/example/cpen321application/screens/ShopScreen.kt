@@ -47,6 +47,7 @@ import com.example.cpen321application.model.ClothingItem
 import com.example.cpen321application.model.Recommendations
 import com.example.cpen321application.model.ShopDepartment
 import com.example.cpen321application.model.StoreItem
+import com.example.cpen321application.model.itemsFor
 import com.example.cpen321application.viewmodel.ShopUiState
 import com.example.cpen321application.viewmodel.ShopViewModel
 
@@ -55,10 +56,12 @@ const val SHOP_LOADING_TAG = "shop_loading"
 const val STORE_ITEM_CARD_TAG = "store_item_card"
 const val PAIRED_ITEM_TAG = "paired_item"
 const val VIEW_IN_STORE_TAG = "view_in_store"
+const val GAP_HEADING_TAG = "gap_heading"
 
 /**
  * Store items that fill the gaps in the user's closet, picked by the back-end from
- * [closetItems]. Tapping an item shows what it pairs with and links to it in the store.
+ * [closetItems] and listed under the gap each one fills. Tapping an item shows what it
+ * pairs with and links to it in the store.
  */
 @Composable
 fun ShopScreen(viewModel: ShopViewModel, closetItems: List<ClothingItem>, modifier: Modifier = Modifier) {
@@ -133,8 +136,15 @@ private fun RecommendedItems(recommendations: Recommendations, onOpenItem: (Stor
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            items(recommendations.items, key = { it.link }) { item ->
-                StoreItemCard(item, onClick = { onOpenItem(item) })
+            recommendations.gaps.forEach { gap ->
+                item(key = "gap:$gap") { GapHeading(gap) }
+                val gapItems = recommendations.itemsFor(gap)
+                if (gapItems.isEmpty()) {
+                    item(key = "none:$gap") { NoItemsForGap() }
+                }
+                items(gapItems, key = { it.link }) { item ->
+                    StoreItemCard(item, onClick = { onOpenItem(item) })
+                }
             }
         }
         recommendations.gaps.isNotEmpty() -> EmptyState(
@@ -146,6 +156,26 @@ private fun RecommendedItems(recommendations: Recommendations, onOpenItem: (Stor
             message = "We didn't find any gaps to fill right now.",
         )
     }
+}
+
+@Composable
+private fun GapHeading(gap: String) {
+    Text(
+        gap,
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier
+            .padding(top = 8.dp)
+            .testTag(GAP_HEADING_TAG),
+    )
+}
+
+@Composable
+private fun NoItemsForGap() {
+    Text(
+        "No matching items are available right now.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable
@@ -167,9 +197,11 @@ private fun StoreItemCard(item: StoreItem, onClick: () -> Unit) {
                 )
                 Text(item.price, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    item.reason,
+                    item.store,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

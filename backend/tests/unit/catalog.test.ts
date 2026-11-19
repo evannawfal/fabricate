@@ -27,7 +27,7 @@ import {
   stopTestDatabase,
 } from '../helpers/database.js';
 
-const BLACK_PANTS = { category: 'bottom', colorFamily: 'neutral', style: 'casual', department: 'mens' } as const;
+const BLACK_PANTS = { category: 'bottom', color: 'black', style: 'casual', department: 'mens' } as const;
 const BLACK_PANTS_TERM = "men's casual black pants";
 const CHINOS: CatalogItem = {
   name: "Old Navy Men's Straight Rotation Chino Pants",
@@ -83,23 +83,23 @@ function storeResults(count: number, store: (index: number) => string) {
 }
 
 describe('Catalog search terms', () => {
-  // Input: a gap with a colour family and style, for the men's department
-  // Expected output: the department, style, a real colour and a shoppable word for the category
+  // Input: a gap with a colour and style, for the men's department
+  // Expected output: the department, style, colour and a shoppable word for the category
   test('Uses every part of the search', () => {
     expect(toSearchTerm(BLACK_PANTS)).toBe(BLACK_PANTS_TERM);
   });
 
-  // Input: the warm and cool colour families
-  // Expected output: real colours, because Google misreads "warm" and "cool"
-  test('Turns colour families into colours', () => {
-    expect(toSearchTerm({ category: 'top', colorFamily: 'warm', style: 'casual' })).toBe('casual burgundy shirt');
-    expect(toSearchTerm({ category: 'outerwear', colorFamily: 'cool', style: 'outdoor' })).toBe('outdoor blue jacket');
+  // Input: the sporty and loungewear styles
+  // Expected output: the words stores use for them
+  test('Uses shoppers\' words for styles', () => {
+    expect(toSearchTerm({ category: 'shoes', color: 'white', style: 'sporty' })).toBe('athletic white shoes');
+    expect(toSearchTerm({ category: 'top', color: 'grey', style: 'loungewear' })).toBe('lounge grey shirt');
   });
 
-  // Input: a gap with only a category, as for a closet with nothing to pair with
-  // Expected output: only the category word
-  test('Leaves out what the gap does not have', () => {
-    expect(toSearchTerm({ category: 'shoes' })).toBe('shoes');
+  // Input: a gap with no department
+  // Expected output: the search without a department word
+  test('Leaves out a missing department', () => {
+    expect(toSearchTerm({ category: 'shoes', color: 'white', style: 'casual' })).toBe('casual white shoes');
   });
 });
 
