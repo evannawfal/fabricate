@@ -233,12 +233,6 @@ private fun ClosetGrid(
 ) {
     val items = state.items
     Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            "My Closet",
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
-        )
-
         if (items.isNotEmpty()) {
             CategoryFilter(state.selectedCategory, onSelectCategory)
         }
