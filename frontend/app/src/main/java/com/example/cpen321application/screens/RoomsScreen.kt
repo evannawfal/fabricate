@@ -18,10 +18,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,25 +39,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.cpen321application.data.ClothingRepository
 import com.example.cpen321application.data.Friend
 import com.example.cpen321application.data.Room
 import com.example.cpen321application.data.RoomsRepository
 import com.example.cpen321application.viewmodel.RoomViewModel
 import com.example.cpen321application.viewmodel.RoomsUiState
 import com.example.cpen321application.viewmodel.RoomsViewModel
+import java.time.Duration
+import java.time.Instant
 
 const val ROOM_ITEM_TAG = "room_item"
 const val CREATE_ROOM_TAG = "create_room"
 const val ROOM_NAME_FIELD_TAG = "room_name_field"
 const val FRIEND_CHECKBOX_TAG = "friend_checkbox"
 const val FRIEND_EMAIL_FIELD_TAG = "friend_email_field"
+const val ROOMS_LIST_TAG = "rooms_list"
 
 /** The Rooms tab: the user's rooms, or the open room. */
 @Composable
 fun RoomsRoute(
     roomsRepository: RoomsRepository,
-    clothingRepository: ClothingRepository,
     modifier: Modifier = Modifier,
 ) {
     val viewModel: RoomsViewModel = viewModel { RoomsViewModel(roomsRepository) }
@@ -66,26 +69,32 @@ fun RoomsRoute(
         return
     }
     // Not a stored ViewModel: the room's socket must close as soon as the room does.
-    val roomViewModel = remember(openRoomId) { RoomViewModel(openRoomId, roomsRepository, clothingRepository) }
+    val roomViewModel = remember(openRoomId) { RoomViewModel(openRoomId, roomsRepository) }
     DisposableEffect(roomViewModel) { onDispose(roomViewModel::leave) }
     BackHandler(onBack = viewModel::closeRoom)
     RoomScreen(roomViewModel, onBack = viewModel::closeRoom, modifier = modifier)
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RoomsScreen(state: RoomsUiState, viewModel: RoomsViewModel, modifier: Modifier) {
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().padding(16.dp)) {
             Text("Rooms", style = MaterialTheme.typography.headlineMedium)
-            when {
-                state.isLoading -> CircularProgressIndicator(Modifier.padding(top = 24.dp).align(Alignment.CenterHorizontally))
-                state.rooms.isEmpty() -> Text(
-                    "No rooms yet. Create one to style outfits with your friends.",
-                    modifier = Modifier.padding(top = 16.dp),
-                )
-                else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 16.dp)) {
-                    items(state.rooms, key = Room::id) { room ->
-                        RoomCard(room, onClick = { viewModel.openRoom(room.id) })
+            if (state.isLoading) {
+                CircularProgressIndicator(Modifier.padding(top = 24.dp).align(Alignment.CenterHorizontally))
+            } else {
+                PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = viewModel::refresh) {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxSize().padding(top = 16.dp).testTag(ROOMS_LIST_TAG),
+                    ) {
+                        if (state.rooms.isEmpty()) {
+                            item { Text("No rooms yet. Create one to style outfits with your friends.") }
+                        }
+                        items(state.rooms, key = Room::id) { room ->
+                            RoomCard(room, onClick = { viewModel.openRoom(room.id) })
+                        }
                     }
                 }
             }
@@ -124,7 +133,22 @@ private fun RoomCard(room: Room, onClick: () -> Unit) {
         Column(Modifier.padding(16.dp)) {
             Text(room.name, style = MaterialTheme.typography.titleMedium)
             Text(room.members.joinToString { it.name }, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                expiryLabel(room.expiresAt),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
+    }
+}
+
+fun expiryLabel(expiresAt: Instant, now: Instant = Instant.now()): String {
+    val left = Duration.between(now, expiresAt)
+    return when {
+        left.toMinutes() < 1 -> "Expiring now"
+        left.toDays() >= 1 -> "Expires in ${left.toDays()} ${if (left.toDays() == 1L) "day" else "days"} ${left.toHours() % 24} h"
+        left.toHours() >= 1 -> "Expires in ${left.toHours()} h"
+        else -> "Expires in ${left.toMinutes()} min"
     }
 }
 

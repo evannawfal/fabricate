@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -286,26 +287,20 @@ private fun ClosetHeader(state: ClosetUiState, viewModel: ClosetViewModel) {
         )
         return
     }
+    if (state.items.isEmpty()) return
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 8.dp, top = 8.dp),
     ) {
-        Text(
-            "My Closet",
-            style = MaterialTheme.typography.headlineSmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
+        WashBinFilterChip(
+            selected = state.washBinOnly,
+            count = state.items.count { !it.isClean },
+            onClick = { viewModel.setFilter(state.selectedCategory, !state.washBinOnly) },
         )
-        if (state.items.isNotEmpty()) {
-            WashBinFilterChip(
-                selected = state.washBinOnly,
-                count = state.items.count { !it.isClean },
-                onClick = { viewModel.setFilter(state.selectedCategory, !state.washBinOnly) },
-            )
-            TextButton(onClick = { viewModel.setSelection(emptySet()) }) { Text("Select") }
-        }
+        Spacer(Modifier.weight(1f))
+        TextButton(onClick = { viewModel.setSelection(emptySet()) }) { Text("Select") }
     }
 }
 

@@ -50,6 +50,9 @@ import com.example.cpen321application.viewmodel.ClosetViewModel
 import com.example.cpen321application.viewmodel.OutfitsViewModel
 import com.example.cpen321application.viewmodel.ProfileViewModel
 import com.example.cpen321application.viewmodel.ShopViewModel
+import com.example.cpen321application.screens.social.SocialScreen
+import com.example.cpen321application.data.SocialRepository
+import com.example.cpen321application.viewmodel.SocialViewModel
 
 /** The 4 tabs shown in the bottom navigation bar. */
 enum class BottomTab(@StringRes val labelRes: Int, val icon: ImageVector) {
@@ -83,6 +86,7 @@ fun MainScreen(
 
   val closetViewModel: ClosetViewModel = viewModel { ClosetViewModel(repositories.clothing) }
   val outfitsViewModel: OutfitsViewModel = viewModel { OutfitsViewModel(repositories.outfits, repositories.location) }
+  val socialViewModel: SocialViewModel = viewModel { SocialViewModel(repositories.social) }
   val shopViewModel: ShopViewModel = viewModel { ShopViewModel(repositories.recommendations) }
 
   // Back from another destination returns to the Closet tab before leaving the app.
@@ -109,7 +113,6 @@ fun MainScreen(
           )
         },
         actions = {
-          // 1. Shop action button
           IconButton(onClick = { destination = Destination.Shop }) {
             Icon(
               imageVector = Icons.Filled.ShoppingCart,
@@ -117,7 +120,6 @@ fun MainScreen(
               tint = if (destination == Destination.Shop) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
-          // 2. Rooms action button
           IconButton(onClick = { destination = Destination.Rooms }) {
             Icon(
               imageVector = Icons.Filled.Person,
@@ -125,7 +127,6 @@ fun MainScreen(
               tint = if (destination == Destination.Rooms) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
-          // 3. Profile icon button with DropdownMenu (Profile & Sign Out)
           Box {
             IconButton(onClick = { profileMenuExpanded = true }) {
               Icon(
@@ -183,10 +184,10 @@ fun MainScreen(
     when (destination) {
       Destination.Closet -> ClosetScreen(closetViewModel, contentModifier)
       Destination.Outfits -> OutfitsScreen(outfitsViewModel, closet.items, contentModifier)
-      Destination.Social -> SocialScreen(contentModifier) // Placeholder composable for your new Social tab
+      Destination.Social -> SocialScreen(socialViewModel, contentModifier)
       Destination.Avatar -> AvatarRoute(repositories.clothing, contentModifier)
       Destination.Shop -> ShopScreen(shopViewModel, closet.items, contentModifier)
-      Destination.Rooms -> RoomsRoute(repositories.rooms, repositories.clothing, contentModifier)
+      Destination.Rooms -> RoomsRoute(repositories.rooms, contentModifier)
       Destination.Profile -> ProfileScreen(
         viewModel { ProfileViewModel(repositories.profile, repositories.rooms) },
         contentModifier,
@@ -212,6 +213,7 @@ class MainScreenRepositories(
   val location: LocationProvider,
   val rooms: RoomsRepository,
   val profile: ProfileRepository,
+  val social: SocialRepository,
 )
 
 @Composable
@@ -226,13 +228,5 @@ private fun SignOutDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
     dismissButton = {
       TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
     },
-  )
-}
-@Composable
-fun SocialScreen(modifier: Modifier = Modifier) {
-  EmptyState(
-    title = "Social Feed",
-    message = "Share outfits and connect with friends here.",
-    modifier = modifier,
   )
 }

@@ -9,6 +9,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.cpen321application.fakes.FakeProfileRepository
+import com.example.cpen321application.fakes.FakeRoomsRepository
 import com.example.cpen321application.screens.PRONOUNS_FIELD_TAG
 import com.example.cpen321application.screens.ProfileScreen
 import com.example.cpen321application.screens.SAVE_PROFILE_TAG
@@ -26,7 +27,7 @@ class ProfileScreenTest {
     @Test
     fun showsTheProfileAndSavesPronouns() {
         val repository = FakeProfileRepository()
-        composeRule.setContent { ProfileScreen(ProfileViewModel(repository)) }
+        composeRule.setContent { ProfileScreen(ProfileViewModel(repository, FakeRoomsRepository())) }
 
         composeRule.onNodeWithText("Sam Lee").assertIsDisplayed()
         composeRule.onNodeWithText("sam@example.com").assertIsDisplayed()

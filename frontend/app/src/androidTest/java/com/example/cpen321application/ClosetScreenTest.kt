@@ -82,7 +82,7 @@ class ClosetScreenTest {
         composeRule.onNodeWithText("Delete item").performScrollTo().assertIsDisplayed()
 
         composeRule.onNodeWithContentDescription("Back").performScrollTo().performClick()
-        composeRule.onNodeWithText("My Closet").assertIsDisplayed()
+        composeRule.onNodeWithText("Add clothing").assertIsDisplayed()
     }
 
     @Test
@@ -93,7 +93,7 @@ class ClosetScreenTest {
         composeRule.onNodeWithText("Delete item").performClick()
         composeRule.onNodeWithText("Delete").performClick()
 
-        composeRule.onNodeWithText("My Closet").assertIsDisplayed()
+        composeRule.onNodeWithText("Add clothing").assertIsDisplayed()
         composeRule.onNodeWithText("White Sneakers").assertDoesNotExist()
     }
 

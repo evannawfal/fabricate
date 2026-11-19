@@ -146,7 +146,7 @@ class AddClothingTest {
         composeRule.onNodeWithText("Formal").assertIsDisplayed()
         composeRule.onNodeWithText("Edit details").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Back").performClick()
-        composeRule.onNodeWithText("My Closet").assertIsDisplayed()
+        composeRule.onNodeWithText("Add clothing").assertIsDisplayed()
 
         // Both photos were uploaded as JPEGs.
         assertEquals(2, repository.uploadedPhotos.size)
@@ -205,7 +205,6 @@ class AddClothingTest {
 
         addFrom("Choose from gallery")
 
-        composeRule.onNodeWithText("My Closet").assertIsDisplayed()
         composeRule.onNodeWithText("Add clothing").assertIsDisplayed()
         assertItemCards(2)
         assertEquals(0, repository.uploadedPhotos.size)
