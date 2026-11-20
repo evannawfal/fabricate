@@ -5,6 +5,21 @@ import java.time.Instant
 
 data class Friend(val id: String, val name: String, val email: String)
 
+// [user] is the other person: who sent an incoming request, or who an outgoing one was sent to.
+data class FriendRequest(val id: String, val user: Friend)
+
+data class FriendRequests(
+    val incoming: List<FriendRequest> = emptyList(),
+    val outgoing: List<FriendRequest> = emptyList(),
+)
+
+/** Sending a request either sends it, or makes the users friends if the other user had already asked. */
+sealed interface FriendRequestResult {
+    data class Sent(val request: FriendRequest) : FriendRequestResult
+
+    data class BecameFriends(val friend: Friend) : FriendRequestResult
+}
+
 data class RoomMember(val id: String, val name: String)
 
 data class Room(
@@ -56,7 +71,17 @@ interface RoomsRepository {
 
     suspend fun listFriends(): List<Friend>
 
-    suspend fun addFriend(email: String): Friend
+    /** Ends the friendship for both users. */
+    suspend fun removeFriend(id: String)
+
+    suspend fun listFriendRequests(): FriendRequests
+
+    suspend fun sendFriendRequest(email: String): FriendRequestResult
+
+    suspend fun acceptFriendRequest(id: String): Friend
+
+    /** Declines a request sent to the user, or cancels one they sent. */
+    suspend fun deleteFriendRequest(id: String)
 
     suspend fun connect(roomId: String, listener: RoomListener): RoomConnection
 }
