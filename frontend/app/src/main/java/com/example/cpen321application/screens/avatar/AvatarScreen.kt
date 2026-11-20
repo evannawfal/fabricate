@@ -88,44 +88,15 @@ fun AvatarScreen(
     val tabs = listOf("Clothes", "Measurements")
 
     Column(modifier.fillMaxSize()) {
-        Box(
+        AvatarPreview(
+            uiState = uiState,
+            showSizeControls = selectedTab == 0,
+            saving = saving,
+            onGarmentSizeChange = onGarmentSizeChange,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            contentAlignment = Alignment.Center,
-        ) {
-            val modelFile = uiState.modelFile
-            if (modelFile != null) {
-                key(uiState.modelVersion, uiState.garmentModels) {
-                    AvatarViewer(
-                        modelFile = modelFile,
-                        garments = uiState.garmentModels,
-                        garmentItems = uiState.garmentItems,
-                        sizes = uiState.garmentSizes,
-                        measurements = uiState.measurements,
-                    )
-                }
-            } else {
-                Text(
-                    text = stringResource(R.string.avatar_not_created),
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(ScreenPadding),
-                )
-            }
-
-            if (uiState.worn.isNotEmpty() && selectedTab == 0) {
-                GarmentSizeOverlay(
-                    worn = uiState.worn,
-                    onGarmentSizeChange = onGarmentSizeChange,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 8.dp),
-                )
-            }
-
-            if (saving) SavingOverlay()
-        }
+        )
 
         Column(Modifier.weight(1f)) {
             TabRow(selectedTabIndex = selectedTab) {
@@ -151,6 +122,49 @@ fun AvatarScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun AvatarPreview(
+    uiState: AvatarUiState,
+    showSizeControls: Boolean,
+    saving: Boolean,
+    onGarmentSizeChange: (ClothingCategory, Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        val modelFile = uiState.modelFile
+        if (modelFile != null) {
+            key(uiState.modelVersion, uiState.garmentModels) {
+                AvatarViewer(
+                    modelFile = modelFile,
+                    garments = uiState.garmentModels,
+                    garmentItems = uiState.garmentItems,
+                    sizes = uiState.garmentSizes,
+                    measurements = uiState.measurements,
+                )
+            }
+        } else {
+            Text(
+                text = stringResource(R.string.avatar_not_created),
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(ScreenPadding),
+            )
+        }
+
+        if (uiState.worn.isNotEmpty() && showSizeControls) {
+            GarmentSizeOverlay(
+                worn = uiState.worn,
+                onGarmentSizeChange = onGarmentSizeChange,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 8.dp),
+            )
+        }
+
+        if (saving) SavingOverlay()
     }
 }
 

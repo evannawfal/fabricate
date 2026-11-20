@@ -26,6 +26,21 @@ export function displayName(user: { givenName?: string | null; familyName?: stri
   return [user.givenName, user.familyName].filter(Boolean).join(' ') || user.email || 'Unknown user';
 }
 
+export interface FriendResponse {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export function toFriendResponse(user: {
+  id: string;
+  email?: string | null;
+  givenName?: string | null;
+  familyName?: string | null;
+}): FriendResponse {
+  return { id: user.id, name: displayName(user), email: user.email ?? '' };
+}
+
 export async function getFriendIds(userId: string): Promise<string[]> {
   const user = await User.findById(userId, { friends: 1 });
   return user?.friends.map((id) => id.toString()) ?? [];

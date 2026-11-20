@@ -19,6 +19,9 @@ export default {
     '/dist/',
     '/coverage/',
     "<rootDir>/src/avatar/exportAvatar.ts",
+    // The avatar prototype viewer (npm run prototype:avatar) and the fitting maths only it uses.
+    "<rootDir>/src/avatar/viewerServer.ts",
+    "<rootDir>/src/avatar/anchorsAndFitting.ts",
     // Scripts run by hand to inspect or try out the garment models; the server never loads them.
     "<rootDir>/src/garment/imgToGlb/inspectMeshes.ts",
     "<rootDir>/src/garment/imgToGlb/testApplySolidColor.ts",

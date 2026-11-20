@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { MESHES_CATEGORIES } from '../../src/config/constants.js';
 
@@ -9,13 +10,19 @@ import { MESHES_CATEGORIES } from '../../src/config/constants.js';
 type GarmentOptions = { frontImageBuffer: Buffer; category: string; baseMeshesDir: string };
 const processAndApplyGarment = jest.fn<(options: GarmentOptions) => Promise<Uint8Array>>();
 jest.unstable_mockModule('../../src/garment/imgToGlb/processGarment.js', () => ({ processAndApplyGarment }));
-const { generateGarmentModel, meshTypeFor, UnsupportedGarmentError } = await import('../../src/services/garmentMesh.js');
+const { generateGarmentModel, meshTypeFor, referencePointsForItem, UnsupportedGarmentError } = await import(
+  '../../src/services/garmentMesh.js'
+);
 
 const GLB = new Uint8Array([0x67, 0x6c, 0x54, 0x46]);
+const BASE_MESHES_DIR = fileURLToPath(new URL('../../src/garment/baseMeshes', import.meta.url));
 
 beforeEach(() => {
   processAndApplyGarment.mockReset();
   processAndApplyGarment.mockResolvedValue(GLB);
+});
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 describe('Mesh type for a closet item', () => {
@@ -107,6 +114,53 @@ describe('Garment model generation', () => {
     processAndApplyGarment.mockRejectedValue(new Error('Forced generation error'));
 
     await expect(generateGarmentModel(new Uint8Array([1]), null, 'shirt')).rejects.toThrow('Forced generation error');
+  });
+});
+
+// The service caches the points per base mesh, so each test below uses a mesh no earlier test loaded.
+describe('Reference points for a closet item', () => {
+  // Input: a t-shirt, asked for twice
+  // Expected behavior: the t-shirt's points file is read once, then served from the cache
+  // Expected output: the parsed contents of t_shirt.points.json both times
+  test('Loads the base mesh points once', () => {
+    const expected: unknown = JSON.parse(fs.readFileSync(path.join(BASE_MESHES_DIR, 't_shirt.points.json'), 'utf-8'));
+    const readFileSync = jest.spyOn(fs, 'readFileSync');
+    const tee = { category: 'top', name: 'Band tee' };
+
+    const first = referencePointsForItem(tee);
+    const second = referencePointsForItem(tee);
+
+    expect(first).toEqual(expected);
+    expect(second).toBe(first);
+    expect(readFileSync).toHaveBeenCalledTimes(1);
+  });
+
+  // Input: a category with no base mesh
+  // Expected output: null
+  test('No points for an item without a mesh', () => {
+    expect(referencePointsForItem({ category: 'shoes', name: 'Sneakers' })).toBeNull();
+  });
+
+  // Input: shorts, whose points file is missing
+  // Expected behavior: nothing is read
+  // Expected output: null
+  test('No points when the points file is missing', () => {
+    jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+    const readFileSync = jest.spyOn(fs, 'readFileSync');
+
+    expect(referencePointsForItem({ category: 'bottom', name: 'Denim shorts' })).toBeNull();
+    expect(readFileSync).not.toHaveBeenCalled();
+  });
+
+  // Input: a skirt, whose points file isn't valid JSON
+  // Expected behavior: the error is logged
+  // Expected output: null, so the item still loads without points
+  test('No points when the points file is unreadable', () => {
+    jest.spyOn(fs, 'readFileSync').mockReturnValue('{ not json');
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    expect(referencePointsForItem({ category: 'bottom', name: 'Pleated skirt' })).toBeNull();
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('skirt.points.json'), expect.any(SyntaxError));
   });
 });
 
