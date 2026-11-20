@@ -150,10 +150,16 @@ function Run-InstrumentedTests($suite) {
     }
     $classArg = $classes -join ','
 
+    # The room test needs a second tester (User B); it is skipped unless their email is given.
+    $extraArgs = @()
+    if ($env:ROOM_FRIEND_EMAIL) {
+        $extraArgs += "-Pandroid.testInstrumentationRunnerArguments.friendEmail=$env:ROOM_FRIEND_EMAIL"
+    }
+
     Info "Running frontend ${label} tests (${classArg}) ..."
     Push-Location $FrontendDir
     try {
-        & .\gradlew.bat $script:GradleTask "-Pandroid.testInstrumentationRunnerArguments.class=$classArg"
+        & .\gradlew.bat $script:GradleTask "-Pandroid.testInstrumentationRunnerArguments.class=$classArg" @extraArgs
         if ($LASTEXITCODE -ne 0) { Die "Frontend ${label} tests failed." }
     }
     finally {
