@@ -4,6 +4,7 @@ import { ClothingItem, type ClothingCategory } from '../../src/models/clothingIt
 import { Outfit } from '../../src/models/outfit.js';
 import { Room } from '../../src/models/room.js';
 import { User } from '../../src/models/user.js';
+import { Post } from '../../src/models/posts.js';
 
 let userCount = 0;
 
@@ -58,8 +59,28 @@ export async function makeFriends(userId: string, ...friendIds: string[]) {
   await User.updateMany({ _id: { $in: friendIds } }, { $addToSet: { friends: userId } });
 }
 
-export async function createRoom(name: string, memberIds: string[], outfitItems: string[] = []) {
-  return Room.create({ name, members: memberIds, outfitItems });
+// The first member is the host, as when a user creates a room.
+export async function createRoom(name: string, memberIds: [string, ...string[]], outfitItems: string[] = []) {
+  return Room.create({ name, host: memberIds[0], members: memberIds, outfitItems });
+}
+
+export interface PostOverrides {
+  imageKey?: string;
+  caption?: string;
+  likes?: string[];
+  expiresAt?: Date;
+}
+
+export async function createPost(authorId: string, overrides: PostOverrides = {}) {
+  const defaultExpiry = new Date(Date.now() + 6 * 60 * 60 * 1000);
+  return Post.create({
+    author: authorId,
+    imageKey: 'posts/test-ootd.jpg',
+    caption: 'Today’s fit',
+    likes: [],
+    expiresAt: defaultExpiry,
+    ...overrides,
+  });
 }
 
 // A valid id that doesn't belong to any document.

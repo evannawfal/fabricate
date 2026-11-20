@@ -52,65 +52,34 @@ describe('Unmocked: GET /friends', () => {
 
     expect(response.body).toEqual({ friends: [] });
   });
-});
 
-// Interface POST /friends
-describe('Unmocked: POST /friends', () => {
-  // Input: another user's email in different capitalization
-  // Expected status code: 201
-  // Expected behavior: both users are added to each other's friend lists
-  // Expected output: the new friend
-  test('Adds a friend by email', async () => {
+  // Input: friends with no name, and with neither a name nor an email
+  // Expected status code: 200
+  // Expected behavior: nothing changes
+  // Expected output: the email stands in for a missing name, and "Unknown user" for both
+  test('Names friends who have no name', async () => {
     const user = await createUser();
-    const friend = await createUser();
+    const emailOnly = await User.create({ googleId: 'g-email', email: 'kai@example.com' });
+    const nameless = await User.create({ googleId: 'g-none' });
+    await makeFriends(user.id, emailOnly.id, nameless.id);
 
-    const response = await request(app)
-      .post('/friends')
-      .set('Authorization', authHeader(user.id))
-      .send({ email: ` ${friend.email?.toUpperCase()} ` });
+    const response = await request(app).get('/friends').set('Authorization', authHeader(user.id));
 
-    expect(response.status).toBe(201);
-    expect(response.body).toMatchObject({ id: friend.id, email: friend.email });
-    expect(await friendIdsOf(user.id)).toEqual([friend.id]);
-    expect(await friendIdsOf(friend.id)).toEqual([user.id]);
+    expect(response.body.friends).toEqual([
+      { id: emailOnly.id, name: 'kai@example.com', email: 'kai@example.com' },
+      { id: nameless.id, name: 'Unknown user', email: '' },
+    ]);
   });
 
-  // Input: an unknown email, the user's own email, and a friend's email
-  // Expected status code: 404, 400 and 409
-  // Expected behavior: no friend is added
-  // Expected output: an error explaining why
-  test.each([
-    ['unknown', 404, /No user has that email/],
-    ['own', 400, /add yourself/],
-    ['existing friend', 409, /already friends/],
-  ] as const)('Rejects an %s email', async (kind, status, expectedError) => {
-    const user = await createUser();
-    const friend = await createUser();
-    await makeFriends(user.id, friend.id);
-    const email = { unknown: 'nobody@example.com', own: user.email, 'existing friend': friend.email }[kind];
+  // Input: a valid session for an account that no longer exists
+  // Expected status code: 200
+  // Expected behavior: nothing changes
+  // Expected output: { friends: [] }
+  test('Deleted account has no friends', async () => {
+    const response = await request(app).get('/friends').set('Authorization', authHeader(UNKNOWN_ID));
 
-    const response = await request(app).post('/friends').set('Authorization', authHeader(user.id)).send({ email });
-
-    expect(response.status).toBe(status);
-    expect(response.body.error).toMatch(expectedError);
-    expect(await friendIdsOf(user.id)).toEqual([friend.id]);
+    expect(response.body).toEqual({ friends: [] });
   });
-
-  // Input: invalid bodies
-  // Expected status code: 400
-  // Expected behavior: no friend is added
-  // Expected output: an error describing the problem
-  test.each([[{}], [{ email: '' }], [{ email: 5 }], [{ email: 'a@b.c', name: 'x' }], [[]]])(
-    'Invalid body %j',
-    async (body) => {
-      const user = await createUser();
-
-      const response = await request(app).post('/friends').set('Authorization', authHeader(user.id)).send(body);
-
-      expect(response.status).toBe(400);
-      expect(response.body.error).toEqual(expect.any(String));
-    }
-  );
 });
 
 // Interface DELETE /friends/:id
@@ -150,7 +119,7 @@ describe('Unmocked: DELETE /friends/:id', () => {
   });
 });
 
-// Interfaces GET /friends, POST /friends and DELETE /friends/:id
+// Interfaces GET /friends and DELETE /friends/:id
 describe('Unmocked: friend endpoints without sign-in', () => {
   // Input: no Authorization header
   // Expected status code: 401
@@ -158,44 +127,38 @@ describe('Unmocked: friend endpoints without sign-in', () => {
   // Expected output: { error: "Missing token" }
   test.each([
     ['get', '/friends'],
-    ['post', '/friends'],
     ['delete', `/friends/${UNKNOWN_ID}`],
   ] as const)('%s %s requires sign-in', async (method, path) => {
-    const response = await request(app)[method](path).send({ email: 'a@b.c' });
+    const response = await request(app)[method](path);
 
     expect(response.status).toBe(401);
+  });
+
+  // Input: POST /friends, which used to add a friend without their consent
+  // Expected status code: 404
+  // Expected behavior: friends can only be added by accepting a friend request
+  // Expected output: an error
+  test('Friends can no longer be added directly', async () => {
+    const user = await createUser();
+    const other = await createUser();
+
+    const response = await request(app).post('/friends').set('Authorization', authHeader(user.id)).send({ email: other.email });
+
+    expect(response.status).toBe(404);
+    expect(await friendIdsOf(user.id)).toEqual([]);
   });
 });
 
 // A friendship that only reached one of the two lists, e.g. after a database error part way through.
 describe('Unmocked: half-saved friendships', () => {
-  async function halfFriends() {
-    const user = await createUser();
-    const friend = await createUser();
-    await User.updateOne({ _id: friend._id }, { $addToSet: { friends: user._id } });
-    return { user, friend };
-  }
-
-  // Input: POST /friends with the email of a user whose list has the user, but not the other way round
-  // Expected status code: 201
-  // Expected behavior: the missing side is added, so both lists have each other
-  // Expected output: the friend
-  test('Adding again completes the friendship', async () => {
-    const { user, friend } = await halfFriends();
-
-    const response = await request(app).post('/friends').set('Authorization', authHeader(user.id)).send({ email: friend.email });
-
-    expect(response.status).toBe(201);
-    expect(await friendIdsOf(user.id)).toEqual([friend.id]);
-    expect(await friendIdsOf(friend.id)).toEqual([user.id]);
-  });
-
-  // Input: DELETE /friends/:id for that user
+  // Input: DELETE /friends/:id for a user whose list has the user, but not the other way round
   // Expected status code: 204
   // Expected behavior: the remaining side is removed
   // Expected output: empty body
   test('Removing clears the remaining side', async () => {
-    const { user, friend } = await halfFriends();
+    const user = await createUser();
+    const friend = await createUser();
+    await User.updateOne({ _id: friend._id }, { $addToSet: { friends: user._id } });
 
     const response = await request(app).delete(`/friends/${friend.id}`).set('Authorization', authHeader(user.id));
 

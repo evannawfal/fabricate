@@ -1,7 +1,6 @@
-import { MAX_PAIRED_ITEMS, STYLE_PAIRINGS } from '../../src/config/constants.js';
+import { STYLES, SUGGESTED_COLORS } from '../../src/config/clothingVocabulary.js';
+import { MAX_CLOSET_GAPS, MAX_PAIRED_ITEMS } from '../../src/config/constants.js';
 import { analyzeClosetGaps, type GapAnalysisItem } from '../../src/services/closetGaps.js';
-
-const ALL_STYLES = Object.keys(STYLE_PAIRINGS);
 
 let nextId = 0;
 
@@ -18,231 +17,336 @@ function reasons(closet: GapAnalysisItem[]): string[] {
   return analyzeClosetGaps(closet).map((gap) => gap.reason);
 }
 
+function ids(closet: GapAnalysisItem[]): string[] {
+  return closet.map(({ id }) => id);
+}
+
+// Black tops, bottoms and shoes for every occasion, and a jacket: no category is empty and every
+// occasion is covered, so only versatile additions are left to suggest.
+function coveredCloset(): GapAnalysisItem[] {
+  const looks = ['casual', 'business', 'sporty', 'formal'].flatMap((style) =>
+    ['top', 'bottom', 'shoes'].map((category) => item(category, 'black', style))
+  );
+  return [...looks, item('outerwear')];
+}
+
 describe('Closet gap analysis', () => {
-  describe('Empty and small closets', () => {
+  describe('Empty categories', () => {
     // Input: no items
-    // Expected behavior: every everyday category is missing and there is nothing to pair with
-    // Expected output: four gaps with no colour, style or pairings
+    // Expected behavior: the first MAX_CLOSET_GAPS empty categories, each with the most versatile
+    // casual colour for that category, and nothing to pair with
+    // Expected output: tops, bottoms and shoes
     test('Lists the basics for an empty closet', () => {
       expect(analyzeClosetGaps([])).toEqual([
-        { category: 'top', reason: 'No tops in your closet', pairsWith: [] },
-        { category: 'bottom', reason: 'No bottoms in your closet', pairsWith: [] },
-        { category: 'shoes', reason: 'No shoes in your closet', pairsWith: [] },
-        { category: 'outerwear', reason: 'No outerwear in your closet', pairsWith: [] },
+        { category: 'top', color: 'white', style: 'casual', reason: 'No tops in your closet', pairsWith: [] },
+        { category: 'bottom', color: 'black', style: 'casual', reason: 'No bottoms in your closet', pairsWith: [] },
+        { category: 'shoes', color: 'white', style: 'casual', reason: 'No shoes in your closet', pairsWith: [] },
       ]);
+      expect(MAX_CLOSET_GAPS).toBe(3);
     });
 
-    // Input: 9 items, 8 of them tops
-    // Expected behavior: shares aren't used below 10 items, so one bottom isn't called too few
-    // Expected output: only the empty categories
-    test('Ignores shares in a small closet', () => {
-      const closet = [...items(8, 'top'), item('bottom')];
-
-      expect(reasons(closet).slice(0, 2)).toEqual(['No shoes in your closet', 'No outerwear in your closet']);
-      expect(reasons(closet).join()).not.toContain('Not many');
+    // Input: a covered closet with no accessories or dresses
+    // Expected behavior: plenty of people don't wear either, so missing them isn't a gap
+    // Expected output: no gap mentions them
+    test('Never suggests accessories or dresses', () => {
+      expect(reasons(coveredCloset()).join()).not.toMatch(/accessor|dress/i);
     });
 
-    // Input: one item of each everyday category
-    // Expected behavior: nothing is empty, but a small closet still gets a useful suggestion
-    // Expected output: one versatile gap
-    test('Suggests a versatile item when a small closet has every category', () => {
-      const closet = [item('top'), item('bottom'), item('shoes'), item('outerwear')];
+    // Input: tops, bottoms and a jacket for every occasion, but no shoes
+    // Expected behavior: the missing shoes are one gap, not repeated for every occasion
+    // Expected output: a single gap mentions shoes
+    test('Reports an empty category once', () => {
+      const closet = coveredCloset().filter(({ category }) => category !== 'shoes');
 
-      expect(reasons(closet)).toEqual(['A neutral business top would go with 3 of your items']);
+      const found = reasons(closet);
+
+      expect(found[0]).toBe('No shoes in your closet');
+      expect(found.filter((reason) => reason.includes('shoes'))).toHaveLength(1);
     });
   });
 
-  describe('Shares of the closet', () => {
-    // Input: 20 items with 2 bottoms, 1 pair of shoes and no outerwear
-    // Expected behavior: empty categories come before thin ones, and no versatile item is added
-    // even though every category has been reported, so a tops-heavy closet isn't told to buy more tops
-    // Expected output: outerwear, then bottoms, then shoes
-    test('Orders gaps from most to least important', () => {
-      const closet = [...items(17, 'top'), ...items(2, 'bottom'), item('shoes')];
+  describe('Tops and bottoms', () => {
+    // Input: 20 bottoms and 10 tops, all casual and covering every occasion
+    // Expected behavior: fewer tops than bottoms is worth a top
+    // Expected output: a top gap
+    test('Suggests a top when there are fewer tops than bottoms', () => {
+      const closet = [...coveredCloset(), ...items(16, 'bottom'), ...items(6, 'top')];
 
-      expect(reasons(closet)).toEqual([
-        'No outerwear in your closet',
-        'Not many bottoms compared to the rest of your closet',
-        'Not many pairs of shoes compared to the rest of your closet',
+      expect(analyzeClosetGaps(closet)[0]).toMatchObject({ category: 'top', reason: 'Fewer tops than bottoms in your closet' });
+    });
+
+    // Input: 17 tops and 2 bottoms, plus shoes and a jacket
+    // Expected behavior: more than MAX_TOPS_PER_BOTTOM tops per bottom is worth a bottom
+    // Expected output: a bottom gap
+    test('Suggests a bottom when each has to go with too many tops', () => {
+      const closet = [...items(17, 'top'), ...items(2, 'bottom'), item('shoes'), item('outerwear')];
+
+      expect(analyzeClosetGaps(closet)[0]).toMatchObject({ category: 'bottom', reason: 'Not many bottoms to wear with your 17 tops' });
+    });
+
+    // Input: 8 tops for 2 bottoms (exactly MAX_TOPS_PER_BOTTOM each), then 9
+    // Expected behavior: the limit itself is fine, one over isn't
+    // Expected output: no bottom gap, then a bottom gap
+    test('Accepts exactly the most tops per bottom', () => {
+      const base = [...items(2, 'bottom'), item('shoes'), item('outerwear')];
+
+      expect(reasons([...base, ...items(8, 'top')]).join()).not.toContain('Not many bottoms');
+      expect(reasons([...base, ...items(9, 'top')])[0]).toBe('Not many bottoms to wear with your 9 tops');
+    });
+
+    // Input: 2 tops and 5 bottoms
+    // Expected behavior: below MIN_TOPS_AND_BOTTOMS_FOR_BALANCE the balance isn't judged
+    // Expected output: no balance gap
+    test('Ignores the balance of a small closet', () => {
+      const closet = [...items(2, 'top'), ...items(5, 'bottom'), item('shoes'), item('outerwear')];
+
+      expect(reasons(closet).join()).not.toContain('Fewer tops');
+    });
+
+    // Input: 12 tops, 2 bottoms and 10 dresses
+    // Expected behavior: a dress can't be worn with a top, so it doesn't count as a bottom
+    // Expected output: a bottom gap
+    test('Leaves dresses out of the balance', () => {
+      const closet = [...items(12, 'top'), ...items(2, 'bottom'), ...items(10, 'dress'), item('shoes'), item('outerwear')];
+
+      expect(reasons(closet)[0]).toBe('Not many bottoms to wear with your 12 tops');
+    });
+
+    // Input: 20 casual bottoms, 2 casual pairs of shoes and 10 casual tops
+    // Expected behavior: shoes and outerwear are only suggested when there are none
+    // Expected output: no shoes or outerwear gap
+    test('Suggests shoes and outerwear only when there are none', () => {
+      const closet = [...items(20, 'bottom'), ...items(10, 'top'), ...items(2, 'shoes'), item('outerwear')];
+
+      expect(analyzeClosetGaps(closet).map(({ category }) => category)).not.toContain('shoes');
+      expect(analyzeClosetGaps(closet).map(({ category }) => category)).not.toContain('outerwear');
+    });
+  });
+
+  describe('Occasions', () => {
+    // Input: casual tops, bottoms, shoes and a jacket only
+    // Expected behavior: nothing suits work, a workout or a formal event; formal is covered by
+    // the work gap, since both styles count as the same look
+    // Expected output: work and workout gaps, searching for the first missing piece
+    test('Finds occasions the closet cannot dress for', () => {
+      const closet = [item('top'), item('bottom'), item('shoes'), item('outerwear')];
+
+      expect(reasons(closet).join()).not.toContain('formal event');
+      expect(analyzeClosetGaps(closet).slice(0, 2)).toMatchObject([
+        { category: 'top', style: 'business', reason: 'Nothing to wear for work: you have no work tops, bottoms or shoes' },
+        { category: 'top', style: 'sporty', reason: 'Nothing to wear for a workout: you have no workout tops, bottoms or shoes' },
       ]);
     });
 
-    // Input: 100 items with bottoms, shoes and outerwear exactly at their minimum shares
-    // Expected behavior: a category at its minimum isn't underrepresented
-    // Expected output: no "Not many" gaps
-    test('Accepts a category exactly at its minimum share', () => {
-      const closet = [...items(72, 'top'), ...items(15, 'bottom'), ...items(8, 'shoes'), ...items(5, 'outerwear')];
+    // Input: a covered closet without workout shoes
+    // Expected behavior: only the missing piece is named and searched for
+    // Expected output: a gap for sporty shoes
+    test('Names only the missing pieces', () => {
+      const closet = coveredCloset().filter(({ category, style }) => !(category === 'shoes' && style === 'sporty'));
 
-      expect(reasons(closet).join()).not.toContain('Not many');
+      expect(analyzeClosetGaps(closet)[0]).toMatchObject({
+        category: 'shoes',
+        style: 'sporty',
+        reason: 'Nothing to wear for a workout: you have no workout shoes',
+      });
     });
 
-    // Input: the same closet with one fewer pair of shoes
-    // Expected behavior: just under the minimum counts as thin
-    // Expected output: a shoes gap
-    test('Flags a category just under its minimum share', () => {
-      const closet = [...items(73, 'top'), ...items(15, 'bottom'), ...items(7, 'shoes'), ...items(5, 'outerwear')];
+    // Input: a covered closet whose formal tops and bottoms are replaced by a formal dress
+    // Expected behavior: a dress is a whole outfit
+    // Expected output: no formal gap
+    test('Counts a dress as an outfit', () => {
+      const closet = coveredCloset().filter(({ style }) => style !== 'formal');
 
-      expect(reasons(closet)).toEqual(['Not many pairs of shoes compared to the rest of your closet']);
+      expect(reasons([...closet, item('dress', 'black', 'formal'), item('shoes', 'black', 'formal')]).join()).not.toContain('formal event');
     });
 
-    // Input: 12 wearable items in good balance, plus 14 accessories
-    // Expected behavior: accessories aren't part of the total, so they don't make the rest look thin
-    // Expected output: no "Not many" gaps
-    test('Leaves accessories out of the shares', () => {
-      const closet = [...items(6, 'top'), ...items(3, 'bottom'), ...items(2, 'shoes'), item('outerwear'), ...items(14, 'accessory')];
+    // Input: casual clothes plus formal ones, but nothing business
+    // Expected behavior: formal clothes also suit work
+    // Expected output: no work gap
+    test('Dresses for work in formal clothes', () => {
+      const formal = ['top', 'bottom', 'shoes'].map((category) => item(category, 'black', 'formal'));
 
-      expect(reasons(closet).join()).not.toContain('Not many');
+      expect(reasons([item('top'), item('bottom'), item('shoes'), item('outerwear'), ...formal]).join()).not.toContain('for work:');
+    });
+  });
+
+  describe('Suggestions for a complete closet', () => {
+    // Input: a covered closet, all black
+    // Expected behavior: a closet of almost only neutrals gets one coloured top, the one that
+    // would make the most outfits; the suggestions after it don't repeat its colour
+    // Expected output: a blue casual top, then a white and a green one
+    test('Suggests a colour for an all-neutral closet', () => {
+      const gaps = analyzeClosetGaps(coveredCloset());
+
+      expect(gaps[0]).toMatchObject({
+        category: 'top',
+        color: 'blue',
+        style: 'casual',
+        reason: 'Your clothes are almost all neutrals: a blue casual top would add colour to 7 new outfits',
+      });
+      expect(gaps.slice(1).map(({ reason }) => reason)).toEqual([
+        'A white casual top would let you make 7 more outfits',
+        'A green casual top would let you make 7 more outfits',
+      ]);
     });
 
-    // Input: 9 wearable items, mostly tops, plus 14 accessories
-    // Expected behavior: accessories don't push a small closet over the cutoff for using shares
-    // Expected output: no "Not many" gaps
-    test('Leaves accessories out of the closet size cutoff', () => {
-      const closet = [...items(8, 'top'), item('bottom'), ...items(14, 'accessory')];
+    // Input: a covered closet with 10 more red tops, so bottoms are the bottleneck but not too few
+    // Expected behavior: new bottoms would make the most outfits; one neutral, in the most versatile
+    // colour the closet doesn't have yet, then the colours that also go with the red tops
+    // Expected output: navy, burgundy and red casual pants
+    test('Suggests the pieces that would make the most new outfits', () => {
+      const closet = [...coveredCloset(), ...items(10, 'top', 'red')];
 
-      expect(reasons(closet).join()).not.toContain('Not many');
+      const gaps = analyzeClosetGaps(closet);
+
+      expect(gaps.map(({ category, color }) => `${color} ${category}`)).toEqual(['navy bottom', 'burgundy bottom', 'red bottom']);
+      expect(gaps[0]?.reason).toBe('Navy casual pants would let you make 37 more outfits');
     });
 
-    // Input: dresses, shoes and outerwear, but no tops or bottoms
-    // Expected behavior: dresses fill in for tops and bottoms
-    // Expected output: no gap in tops or bottoms
-    test('Counts dresses towards tops and bottoms', () => {
-      const closet = [...items(6, 'dress'), ...items(2, 'shoes'), ...items(2, 'outerwear')];
+    // Input: a covered closet with 12 more red tops and 10 more pairs of black shoes
+    // Expected behavior: past MAX_OUTFITS_IN_REASON the exact number means little
+    // Expected output: the bottom's reason says "100+"
+    test('Rounds large numbers of outfits', () => {
+      const closet = [...coveredCloset(), ...items(12, 'top', 'red'), ...items(10, 'shoes')];
 
-      expect(reasons(closet).join()).not.toMatch(/tops|bottoms/);
+      expect(analyzeClosetGaps(closet)[0]?.reason).toBe('Navy casual pants would let you make 100+ more outfits');
+    });
+
+    // Input: a covered closet with blue business tops and red business bottoms added
+    // Expected behavior: new pieces are suggested in the style the user wears most
+    // Expected output: business suggestions only
+    test('Suggests the style the user wears most', () => {
+      const closet = [...coveredCloset(), ...items(3, 'top', 'blue', 'business'), ...items(3, 'bottom', 'red', 'business')];
+
+      expect(analyzeClosetGaps(closet).map(({ style }) => style)).toEqual(['business', 'business', 'business']);
+    });
+
+    // Input: a mostly business closet with a black business top and a white formal top
+    // Expected behavior: business and formal count as the same look, so neither a white nor a
+    // black business top is suggested
+    // Expected output: a navy business top, the next most versatile colour
+    test('Treats business and formal as the same look', () => {
+      const closet = [...coveredCloset(), item('top', 'white', 'formal'), ...items(3, 'bottom', 'blue', 'business'), ...items(2, 'top', 'blue', 'business')];
+
+      const top = analyzeClosetGaps(closet).find(({ category }) => category === 'top');
+
+      expect(top).toMatchObject({ color: 'navy', style: 'business' });
+    });
+
+    // Input: a top in every suggested colour and style, and more bottoms than tops
+    // Expected behavior: there's no top left to suggest, so the closet isn't told to buy one,
+    // even though it has fewer tops than bottoms
+    // Expected output: no top gap
+    test('Suggests no top when every look is already owned', () => {
+      const tops = STYLES.flatMap((style) => SUGGESTED_COLORS.top.map((color) => item('top', color, style)));
+      const closet = [...tops, ...items(tops.length + 1, 'bottom'), item('shoes'), item('outerwear')];
+
+      expect(analyzeClosetGaps(closet).map(({ category }) => category)).not.toContain('top');
+    });
+
+    // Input: a covered closet whose items have colours the analysis doesn't know
+    // Expected behavior: nothing new would go with them, and a suggestion that makes fewer than
+    // MIN_NEW_OUTFITS outfits isn't worth a store search
+    // Expected output: no gaps
+    test('Leaves out a suggestion that makes too few outfits', () => {
+      const closet = coveredCloset().map((covered) => ({ ...covered, color: 'iridescent' }));
+
+      expect(analyzeClosetGaps(closet)).toEqual([]);
     });
   });
 
   describe('Colours and styles', () => {
-    // Input: free-text colours and styles in different forms
-    // Expected behavior: each one is matched by a word it contains, in any case
-    // Expected output: all three items pair with the suggested top
+    // Input: items with free-text colours and styles, as the classifier writes them
+    // Expected behavior: modifiers like "light" are skipped, synonyms are recognised and unknown
+    // styles count as casual, so all of them pair with the suggested top; an unknown colour can't be paired
+    // Expected output: the suggested top pairs with every item but the iridescent one
     test('Recognises free-text colours and styles', () => {
-      const closet = [item('bottom', 'Light Grey', 'Smart Casual'), item('shoes', 'navy-blue', 'casual'), item('outerwear', 'off white', 'CASUAL')];
+      const known = [
+        item('bottom', 'Light Heather Grey', 'Smart Casual'),
+        item('bottom', 'dark wash denim', 'athleisure'),
+        item('shoes', 'off-white', 'CASUAL'),
+        item('outerwear', 'Forest-Green', 'cottagecore'),
+      ];
+      const unknown = item('bottom', 'iridescent');
 
-      const [gap] = analyzeClosetGaps(closet);
+      const [gap] = analyzeClosetGaps([...known, unknown]);
 
-      expect(gap).toMatchObject({ category: 'top', colorFamily: 'neutral', style: 'casual' });
-      expect(gap?.pairsWith).toEqual(closet.map(({ id }) => id));
+      expect(gap).toMatchObject({ category: 'top', reason: 'No tops in your closet', color: 'white' });
+      expect(gap?.pairsWith.sort()).toEqual(ids(known).sort());
     });
 
-    // Input: items whose colours and styles aren't recognised
-    // Expected behavior: unknown values can't be paired, so no colour or style is suggested
-    // Expected output: the gap has only a category and reason
-    test('Leaves out colours and styles it does not recognise', () => {
-      const closet = [item('top', 'multicolor', 'casual'), item('bottom', 'black', 'vintage')];
+    // Input: a striped and a multicolour bottom, with no tops
+    // Expected behavior: patterns are recognised even next to a colour, and go with neutrals
+    // Expected output: the white top pairs with both
+    test('Pairs patterns with neutrals', () => {
+      const closet = [item('bottom', 'blue and white striped'), item('bottom', 'multicolor')];
 
-      expect(analyzeClosetGaps(closet)[0]).toEqual({ category: 'shoes', reason: 'No shoes in your closet', pairsWith: [] });
+      expect(analyzeClosetGaps(closet)[0]?.pairsWith).toEqual(ids(closet));
     });
 
-    // Input: every neutral look already owned, plus a red and a blue casual bottom
-    // Expected behavior: with neutrals taken, the suggestion is a warm top; it pairs with the
-    // 15 neutral items in matching styles and the red bottom, but not the blue one
-    // Expected output: a warm casual top that goes with 16 items
+    // Input: casual tops in every neutral, and black, blue, red and multicolour bottoms
+    // Expected behavior: with neutrals owned, the top is a colour; it goes with neutrals and its
+    // own family, but not another family or a pattern
+    // Expected output: a blue top paired with the black bottoms and the blue one
     test('Pairs a colour with neutrals and its own family', () => {
-      const neutrals = ['top', 'bottom', 'shoes', 'outerwear'].flatMap((category) =>
-        ALL_STYLES.map((style) => item(category, 'black', style))
-      );
-      const closet = [...neutrals, item('bottom', 'red'), item('bottom', 'blue')];
+      const tops = ['white', 'black', 'navy', 'grey', 'beige', 'olive', 'brown'].map((color) => item('top', color));
+      const black = items(5, 'bottom');
+      const blue = item('bottom', 'blue');
+      const closet = [...tops, ...black, blue, item('bottom', 'red'), item('bottom', 'multicolor')];
 
-      expect(analyzeClosetGaps(closet)).toMatchObject([
-        { category: 'top', colorFamily: 'warm', style: 'casual', reason: 'A warm casual top would go with 16 of your items' },
-      ]);
+      const gap = analyzeClosetGaps(closet).find(({ reason }) => reason === 'Fewer tops than bottoms in your closet');
+
+      expect(gap).toMatchObject({ color: 'blue', style: 'casual' });
+      expect(gap?.pairsWith.sort()).toEqual([...ids(black), blue.id].sort());
     });
 
-    // Input: formal and sporty bottoms
-    // Expected behavior: a top's style only pairs with styles that work with it
-    // Expected output: the suggested casual top pairs with the sporty bottom only
+    // Input: formal and sporty bottoms and casual dresses, with no tops
+    // Expected behavior: the top is casual, the style worn most, and only pairs with styles that work with it
+    // Expected output: the top pairs with the sporty bottom only
     test('Pairs styles that work together', () => {
       const formal = item('bottom', 'black', 'formal');
       const sporty = item('bottom', 'black', 'sporty');
 
-      const gap = analyzeClosetGaps([formal, sporty]).find(({ category }) => category === 'top');
-
-      expect(gap).toMatchObject({ style: 'casual', pairsWith: [sporty.id] });
+      expect(analyzeClosetGaps([formal, sporty, ...items(2, 'dress')])[0]).toMatchObject({ style: 'casual', pairsWith: [sporty.id] });
     });
   });
 
   describe('Pairings', () => {
-    // Input: a dress, a bottom and an accessory, with no shoes
+    // Input: a dress, a bottom and an accessory, with no shoes or tops
     // Expected behavior: shoes go with anything
     // Expected output: the shoes pair with all three
     test('Pairs shoes with every other category', () => {
-      const dress = item('dress');
-      const bottom = item('bottom');
-      const accessory = item('accessory');
+      const closet = [item('dress'), item('bottom'), item('accessory')];
 
-      expect(analyzeClosetGaps([dress, bottom, accessory])[0]?.pairsWith).toEqual([dress.id, bottom.id, accessory.id]);
+      const shoes = analyzeClosetGaps(closet).find(({ category }) => category === 'shoes');
+
+      expect(shoes?.pairsWith).toEqual(ids(closet));
     });
 
-    // Input: a dress as the only "top" in a 10-item closet
-    // Expected behavior: a top can't be worn with a dress, or paired with its own category
+    // Input: a dress and bottoms, with no tops
+    // Expected behavior: a top can't be worn with a dress
     // Expected output: the top's pairings leave out the dress
     test('Never pairs a top or bottom with a dress', () => {
       const dress = item('dress');
-      const closet = [dress, ...items(3, 'bottom'), ...items(3, 'shoes'), ...items(3, 'outerwear')];
 
-      const [gap] = analyzeClosetGaps(closet);
+      const [gap] = analyzeClosetGaps([dress, ...items(3, 'bottom')]);
 
       expect(gap?.category).toBe('top');
-      expect(gap?.pairsWith).toHaveLength(MAX_PAIRED_ITEMS);
       expect(gap?.pairsWith).not.toContain(dress.id);
     });
 
-    // Input: 20 items that all pair with the suggested shoes
-    // Expected behavior: the list stays short enough to show on a phone
-    // Expected output: MAX_PAIRED_ITEMS ids
-    test('Caps the pairings', () => {
-      const closet = [...items(10, 'top'), ...items(10, 'bottom')];
-
-      expect(analyzeClosetGaps(closet)[0]?.pairsWith).toHaveLength(MAX_PAIRED_ITEMS);
-    });
-
     // Input: 10 tops listed before 2 bottoms, with no shoes
-    // Expected behavior: pairings come from each category in turn, not just the first in the closet
-    // Expected output: the first two pairings are a top and a bottom, and both bottoms are included
-    test('Spreads the pairings across categories', () => {
+    // Expected behavior: pairings come from each category in turn, capped at MAX_PAIRED_ITEMS
+    // Expected output: a top and a bottom first, both bottoms included
+    test('Spreads and caps the pairings', () => {
       const tops = items(10, 'top');
       const bottoms = items(2, 'bottom');
 
-      const pairsWith = analyzeClosetGaps([...tops, ...bottoms])[0]?.pairsWith ?? [];
+      const shoes = analyzeClosetGaps([...tops, ...bottoms]).find(({ category }) => category === 'shoes');
 
-      expect(pairsWith.slice(0, 2)).toEqual([tops[0]?.id, bottoms[0]?.id]);
-      expect(pairsWith).toContain(bottoms[1]?.id);
-    });
-  });
-
-  describe('Versatile item', () => {
-    // Input: a balanced closet of neutral casual items
-    // Expected behavior: neutral casual would score highest, but it's already owned everywhere
-    // Expected output: the next-best look, a bottom because the closet has the most tops to wear it with
-    test('Skips looks the closet already owns', () => {
-      const closet = [...items(4, 'top'), ...items(2, 'bottom'), ...items(2, 'shoes'), ...items(2, 'outerwear')];
-
-      expect(analyzeClosetGaps(closet)).toMatchObject([{ category: 'bottom', colorFamily: 'neutral', style: 'business' }]);
-    });
-
-    // Input: a closet that owns every look in every everyday category
-    // Expected behavior: there is nothing left to suggest
-    // Expected output: no gaps
-    test('Finds no gaps in a full closet', () => {
-      const looks = ['white', 'red', 'blue'].flatMap((color) =>
-        ALL_STYLES.map((style) => ({ color, style }))
-      );
-      const closet = ['top', 'bottom', 'shoes', 'outerwear'].flatMap((category) =>
-        looks.map(({ color, style }) => item(category, color, style))
-      );
-
-      expect(analyzeClosetGaps(closet)).toEqual([]);
-    });
-
-    // Input: every category filled, but only one item with a recognised colour and style
-    // Expected behavior: a suggestion that pairs with a single item isn't worth a store search
-    // Expected output: no gaps
-    test('Leaves out a suggestion that pairs with too few items', () => {
-      const closet = [item('top', 'black', 'vintage'), item('bottom', 'black', 'vintage'), item('shoes', 'black', 'vintage'), item('outerwear')];
-
-      expect(analyzeClosetGaps(closet)).toEqual([]);
+      expect(shoes?.pairsWith).toHaveLength(MAX_PAIRED_ITEMS);
+      expect(shoes?.pairsWith.slice(0, 2)).toEqual([tops[0]?.id, bottoms[0]?.id]);
+      expect(shoes?.pairsWith).toContain(bottoms[1]?.id);
     });
 
     // Input: the same closet twice

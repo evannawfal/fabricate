@@ -11,7 +11,8 @@ import java.io.File
  * A closet held in memory, standing in for the back-end in UI tests. Uploads return
  * [uploadResult] (or throw what it throws) and can be held back with [uploadGate] to
  * see the loading state; everything uploaded or changed is recorded for assertions.
- * 3D models are empty files, and [modelGate] holds back building one.
+ * 3D models are empty files, and [modelGate] holds back building one. [cleanGate] holds back
+ * moving items in or out of the wash bin, and [cleanErrors] fails it for the items listed.
  */
 class FakeClothingRepository(initialItems: List<ClothingItem>) : ClothingRepository {
     val items = initialItems.toMutableList()
@@ -24,6 +25,8 @@ class FakeClothingRepository(initialItems: List<ClothingItem>) : ClothingReposit
     var updateError: String? = null
     var modelGate: CompletableDeferred<Unit>? = null
     var modelError: String? = null
+    var cleanGate: CompletableDeferred<Unit>? = null
+    val cleanErrors = mutableMapOf<String, String>()
 
     override suspend fun listItems(): List<ClothingItem> = items.toList()
 
@@ -46,6 +49,13 @@ class FakeClothingRepository(initialItems: List<ClothingItem>) : ClothingReposit
         )
         items[index] = updated
         return updated
+    }
+
+    override suspend fun setClean(id: String, isClean: Boolean): ClothingItem {
+        cleanGate?.await()
+        cleanErrors[id]?.let { throw ClothingRepositoryException(it) }
+        val index = items.indexOfFirst { it.id == id }
+        return items[index].copy(isClean = isClean).also { items[index] = it }
     }
 
     override suspend fun deleteItem(id: String) {

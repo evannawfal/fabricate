@@ -10,12 +10,17 @@
 | 2026-10-29 | 2, 3 | Updated for CP2. Added `POST /avatar` and `POST /outfits/generate` to the back-end test table and the mocked components, and pointed every test link at the current line. Updated the commit hash, the run instructions and the coverage screenshots, added a report of every back-end test together with the reasons each file below 100% can't be fully covered, and covered the error handler's branches listed for CP2. Section 3 now names the two non-functional requirements that are tested automatically; their tests come with the features they measure. |
 | 2026-11-03 | 2.1.1, 2.3, 2.5 | Updated the Clothing upload test documentation for required front and back photos. Added the front-photo upload failure case and documented cleanup attempts for both generated storage keys. |
 | 2026-11-04 | 2, 4 | Final update for CP2. Added the friends, profile (`/users/me`), rooms, room Socket.IO and garment model interfaces to the back-end test table, completed the `POST /clothing` test cases for front and back photos, and pointed every test link at the submission commit. Updated the test counts, coverage screenshots and the reasons each file below 100% can't be fully covered. Section 4 now follows the two-photo Add Clothing Items use case and has a new log. |
+| 2026-11-17 | 3 | Added the test of the clothing upload time requirement (`ClothingUploadTimeTest.kt`). It runs in the app against the deployed back-end, so all three non-functional requirements are now tested automatically. |
+| 2026-11-17 | 4 | Added the Generate Daily Outfit end-to-end test (`GenerateOutfitTest.kt`), its scenario-to-test-step table and its logs. |
+| 2026-11-19 | 2 | Updated for CP3. Added the daily outfit post interfaces (`/posts` and `/posts/:id/like`), each with its own `describe` groups without and with mocks, and pointed every test link at the submission commit. Updated the test counts, coverage screenshots and the reasons each file below 100% can't be fully covered: new tests cover the garment model with a back photo, the post feed's storage and database failures and its timezone fallback, and the reference points loader; unreachable code was removed, and the avatar prototype viewer is left out of coverage like the other hand-run scripts. |
+| 2026-11-19 | 2.5, 3 | Updated for the reworked closet gap analysis: the lines of `controllers/recommendations.ts` that only the mocked tests reach, and the closet analysis time test's description and log, since the analysis no longer uses category shares. |
+| 2026-11-19 | 2.1.1, 2.5 | Replaced `POST /friends` with the friend request interfaces (`GET` and `POST /friends/requests`, `POST /friends/requests/:id/accept` and `DELETE /friends/requests/:id`) and added the Friend Request DB to the mocked components. `controllers/friends.ts` is now fully covered, so it was removed from the uncovered-branch table. |
 
 ---
 
 ## 2. Back-end Test Specification: APIs
 
-The back-end tests are documented in detail for all interfaces of the **Clothing** component: `POST /clothing`, `GET /clothing`, `GET /clothing/:id`, `PATCH /clothing/:id` and `DELETE /clothing/:id`. Every other interface that has tests (authentication, avatars, outfits, recommendations, friends, profiles, rooms with their live Socket.IO events, and garment models) is listed in the same table with its `describe` groups and mocked components.
+The back-end tests are documented in detail for all interfaces of the **Clothing** component: `POST /clothing`, `GET /clothing`, `GET /clothing/:id`, `PATCH /clothing/:id` and `DELETE /clothing/:id`. Every other interface (authentication, avatars, outfits, recommendations, friends, profiles, daily outfit posts and their likes, rooms with their live Socket.IO events, and garment models) is listed in the same table with its `describe` groups and mocked components. Each interface has its own `describe` group without mocks and one with mocks, apart from the few that have no component that can fail on its own.
 
 ### 2.1. Locations of Back-end Tests and Instructions to Run Them
 
@@ -23,11 +28,11 @@ The back-end tests are documented in detail for all interfaces of the **Clothing
 
 | **Interface** | **Describe Group Location, No Mocks** | **Describe Group Location, With Mocks** | **Mocked Components** |
 | ------------- | ------------------------------------- | --------------------------------------- | --------------------- |
-| **POST /clothing** | [`backend/tests/no-mock/clothing.test.ts#L28`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/clothing.test.ts#L28) | [`backend/tests/mock/clothingUpload.test.ts#L96`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/clothingUpload.test.ts#L96) | Clothing classifier (Claude API), Azure Blob Storage, Clothing DB |
-| **GET /clothing** | [`backend/tests/no-mock/clothing.test.ts#L216`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/clothing.test.ts#L216) | [`backend/tests/mock/clothing.test.ts#L38`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/clothing.test.ts#L38) | Azure Blob Storage (photo links), Clothing DB |
-| **GET /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L369`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/clothing.test.ts#L369) | [`backend/tests/mock/clothing.test.ts#L78`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/clothing.test.ts#L78) | Clothing DB |
-| **PATCH /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L463`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/clothing.test.ts#L463) | [`backend/tests/mock/clothing.test.ts#L99`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/clothing.test.ts#L99) | Clothing DB |
-| **DELETE /clothing/:id** | [`backend/tests/no-mock/clothing.test.ts#L668`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/clothing.test.ts#L668) | [`backend/tests/mock/clothing.test.ts#L147`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/clothing.test.ts#L147) | Clothing DB |
+| POST /clothing | [`backend/tests/no-mock/clothing.test.ts#L28`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/clothing.test.ts#L28) | [`backend/tests/mock/clothingUpload.test.ts#L96`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/clothingUpload.test.ts#L96) | Clothing classifier (Claude API), Azure Blob Storage, Clothing DB |
+| GET /clothing | [`backend/tests/no-mock/clothing.test.ts#L216`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/clothing.test.ts#L216) | [`backend/tests/mock/clothing.test.ts#L38`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/clothing.test.ts#L38) | Azure Blob Storage (photo links), Clothing DB |
+| GET /clothing/:id | [`backend/tests/no-mock/clothing.test.ts#L369`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/clothing.test.ts#L369) | [`backend/tests/mock/clothing.test.ts#L78`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/clothing.test.ts#L78) | Clothing DB |
+| PATCH /clothing/:id | [`backend/tests/no-mock/clothing.test.ts#L463`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/clothing.test.ts#L463) | [`backend/tests/mock/clothing.test.ts#L99`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/clothing.test.ts#L99) | Clothing DB |
+| DELETE /clothing/:id | [`backend/tests/no-mock/clothing.test.ts#L668`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/clothing.test.ts#L668) | [`backend/tests/mock/clothing.test.ts#L147`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/clothing.test.ts#L147) | Clothing DB |
 | POST /clothing/:id/generate | [`backend/tests/no-mock/clothingModel.test.ts#L23`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/clothingModel.test.ts#L23) | [`backend/tests/mock/clothingModel.test.ts#L82`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/clothingModel.test.ts#L82) | Garment model generation, Azure Blob Storage, Clothing DB |
 | GET /clothing/:id/model | [`backend/tests/no-mock/clothingModel.test.ts#L65`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/clothingModel.test.ts#L65) | [`backend/tests/mock/clothingModel.test.ts#L333`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/clothingModel.test.ts#L333) | Azure Blob Storage (model link), Clothing DB |
 | POST /auth/google | [`backend/tests/no-mock/auth.test.ts#L20`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/auth.test.ts#L20) | [`backend/tests/mock/auth.test.ts#L47`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/auth.test.ts#L47) | Google Authentication API, User DB |
@@ -39,11 +44,19 @@ The back-end tests are documented in detail for all interfaces of the **Clothing
 | PATCH /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L279`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/outfits.test.ts#L279) | [`backend/tests/mock/outfits.test.ts#L178`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/outfits.test.ts#L178) | Outfit DB |
 | DELETE /outfits/:id | [`backend/tests/no-mock/outfits.test.ts#L434`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/outfits.test.ts#L434) | [`backend/tests/mock/outfits.test.ts#L246`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/outfits.test.ts#L246) | Outfit DB |
 | GET /recommendations | [`backend/tests/no-mock/recommendations.test.ts#L27`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/recommendations.test.ts#L27) | [`backend/tests/mock/recommendations.test.ts#L71`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/recommendations.test.ts#L71) | Online store catalog (Serper), Clothing DB |
-| GET /friends | [`backend/tests/no-mock/friends.test.ts#L24`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/friends.test.ts#L24) | [`backend/tests/mock/friends.test.ts#L40`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/friends.test.ts#L40) | User DB |
-| POST /friends | [`backend/tests/no-mock/friends.test.ts#L58`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/friends.test.ts#L58) | [`backend/tests/mock/friends.test.ts#L55`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/friends.test.ts#L55) | User DB |
-| DELETE /friends/:id | [`backend/tests/no-mock/friends.test.ts#L117`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/friends.test.ts#L117) | [`backend/tests/mock/friends.test.ts#L77`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/friends.test.ts#L77) | User DB |
+| GET /friends | [`backend/tests/no-mock/friends.test.ts#L24`](https://github.com/evannawfal/fabricate/blob/fc04969e52e57ea9264d33fb4f197d807b39100d/backend/tests/no-mock/friends.test.ts#L24) | [`backend/tests/mock/friends.test.ts#L40`](https://github.com/evannawfal/fabricate/blob/fc04969e52e57ea9264d33fb4f197d807b39100d/backend/tests/mock/friends.test.ts#L40) | User DB |
+| DELETE /friends/:id | [`backend/tests/no-mock/friends.test.ts#L86`](https://github.com/evannawfal/fabricate/blob/fc04969e52e57ea9264d33fb4f197d807b39100d/backend/tests/no-mock/friends.test.ts#L86) | [`backend/tests/mock/friends.test.ts#L55`](https://github.com/evannawfal/fabricate/blob/fc04969e52e57ea9264d33fb4f197d807b39100d/backend/tests/mock/friends.test.ts#L55) | User DB |
+| GET /friends/requests | [`backend/tests/no-mock/friendRequests.test.ts#L41`](https://github.com/evannawfal/fabricate/blob/fc04969e52e57ea9264d33fb4f197d807b39100d/backend/tests/no-mock/friendRequests.test.ts#L41) | [`backend/tests/mock/friendRequests.test.ts#L47`](https://github.com/evannawfal/fabricate/blob/fc04969e52e57ea9264d33fb4f197d807b39100d/backend/tests/mock/friendRequests.test.ts#L47) | User DB, Friend Request DB |
+| POST /friends/requests | [`backend/tests/no-mock/friendRequests.test.ts#L83`](https://github.com/evannawfal/fabricate/blob/fc04969e52e57ea9264d33fb4f197d807b39100d/backend/tests/no-mock/friendRequests.test.ts#L83) | [`backend/tests/mock/friendRequests.test.ts#L62`](https://github.com/evannawfal/fabricate/blob/fc04969e52e57ea9264d33fb4f197d807b39100d/backend/tests/mock/friendRequests.test.ts#L62) | User DB, Friend Request DB |
+| POST /friends/requests/:id/accept | [`backend/tests/no-mock/friendRequests.test.ts#L166`](https://github.com/evannawfal/fabricate/blob/fc04969e52e57ea9264d33fb4f197d807b39100d/backend/tests/no-mock/friendRequests.test.ts#L166) | [`backend/tests/mock/friendRequests.test.ts#L113`](https://github.com/evannawfal/fabricate/blob/fc04969e52e57ea9264d33fb4f197d807b39100d/backend/tests/mock/friendRequests.test.ts#L113) | User DB, Friend Request DB |
+| DELETE /friends/requests/:id | [`backend/tests/no-mock/friendRequests.test.ts#L246`](https://github.com/evannawfal/fabricate/blob/fc04969e52e57ea9264d33fb4f197d807b39100d/backend/tests/no-mock/friendRequests.test.ts#L246) | [`backend/tests/mock/friendRequests.test.ts#L141`](https://github.com/evannawfal/fabricate/blob/fc04969e52e57ea9264d33fb4f197d807b39100d/backend/tests/mock/friendRequests.test.ts#L141) | Friend Request DB |
 | GET /users/me | [`backend/tests/no-mock/users.test.ts#L20`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/users.test.ts#L20) | [`backend/tests/mock/users.test.ts#L28`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/users.test.ts#L28) | User DB |
 | PATCH /users/me | [`backend/tests/no-mock/users.test.ts#L46`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/users.test.ts#L46) | [`backend/tests/mock/users.test.ts#L28`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/users.test.ts#L28) | User DB |
+| POST /posts | [`backend/tests/no-mock/posts.test.ts#L27`](https://github.com/evannawfal/fabricate/blob/0c216f602e30a3ee88e7397809a61330d1591451/backend/tests/no-mock/posts.test.ts#L27) | [`backend/tests/mock/posts.test.ts#L65`](https://github.com/evannawfal/fabricate/blob/0c216f602e30a3ee88e7397809a61330d1591451/backend/tests/mock/posts.test.ts#L65) | Azure Blob Storage, Post DB |
+| GET /posts | [`backend/tests/no-mock/posts.test.ts#L159`](https://github.com/evannawfal/fabricate/blob/0c216f602e30a3ee88e7397809a61330d1591451/backend/tests/no-mock/posts.test.ts#L159) | [`backend/tests/mock/posts.test.ts#L197`](https://github.com/evannawfal/fabricate/blob/0c216f602e30a3ee88e7397809a61330d1591451/backend/tests/mock/posts.test.ts#L197) | Azure Blob Storage (photo links), Post DB |
+| POST /posts/:id/like | [`backend/tests/no-mock/posts.test.ts#L254`](https://github.com/evannawfal/fabricate/blob/0c216f602e30a3ee88e7397809a61330d1591451/backend/tests/no-mock/posts.test.ts#L254) | [`backend/tests/mock/posts.test.ts#L257`](https://github.com/evannawfal/fabricate/blob/0c216f602e30a3ee88e7397809a61330d1591451/backend/tests/mock/posts.test.ts#L257) | Post DB |
+| DELETE /posts/:id/like | [`backend/tests/no-mock/posts.test.ts#L349`](https://github.com/evannawfal/fabricate/blob/0c216f602e30a3ee88e7397809a61330d1591451/backend/tests/no-mock/posts.test.ts#L349) | [`backend/tests/mock/posts.test.ts#L300`](https://github.com/evannawfal/fabricate/blob/0c216f602e30a3ee88e7397809a61330d1591451/backend/tests/mock/posts.test.ts#L300) | Post DB |
+| DELETE /posts/:id | [`backend/tests/no-mock/posts.test.ts#L414`](https://github.com/evannawfal/fabricate/blob/0c216f602e30a3ee88e7397809a61330d1591451/backend/tests/no-mock/posts.test.ts#L414) | [`backend/tests/mock/posts.test.ts#L323`](https://github.com/evannawfal/fabricate/blob/0c216f602e30a3ee88e7397809a61330d1591451/backend/tests/mock/posts.test.ts#L323) | Post DB, Azure Blob Storage |
 | POST /rooms | [`backend/tests/no-mock/rooms.test.ts#L28`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/rooms.test.ts#L28) | [`backend/tests/mock/rooms.test.ts#L49`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/rooms.test.ts#L49) | Room DB, User DB |
 | GET /rooms | [`backend/tests/no-mock/rooms.test.ts#L99`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/rooms.test.ts#L99) | [`backend/tests/mock/rooms.test.ts#L88`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/rooms.test.ts#L88) | Room DB |
 | GET /rooms/:id | [`backend/tests/no-mock/rooms.test.ts#L119`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/no-mock/rooms.test.ts#L119) | [`backend/tests/mock/rooms.test.ts#L103`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/rooms.test.ts#L103) | Room DB |
@@ -56,14 +69,14 @@ The back-end tests are documented in detail for all interfaces of the **Clothing
 
 How the external components are mocked:
 
-- **Clothing classifier (Claude API)**, **outfit generator (Claude API)**, **weather service (OpenWeather)** and **Azure Blob Storage**: the tests replace them with Jest stand-ins through `setClothingClassifier()`, `setOutfitGenerator()`, `setWeatherService()` and `setFileStorage()`. The stand-ins can return a result, throw an "unavailable" or "not clothing" error, report the weather as unavailable, or fail an upload. [`backend/tests/setupEnv.ts`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/setupEnv.ts) clears the services' credentials, so the tests never call the real services.
+- **Clothing classifier (Claude API)**, **outfit generator (Claude API)**, **weather service (OpenWeather)** and **Azure Blob Storage**: the tests replace them with Jest stand-ins through `setClothingClassifier()`, `setOutfitGenerator()`, `setWeatherService()` and `setFileStorage()`. The stand-ins can return a result, throw an "unavailable" or "not clothing" error, report the weather as unavailable, or fail an upload. [`backend/tests/setupEnv.ts`](https://github.com/evannawfal/fabricate/blob/0c216f602e30a3ee88e7397809a61330d1591451/backend/tests/setupEnv.ts) clears the services' credentials, so the tests never call the real services.
 - **Online store catalog (Serper)**: the unit tests give `createSerperProvider()` a stand-in for `fetch`, so no search is sent to Serper, and `setCatalogService()` replaces the whole service. The cache is tested against the real in-memory MongoDB server. `backend/tests/setupEnv.ts` blanks `SERPER_API_KEY`, so tests never spend search credits.
 - **Avatar generation** and **garment model generation**: `jest.unstable_mockModule()` replaces `exportAvatar()` and `processAndApplyGarment()`, so the mocked `POST /avatar` and `POST /clothing/:id/generate` tests can return a model or fail without generating one.
-- **Clothing DB / Outfit DB / User DB / Room DB / Message DB** (MongoDB): the tests without mocks use a real in-memory MongoDB server ([`backend/tests/helpers/database.ts`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/helpers/database.ts)). The mocked tests use `jest.spyOn()` on Mongoose model methods (for example `ClothingItem.create`, `find`, `findOne`, `findOneAndUpdate`, `exists`, and the same `Outfit`, `User`, `Room` and `Message` methods) to make them throw a database error.
+- **Clothing DB / Outfit DB / User DB / Friend Request DB / Room DB / Message DB / Post DB** (MongoDB): the tests without mocks use a real in-memory MongoDB server ([`backend/tests/helpers/database.ts`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/helpers/database.ts)). The mocked tests use `jest.spyOn()` on Mongoose model methods (for example `ClothingItem.create`, `find`, `findOne`, `findOneAndUpdate`, `exists`, and the same `Outfit`, `User`, `Room`, `Message` and `Post` methods) to make them throw a database error.
 - **Socket.IO**: nothing is mocked. The room socket tests start the back-end's Socket.IO server and connect real Socket.IO clients over WebSocket, as the app does.
 - **Google Authentication API**: `jest.spyOn(OAuth2Client.prototype, 'verifyIdToken')` returns a chosen Google profile.
 
-[`backend/tests/mock/backImageUrl.test.ts`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/tests/mock/backImageUrl.test.ts) also checks the back photo link in every response that includes clothing items: the closet, outfits, generated outfits, rooms and the `room:outfitUpdate` event.
+[`backend/tests/mock/backImageUrl.test.ts`](https://github.com/evannawfal/fabricate/blob/0c216f602e30a3ee88e7397809a61330d1591451/backend/tests/mock/backImageUrl.test.ts) also checks the back photo link in every response that includes clothing items: the closet, outfits, generated outfits, rooms and the `room:outfitUpdate` event.
 
 **Test cases of the Clothing component**
 
@@ -156,7 +169,7 @@ Each test in the code is annotated with its input, expected status code, expecte
 
 #### 2.1.2. Commit Hash Where Tests Run
 
-`1b9c140a06ce98a69e69005322cf631676a79495`
+`0c216f602e30a3ee88e7397809a61330d1591451`
 
 #### 2.1.3. Explanation on How to Run the Tests
 
@@ -167,7 +180,7 @@ The tests need **Node.js 22** and npm 10. They do not need a `.env` file, a Mong
    ```
    git clone https://github.com/evannawfal/fabricate.git
    cd fabricate
-   git checkout 1b9c140a06ce98a69e69005322cf631676a79495
+   git checkout 0c216f602e30a3ee88e7397809a61330d1591451
    ```
 
 2. **Install the back-end dependencies**:
@@ -192,7 +205,7 @@ The tests need **Node.js 22** and npm 10. They do not need a `.env` file, a Mong
    npm test                        # every back-end test, including the unit tests in tests/unit
    ```
 
-   Coverage is always collected for every file in `backend/src` (`collectCoverageFrom` in [`backend/jest.config.js`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/backend/jest.config.js)) and printed as a per-file table.
+   Coverage is always collected for every file in `backend/src` (`collectCoverageFrom` in [`backend/jest.config.js`](https://github.com/evannawfal/fabricate/blob/0c216f602e30a3ee88e7397809a61330d1591451/backend/jest.config.js)) and printed as a per-file table.
 
 ### 2.2. GitHub Actions Configuration Location
 
@@ -202,7 +215,7 @@ The **Backend tests** job runs on every pull request and every push to `main`. I
 
 ### 2.3. Jest Coverage Report Screenshots With Mocks
 
-`npm test -- tests/mock/` (103 tests, all passing):
+`npm test -- tests/mock/` (121 tests, all passing):
 
 ![Jest coverage with mocks](images/coverage-mock.png)
 
@@ -210,21 +223,21 @@ The mocked tests focus on error handling (failing classifiers, the outfit genera
 
 ### 2.4. Jest Coverage Report Screenshots Without Mocks
 
-`npm test -- tests/no-mock/` (200 tests, all passing):
+`npm test -- tests/no-mock/` (231 tests, all passing):
 
 ![Jest coverage without mocks](images/coverage-no-mock.png)
 
-Without mocks, the controllers miss the parts that only run once an external service is configured or has answered: `controllers/clothing.ts` (50-77) after the photos are classified and (155-189) when a garment model is generated, `controllers/outfits.ts` (88-105) after the outfit generator is reached, `controllers/recommendations.ts` (39-43, 70-76) after the store search returns items, `controllers/avatar.ts` (19-44) after the avatar is generated, and `controllers/auth.ts` (35-56) after Google accepts the sign-in. The mocked tests cover these, along with the database errors the controllers handle (for example `controllers/clothing.ts` 215-216 and `controllers/outfits.ts` 161).
+Without mocks, the controllers miss the parts that only run once an external service is configured or has answered: `controllers/clothing.ts` (50-77) after the photos are classified and (155-193) when a garment model is generated, `controllers/outfits.ts` (89-106) after the outfit generator is reached, `controllers/recommendations.ts` (35-41, 68-74) after the store search returns items, `controllers/posts.ts` (38-56, 87-119) once a post photo is stored, `controllers/avatar.ts` after the avatar is generated, and `controllers/auth.ts` (35-56) after Google accepts the sign-in. The mocked tests cover these, along with the database errors the controllers handle (for example `controllers/clothing.ts` 219-220, `controllers/outfits.ts` 162 and `controllers/posts.ts` 190-191).
 
 ### 2.5. Jest Coverage Report Screenshots With and Without Mocks Combined
 
-`npm test -- tests/mock/ tests/no-mock/` (303 tests, all passing):
+`npm test -- tests/mock/ tests/no-mock/` (352 tests, all passing):
 
 ![Jest coverage with and without mocks combined](images/coverage-interface.png)
 
-**Clothing component:** when both sets run, every file of the Clothing component has 100% statement, function and line coverage: `routes/clothing.ts`, `controllers/clothing.ts`, `validation/clothing.ts`, `models/clothingItem.ts`, `services/clothingImages.ts`, `services/garmentMesh.ts` and `services/storageKeys.ts`. All of them also have 100% branch coverage except `models/clothingItem.ts`, whose one untaken branch is explained in the table below. Every route and validation file, and the auth, avatar, outfits and recommendations controllers, are also at 100%.
+**Clothing component:** when both sets run, every file of the Clothing component has 100% statement, branch, function and line coverage: `routes/clothing.ts`, `controllers/clothing.ts`, `validation/clothing.ts`, `models/clothingItem.ts`, `services/clothingImages.ts` and `services/storageKeys.ts`, apart from `services/garmentMesh.ts` 30-33 (an unreadable reference points file), which `tests/unit/garmentMesh.test.ts` covers. Every route, model (except `models/user.ts`, below) and validation file, and the auth, avatar, clothing, outfits and recommendations controllers, are at 100%; the posts controller is at 100% apart from one branch explained below.
 
-The rest of the combined report is below 100% mostly because the interface tests replace three kinds of code with stand-ins. The adapters for external services (`services/classifier.ts`, `outfitGenerator.ts`, `weather.ts`, `catalog.ts` and `storage.ts`) would call paid or rate-limited APIs. The avatar mesh generator (`avatar/meshGenerator.ts` and `sdf.ts`) takes seconds per mesh. The garment model pipeline (`garment/imgToGlb/processGarment.ts` and `applySolidColor.ts`) runs a background-removal model. All three are tested directly in `backend/tests/unit`: the adapters with mocked SDK clients, the mesh generator with real meshes, and the garment pipeline with the real base meshes and a stand-in for the background-removal model. `inspectMeshes.ts`, `testApplySolidColor.ts` and `testProcessGarment.ts` in `garment/imgToGlb` are scripts run by hand to inspect the 3D models. The server never loads them, so they are left out of coverage in `jest.config.js`, like `avatar/exportAvatar.ts`. Running every back-end test (`npm test`, 494 tests, all passing) gives:
+The rest of the combined report is below 100% mostly because the interface tests replace three kinds of code with stand-ins. The adapters for external services (`services/classifier.ts`, `outfitGenerator.ts`, `weather.ts`, `catalog.ts` and `storage.ts`) would call paid or rate-limited APIs. The avatar mesh generator (`avatar/meshGenerator.ts` and `sdf.ts`) takes seconds per mesh. The garment model pipeline (`garment/imgToGlb/processGarment.ts` and `applySolidColor.ts`) runs a background-removal model. All three are tested directly in `backend/tests/unit`: the adapters with mocked SDK clients, the mesh generator with real meshes, and the garment pipeline with the real base meshes and a stand-in for the background-removal model. `inspectMeshes.ts`, `testApplySolidColor.ts` and `testProcessGarment.ts` in `garment/imgToGlb` are scripts run by hand to inspect the 3D models, and `avatar/viewerServer.ts` (with `avatar/anchorsAndFitting.ts`, which only it uses) is the avatar prototype viewer started with `npm run prototype:avatar`. The server never loads them, so they are left out of coverage in `jest.config.js`, like `avatar/exportAvatar.ts`. Running every back-end test (`npm test`, 545 tests, all passing) gives:
 
 ![Jest coverage of every back-end test](images/coverage-all.png)
 
@@ -236,13 +249,16 @@ The rest of the combined report is below 100% mostly because the interface tests
 | `config/env.ts` (6, 22) | Start-up checks that stop the server when a required environment variable is missing or `PORT` is invalid. They run once when the module loads, before any test can change the environment. |
 | `services/classifier.ts` (211), `services/storage.ts` (103) | The lines that create the real Claude and Azure SDK clients from the production credentials. Running them in a test would need real credentials. |
 | `services/avatarStorage.ts` (branch on 17) | The default value of the optional `storage` parameter. The tests always pass a stand-in so they never contact Azure. |
+| `services/garmentMesh.ts` (branch on 16) | `MESHES_CATEGORIES[meshType]` is typed as possibly undefined (`noUncheckedIndexedAccess`), so the check is needed to compile, but every mesh type the service picks is in `MESHES_CATEGORIES`; `tests/unit/garmentMesh.test.ts` ("Only picks meshes that exist") checks this. |
 | `middleware/middleware.ts` (45) | `getUserId()` throws if a handler is mounted without `requireAuth`. Every route is mounted behind `requireAuth`, so a request can't reach it; it turns a routing mistake into a clear error instead of an undefined user id in a database query. |
 | `controllers/friends.ts` (branches on 9 and 15), `controllers/users.ts` (branch on 10) | Fallbacks for a missing email and for a signed-in user whose account no longer exists. Every account is created from a Google sign-in, which always includes an email, and no endpoint deletes accounts, so neither case can happen. |
-| `controllers/rooms.ts` (branches on 29 and 66), `models/user.ts` (branches on 26 and 31) | Fallbacks for a room member or a user whose account no longer exists, and for an account with neither a name nor an email ("Unknown user"). No endpoint deletes accounts, and every account has a Google email. Clothing items are archived, never deleted, so a room's board items always exist too. |
+| `controllers/rooms.ts` (branches on 30 and 69), `controllers/posts.ts` (branch on 78), `models/user.ts` (branches on 26 and 31) | The "Unknown user" fallbacks for a room member or post author whose account no longer exists, and for an account with neither a name nor an email. No endpoint deletes accounts, and every account has a Google email. Clothing items are archived, never deleted, so a room's board items always exist too. |
 | `models/clothingItem.ts` (branch on 66) | The default `null` for the optional `backImageUrl` parameter. Every caller passes the back photo link, or `null` explicitly for items added before back photos existed. |
 | `sockets/rooms.ts` (branches on 31, 32, 55 and 95) | Defensive handling of a malformed client message: an event sent without an acknowledgement callback or with a payload that isn't an object, a member whose account no longer exists, and a board item that disappears between two lines. The app always sends an object payload with an acknowledgement, no endpoint deletes accounts, and line 93 already rejects an update whose items aren't all found, so the fallback on line 95 is never needed. |
-| `garment/imgToGlb/processGarment.ts` (branches on 73-76) | The `?? 0` and `?? 255` fallbacks for a missing colour channel. sharp's raw RGBA output always has all four channels for every pixel. |
-| `avatar/meshGenerator.ts` (branches on 21-38, 161, 246-288, 412), `avatar/sdf.ts` (branch on 424) | Numerical guards in the mesh generator: a fallback for a zero-length gradient or a near-zero denominator, the alternative helper axis when a normal is almost parallel to the x-axis, and default parameter values. A real body shape never produces these values, and every line still runs. |
+| `garment/imgToGlb/processGarment.ts` (branches on 66-69) | The `?? 0` and `?? 255` fallbacks for a missing colour channel. sharp's raw RGBA output always has all four channels for every pixel. |
+| `garment/imgToGlb/processGarment.ts` (branch on 122) | Building a model with a back photo is reached by the interface tests ("Builds the model from the front and back photos"), but there the background-removal pipeline is replaced by a stand-in. The pipeline's own unit tests only pass a front photo so far; a unit test with a back photo is carried forward to M3. |
+| `avatar/partsMeshGenerator.ts` (branches on 46-53, 76-109, 268-271, 315, 324) | Numerical guards in the mesh generator: a fallback for a zero-length gradient or a near-zero denominator, and default parameter values. A real body shape never produces these values, and every line still runs. |
+| `avatar/partsSdf.ts` (618-634) | `getBodyJoints()`, which only the avatar prototype viewer (`npm run prototype:avatar`, left out of coverage above) calls. |
 
 In the interface tests alone, `middleware/errorHandler.ts` (26-27) is also uncovered: it passes an error to Express when a response has already started, which no current endpoint does (none streams its response). `tests/unit/errorHandler.test.ts` covers it.
 
@@ -250,7 +266,10 @@ In the interface tests alone, `middleware/errorHandler.ts` (26-27) is also uncov
 
 ## 3. Tests of Non-Functional Requirements
 
-Two of the three non-functional requirements in `Requirements_and_Design.md` will be tested automatically: [room update latency](Requirements_and_Design.md#nfr1) and [closet analysis time](Requirements_and_Design.md#nfr3). Their tests are in `backend/tests/nfr/`. Run them with `scripts/run-backend-nfr-tests.sh` (or `.ps1`); CI also runs them on every pull request as part of `npm test`.
+All three non-functional requirements in `Requirements_and_Design.md` are tested automatically.
+
+- [Room update latency](Requirements_and_Design.md#nfr1) and [closet analysis time](Requirements_and_Design.md#nfr3) are tested in `backend/tests/nfr/`. Run them with `scripts/run-backend-nfr-tests.sh` (or `.ps1`); CI also runs them on every pull request as part of `npm test`.
+- [Clothing upload time](Requirements_and_Design.md#nfr2) is tested in the app, in `frontend/app/src/androidTest/java/com/example/cpen321application/nfr/`. Run it with `scripts/run-frontend-nfr-tests.sh` (or `.ps1`), and sign in to the app on the emulator when the script asks. It runs in the app, not in the back-end tests, because the requirement is about how long the user waits: that includes the app preparing the photos, the network, storage and the real AI classifier, none of which a back-end test with a test database and a mocked classifier would measure. It isn't run in CI, since it needs a signed-in emulator and calls the paid classifier.
 
 ### 3.1. Test Locations in Git
 
@@ -258,6 +277,7 @@ Two of the three non-functional requirements in `Requirements_and_Design.md` wil
 | ------------------------------ | ------------------- |
 | Room updates reach members within 1 second | [`backend/tests/nfr/roomUpdateLatency.test.ts`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/nfr/roomUpdateLatency.test.ts) |
 | Closet gap analysis finishes within 2 seconds for 500 items | [`backend/tests/nfr/closetAnalysisTime.test.ts`](https://github.com/evannawfal/fabricate/blob/main/backend/tests/nfr/closetAnalysisTime.test.ts) |
+| Clothing upload finishes within 10 seconds for photos up to 5 MB | [`frontend/app/src/androidTest/java/com/example/cpen321application/nfr/ClothingUploadTimeTest.kt`](https://github.com/evannawfal/fabricate/blob/main/frontend/app/src/androidTest/java/com/example/cpen321application/nfr/ClothingUploadTimeTest.kt) |
 
 ### 3.2. Test Verification and Logs
 
@@ -271,10 +291,20 @@ Two of the three non-functional requirements in `Requirements_and_Design.md` wil
     ```
 
 - **Closet gap analysis finishes within 2 seconds for 500 items**
-  - **Verification:** The test seeds a 500-item closet in a test MongoDB database. The closet has every category above its minimum share and every colour and style, so the analysis also runs its slowest step, the search for a versatile item. Each run times what the Recommendation Engine does for a request: it loads the closet with one indexed query and finds the gaps in memory. The test does 10 runs, including the first one before Node has warmed up, and fails if any run takes 2 seconds or longer. It logs the slowest and mean times and every run.
+  - **Verification:** The test seeds a 500-item closet in a test MongoDB database. The closet has every category, colour and style, so the analysis checks every occasion, and counts the new outfits each item it could suggest would make with all 500 items. Each run times what the Recommendation Engine does for a request: it loads the closet with one indexed query and finds the gaps in memory. The test does 10 runs, including the first one before Node has warmed up, and fails if any run takes 2 seconds or longer. It logs the slowest and mean times and every run.
   - **Log Output**
     ```
-    Closet analysis of 500 items over 10 runs (limit 2000 ms): max 19.5 ms, mean 10.6 ms, runs [19.5, 13.7, 11.9, 9.2, 8.9, 9.4, 11.3, 7.9, 7.7, 6.8] ms, 0 gap(s) found
+    Closet analysis of 500 items over 10 runs (limit 2000 ms): max 21.1 ms, mean 9.1 ms, runs [21.1, 9.6, 8.6, 7.5, 7.1, 7.6, 8.0, 6.9, 7.3, 7.1] ms, 0 gap(s) found
+    ```
+
+- **Clothing upload finishes within 10 seconds for photos up to 5 MB**
+  - **Verification:** The test runs in the app on the emulator, signed in as the tester, against the deployed back-end and its real AI classifier. It makes three photos of the test T-shirt (`shirt.jpg`) at a phone camera's 12-megapixel size, saved as JPEGs of about 0.5 MB, 2 MB and just under the back-end's 5 MB limit per photo; faint noise stands in for camera detail so the files reach those sizes. Each photo is uploaded 5 times as both the front and the back photo. Each upload is timed from when the user has picked both photos until the new item comes back from the back-end, ready to be shown first in the closet: the app reads, scales and re-encodes both photos (as it does for every upload), then `POST /clothing` stores them and classifies the item. The test fails if any upload takes longer than 10 seconds, and logs the slowest and mean times and every run for each size. It deletes every item it added. Run from the emulator, this includes the network between the emulator and the server.
+  - **Log Output** (from `adb logcat -s ClothingUploadTime`)
+    ```
+    Clothing upload time, 5 uploads per photo size (limit 10000 ms):
+    0.5 MB photo: max 4502 ms, mean 3374 ms, runs [4502, 3284, 3026, 3027, 3035] ms
+    1.9 MB photo: max 3347 ms, mean 3082 ms, runs [2996, 2962, 3347, 2989, 3118] ms
+    4.8 MB photo: max 2980 ms, mean 2724 ms, runs [2980, 2526, 2775, 2647, 2692] ms
     ```
 
 ---
@@ -285,7 +315,7 @@ Two of the three non-functional requirements in `Requirements_and_Design.md` wil
 
 `frontend/app/src/androidTest/java/com/example/cpen321application/e2e/`
 
-The Add Clothing Items use case is tested by [`UploadClothingTest.kt`](https://github.com/evannawfal/fabricate/blob/1b9c140a06ce98a69e69005322cf631676a79495/frontend/app/src/androidTest/java/com/example/cpen321application/e2e/UploadClothingTest.kt) in this folder. Run it, with the rest of the end-to-end tests, with `scripts/run-frontend-e2e-tests.sh` (or `.ps1`), and sign in to the app on the emulator when the script asks.
+The Add Clothing Items use case is tested by [`UploadClothingTest.kt`](https://github.com/evannawfal/fabricate/blob/0c216f602e30a3ee88e7397809a61330d1591451/frontend/app/src/androidTest/java/com/example/cpen321application/e2e/UploadClothingTest.kt) in this folder. Run it, with the rest of the end-to-end tests, with `scripts/run-frontend-e2e-tests.sh` (or `.ps1`), and sign in to the app on the emulator when the script asks.
 
 The test opens the app's main screen, signed in as the tester, and talks to the real deployed back-end and its photo classifier; nothing is mocked. The system photo picker is a separate app, so it is driven with UI Automator. Each scenario is its own test, so they don't depend on each other or on what is already in the tester's closet:
 
@@ -295,6 +325,15 @@ The test opens the app's main screen, signed in as the tester, and talks to the 
 - After each test, it deletes the photo from the photo library and any item it added from the tester's closet.
 
 The test finds item cards, their photos and the loading indicator by the test tags `closet_item`, `closet_item_image` and `upload_progress`.
+
+The Generate Daily Outfit use case is tested by [`GenerateOutfitTest.kt`](https://github.com/evannawfal/fabricate/blob/main/frontend/app/src/androidTest/java/com/example/cpen321application/e2e/GenerateOutfitTest.kt) in the same folder, run by the same script. It also runs against the deployed back-end, with its real outfit generator (Claude) and weather service. Each scenario is its own test:
+
+- Before each test, it grants the app approximate location access and gives the emulator a fixed location (UBC) through a test GPS provider, since the emulator has no location of its own and the weather is looked up for it.
+- Each test adds the clothes it needs to the tester's closet through the back-end: `shirt.jpg` is uploaded as the front and back photos, then the item is renamed and recategorized to "E2E Test Tee" (a top) or "E2E Test Jeans" (a bottom). This way the test has a top and a bottom whatever the classifier makes of the photo.
+- For failure 1a, the test marks every clean bottom in the tester's closet as dirty with `PATCH /clothing/:id`, since the app has no wash bin yet.
+- After each test, it removes the test location, marks those bottoms clean again, and deletes the clothes and any outfit it added.
+
+The test finds the outfit screens' elements by the test tags `generate_outfit_button`, `occasion_<occasion>`, `generating_outfit`, `generated_outfit_name`, `generated_outfit_weather`, `generated_outfit_item`, `generated_outfit_error`, `save_generated_outfit`, `regenerate_outfit` and `outfit_card`.
 
 ### 4.2. Tests
 
@@ -348,4 +387,56 @@ The test finds item cards, their photos and the loading indicator by the test ta
       photoThatIsNotClothing_showsAMessageAndAddsNothing                PASSED (10.29 s)
       choosingAClothingPhoto_addsTheItemFirstWithItsDetectedDetails     PASSED (8.88 s)
       closingThePhotoPicker_leavesTheClosetUnchanged                    PASSED (5.88 s)
+    ```
+
+- **Use Case: Generate Daily Outfit**
+
+  **Main success scenario**
+  1. The user taps "Generate outfit" on the Outfits screen.
+  2. The app shows a list of occasions (casual, work, formal and workout).
+  3. The user selects an occasion.
+  4. The app shows a loading indicator while the outfit is generated from the user's clean clothes, the occasion and the current weather.
+  5. The app displays the generated outfit's items, with the weather it was based on (for example "Based on the weather: 12°C, light rain").
+  6. The user saves the outfit, or taps "Regenerate" to get a different one.
+
+  **Failure scenarios**
+  - 1a. The user's clean clothes do not include at least one shirt and one pair of pants.
+    - 1a1. The app shows "Couldn't generate an outfit" with a message naming what is missing, for example "Your clean clothes don't include a bottom. Add one to your closet or empty your wash bin."
+  - 4a. The outfit generation service is unavailable or does not respond in time.
+    - 4a1. The app shows "Couldn't generate an outfit" with the message "Outfits aren't available right now. Try again later." and a "Try again" button.
+  - 4b. The current weather cannot be retrieved.
+    - 4b1. The app generates the outfit without the weather and shows "The weather wasn't considered for this outfit."
+  - 4c. The user doesn't allow the app to use their location.
+    - 4c1. The app shows "Couldn't generate an outfit" with the message "Fabricate needs your approximate location to dress you for the weather. Allow location access and try again, or turn it on in your device's settings." and a "Try again" button.
+
+  - **Expected Behaviors:**
+
+    | **Scenario Steps** | **Test Case Steps** |
+    | ------------------ | ------------------- |
+    | 1. The user taps "Generate outfit" on the Outfits screen. | Add the test top and bottom to the tester's closet.<br>Click "Outfits" in the bottom navigation bar.<br>Check that the text "My Outfits" is present on screen.<br>Click the button tagged `generate_outfit_button`. |
+    | 2. The app shows a list of occasions (casual, work, formal and workout). | Check that the text "What's the occasion?" and the options tagged `occasion_casual`, `occasion_work`, `occasion_formal` and `occasion_workout` are displayed. |
+    | 3. The user selects an occasion. | Click the option tagged `occasion_casual` (`occasion_work` in `regenerating_showsAnotherOutfitWithoutSavingTheFirst`). |
+    | 4. The app shows a loading indicator while the outfit is generated from the user's clean clothes, the occasion and the current weather. | Wait up to 10 seconds for the loading indicator (tagged `generating_outfit`), and check that it is displayed.<br>Wait up to 120 seconds for the generated outfit's name (tagged `generated_outfit_name`). |
+    | 5. The app displays the generated outfit's items, with the weather it was based on (for example "Based on the weather: 12°C, light rain"). | Check that the heading "Casual outfit" (or "Work outfit") is present.<br>Check that the weather text (tagged `generated_outfit_weather`) contains "Based on the weather:".<br>Check that there is at least one item (tagged `generated_outfit_item`), and that each one shows the name of one of the tester's clean clothes, read from the back-end (`GET /clothing`). |
+    | 6. The user saves the outfit, or taps "Regenerate" to get a different one. | `generatingAnOutfit_showsItWithTheWeatherAndSavesIt`: click the button tagged `save_generated_outfit`.<br>Wait for the generated outfit to close, then check that the text "My Outfits" is present and that the first outfit card (tagged `outfit_card`) shows the outfit's name.<br>Check that the back-end has exactly one new outfit, with that name and the occasion "casual".<br><br>`regenerating_showsAnotherOutfitWithoutSavingTheFirst`: after steps 1-5 for a Work outfit, click the button tagged `regenerate_outfit`.<br>Repeat the checks of steps 4 and 5.<br>Check that the back-end has no new outfit. |
+    | 1a. The user's clean clothes do not include at least one shirt and one pair of pants. | `noCleanBottom_showsWhatIsMissing`: add only the test top to the tester's closet, and mark every clean bottom in it as dirty.<br>Do steps 1-3 with the Casual occasion. |
+    | 1a1. The app shows "Couldn't generate an outfit" with a message naming what is missing, for example "Your clean clothes don't include a bottom. Add one to your closet or empty your wash bin." | Wait up to 120 seconds for the error (tagged `generated_outfit_error`).<br>Check that the texts "Couldn't generate an outfit" and "Your clean clothes don't include a bottom. Add one to your closet or empty your wash bin." are present.<br>Check that there is no "Try again" button.<br>Check that the back-end has no new outfit. |
+    | 4a. The outfit generation service is unavailable or does not respond in time. | Not automated: it needs the generator to fail on purpose, and the front-end end-to-end tests use the real back-end with no mocking. The back-end side is covered by the mocked `POST /outfits/generate` test "Generator unavailable", and the app's error message and "Try again" button by `OutfitsScreenTest.kt` (`unavailableServiceCanBeRetried`), which runs the Outfits screen with a fake back-end. |
+    | 4b. The current weather cannot be retrieved. | Not automated, for the same reason. The back-end side is covered by the mocked `POST /outfits/generate` test "Weather unavailable", and the app's message by `OutfitsScreenTest.kt` (`missingWeatherIsCalledOut`). |
+    | 4c. The user doesn't allow the app to use their location. | Not automated end to end: the test grants location access, and taking it away mid-test would affect the other end-to-end tests. The error "Couldn't generate an outfit", its "Try again" button and that no request is sent to the back-end are covered by `OutfitsScreenTest.kt` (`unavailableLocationExplainsWhyItsNeededWithoutCallingTheBackEnd`). |
+
+  - **Test Logs:**
+    ```
+    > Task :app:connectedDebugAndroidTest
+    Starting 3 tests on Pixel_API_35(AVD) - 15
+    Pixel_API_35(AVD) - 15 Tests 0/3 completed. (0 skipped) (0 failed)
+    Pixel_API_35(AVD) - 15 Tests 1/3 completed. (0 skipped) (0 failed)
+    Pixel_API_35(AVD) - 15 Tests 2/3 completed. (0 skipped) (0 failed)
+    Finished 3 tests on Pixel_API_35(AVD) - 15
+    BUILD SUCCESSFUL in 2m 1s
+
+    com.example.cpen321application.e2e.GenerateOutfitTest (Pixel emulator, API 35, deployed back-end):
+      regenerating_showsAnotherOutfitWithoutSavingTheFirst              PASSED (49.71 s)
+      noCleanBottom_showsWhatIsMissing                                  PASSED (20.63 s)
+      generatingAnOutfit_showsItWithTheWeatherAndSavesIt                PASSED (20.67 s)
     ```

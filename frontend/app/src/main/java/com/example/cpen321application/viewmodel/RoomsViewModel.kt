@@ -16,6 +16,7 @@ data class RoomsUiState(
     val rooms: List<Room> = emptyList(),
     val friends: List<Friend> = emptyList(),
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val isBusy: Boolean = false,
     val error: String? = null,
     val isCreating: Boolean = false,
@@ -32,11 +33,19 @@ class RoomsViewModel(private val repository: RoomsRepository) : ViewModel() {
 
     fun load() {
         _uiState.update { it.copy(isLoading = true, error = null) }
-        perform {
-            val rooms = repository.listRooms()
-            val friends = repository.listFriends()
-            _uiState.update { it.copy(rooms = rooms, friends = friends, isLoading = false) }
-        }
+        fetchRooms()
+    }
+
+    fun refresh() {
+        if (_uiState.value.isBusy) return
+        _uiState.update { it.copy(isRefreshing = true) }
+        fetchRooms()
+    }
+
+    private fun fetchRooms() = perform {
+        val rooms = repository.listRooms()
+        val friends = repository.listFriends()
+        _uiState.update { it.copy(rooms = rooms, friends = friends, isLoading = false) }
     }
 
     fun startCreating() = _uiState.update { it.copy(isCreating = true, error = null) }
@@ -46,11 +55,6 @@ class RoomsViewModel(private val repository: RoomsRepository) : ViewModel() {
     fun createRoom(name: String, friendIds: List<String>) = perform {
         val room = repository.createRoom(name, friendIds)
         _uiState.update { it.copy(rooms = listOf(room) + it.rooms, isCreating = false, openRoomId = room.id) }
-    }
-
-    fun addFriend(email: String) = perform {
-        val friend = repository.addFriend(email)
-        _uiState.update { it.copy(friends = (it.friends + friend).sortedBy(Friend::name)) }
     }
 
     fun openRoom(id: String) = _uiState.update { it.copy(openRoomId = id) }
@@ -68,7 +72,7 @@ class RoomsViewModel(private val repository: RoomsRepository) : ViewModel() {
             } catch (e: ApiException) {
                 _uiState.update { it.copy(error = e.message, isLoading = false) }
             } finally {
-                _uiState.update { it.copy(isBusy = false) }
+                _uiState.update { it.copy(isBusy = false, isRefreshing = false) }
             }
         }
     }

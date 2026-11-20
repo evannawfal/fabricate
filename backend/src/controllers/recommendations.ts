@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import { REQUIRED_CLOSET_CATEGORIES } from '../config/constants.js';
+import { MAX_STORE_ITEMS_PER_GAP, REQUIRED_CLOSET_CATEGORIES } from '../config/constants.js';
 import { getUserId, type AuthedRequest } from '../middleware/middleware.js';
 import { ClothingItem, type ClothingItemDocument, type ClothingItemResponse } from '../models/clothingItem.js';
 import { getCatalogService, type CatalogItem, type CatalogSearch } from '../services/catalog.js';
@@ -15,14 +15,8 @@ export interface StoreItem extends CatalogItem {
 const MISSING_BASICS_ERROR = 'Add at least one top and one bottom to your closet to get recommendations';
 
 function toCatalogSearch(gap: ClosetGap, query: RecommendationQuery): CatalogSearch {
-  const search: CatalogSearch = { category: gap.category, ...query };
-  if (gap.colorFamily !== undefined) {
-    search.colorFamily = gap.colorFamily;
-  }
-  if (gap.style !== undefined) {
-    search.style = gap.style;
-  }
-  return search;
+  const { category, color, style } = gap;
+  return { category, color, style, ...query };
 }
 
 async function loadPairedItems(gaps: ClosetGap[], closet: ClothingItemDocument[]): Promise<Map<string, ClothingItemResponse>> {
@@ -33,13 +27,17 @@ async function loadPairedItems(gaps: ClosetGap[], closet: ClothingItemDocument[]
 }
 
 // Two gaps' searches can return the same product, and the Shop screen should list it once.
-function withoutRepeatedLinks(items: StoreItem[]): StoreItem[] {
+// Each gap keeps a few items, so one gap's search doesn't crowd out the others.
+function pickStoreItems(items: StoreItem[]): StoreItem[] {
   const seenLinks = new Set<string>();
-  return items.filter(({ link }) => {
-    if (seenLinks.has(link)) {
+  const keptPerGap = new Map<string, number>();
+  return items.filter(({ link, reason }) => {
+    const kept = keptPerGap.get(reason) ?? 0;
+    if (seenLinks.has(link) || kept >= MAX_STORE_ITEMS_PER_GAP) {
       return false;
     }
     seenLinks.add(link);
+    keptPerGap.set(reason, kept + 1);
     return true;
   });
 }
@@ -76,5 +74,5 @@ export async function getRecommendations(req: AuthedRequest, res: Response) {
         .filter((paired): paired is ClothingItemResponse => paired !== undefined),
     }))
   );
-  res.json({ gaps: gaps.map((gap) => gap.reason), items: withoutRepeatedLinks(items) });
+  res.json({ gaps: gaps.map((gap) => gap.reason), items: pickStoreItems(items) });
 }
