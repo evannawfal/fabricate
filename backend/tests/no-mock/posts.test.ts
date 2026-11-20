@@ -106,6 +106,23 @@ describe('Unmocked: POST /posts', () => {
     expect(await Post.countDocuments()).toBe(0);
   });
 
+  // Input: an empty JPEG file
+  // Expected status code: 400
+  // Expected behavior: nothing is saved
+  // Expected output: { error: "The image is empty" }
+  test('Empty photo', async () => {
+    const user = await createUser();
+
+    const response = await request(app)
+      .post('/posts')
+      .set('Authorization', authHeader(user.id))
+      .attach('photo', Buffer.alloc(0), PHOTO);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'The image is empty' });
+    expect(await Post.countDocuments()).toBe(0);
+  });
+
   // Input: a photo larger than 5 MB
   // Expected status code: 413
   // Expected behavior: nothing is saved
@@ -233,38 +250,28 @@ describe('Unmocked: GET /posts', () => {
   });
 });
 
-// Interface POST /posts/:id/like and DELETE /posts/:id/like
-describe('Unmocked: POST and DELETE /posts/:id/like', () => {
-  // Input: valid post id from a friend; liked twice by the same user, then unliked
+// Interface POST /posts/:id/like
+describe('Unmocked: POST /posts/:id/like', () => {
+  // Input: valid post id from a friend, liked twice by the same user
   // Expected status code: 200
-  // Expected behavior: liking is idempotent (no duplicate likes); unliking removes the user's like
-  // Expected output: updated PostResponse with accurate likeCount and likedByMe
-  test('Likes (idempotently) and unlikes a friend post', async () => {
+  // Expected behavior: the like is added once (liking again doesn't duplicate it)
+  // Expected output: updated PostResponse with likeCount 2 (one earlier like) and likedByMe true
+  test('Likes a friend post once', async () => {
     const user = await createUser();
     const friend = await createUser();
     const friendOfFriend = await createUser();
     await makeFriends(user.id, friend.id);
     await makeFriends(friend.id, friendOfFriend.id);
-
     const post = await createPost(friend.id, { likes: [friendOfFriend.id] });
 
-    const firstLike = await request(app)
-      .post(`/posts/${post.id}/like`)
-      .set('Authorization', authHeader(user.id));
+    const firstLike = await request(app).post(`/posts/${post.id}/like`).set('Authorization', authHeader(user.id));
     expect(firstLike.status).toBe(200);
     expect(firstLike.body).toMatchObject({ id: post.id, likeCount: 2, likedByMe: true });
 
-    const duplicateLike = await request(app)
-      .post(`/posts/${post.id}/like`)
-      .set('Authorization', authHeader(user.id));
+    const duplicateLike = await request(app).post(`/posts/${post.id}/like`).set('Authorization', authHeader(user.id));
     expect(duplicateLike.status).toBe(200);
     expect(duplicateLike.body).toMatchObject({ id: post.id, likeCount: 2, likedByMe: true });
-
-    const unlike = await request(app)
-      .delete(`/posts/${post.id}/like`)
-      .set('Authorization', authHeader(user.id));
-    expect(unlike.status).toBe(200);
-    expect(unlike.body).toMatchObject({ id: post.id, likeCount: 1, likedByMe: false });
+    expect((await Post.findById(post.id))?.likes).toHaveLength(2);
   });
 
   // Input: user's own active post
@@ -275,9 +282,7 @@ describe('Unmocked: POST and DELETE /posts/:id/like', () => {
     const user = await createUser();
     const post = await createPost(user.id);
 
-    const response = await request(app)
-      .post(`/posts/${post.id}/like`)
-      .set('Authorization', authHeader(user.id));
+    const response = await request(app).post(`/posts/${post.id}/like`).set('Authorization', authHeader(user.id));
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({ id: post.id, likeCount: 1, likedByMe: true });
@@ -292,9 +297,7 @@ describe('Unmocked: POST and DELETE /posts/:id/like', () => {
     const stranger = await createUser();
     const post = await createPost(stranger.id);
 
-    const response = await request(app)
-      .post(`/posts/${post.id}/like`)
-      .set('Authorization', authHeader(user.id));
+    const response = await request(app).post(`/posts/${post.id}/like`).set('Authorization', authHeader(user.id));
 
     expect(response.status).toBe(403);
     expect(response.body).toEqual({ error: 'You can only like posts from your friends' });
@@ -305,18 +308,16 @@ describe('Unmocked: POST and DELETE /posts/:id/like', () => {
   // Expected status code: 404
   // Expected behavior: nothing is updated
   // Expected output: { error: "Post not found or has expired" }
-  test.each(['expired', 'unknown'] as const)('Rejects %s post on like/unlike', async (kind) => {
+  test.each(['expired', 'unknown'] as const)('Rejects an %s post', async (kind) => {
     const user = await createUser();
     const expiredPost = await createPost(user.id, { expiresAt: new Date(Date.now() - 5_000) });
     const targetId = kind === 'expired' ? expiredPost.id : UNKNOWN_ID;
 
-    const likeRes = await request(app).post(`/posts/${targetId}/like`).set('Authorization', authHeader(user.id));
-    const unlikeRes = await request(app).delete(`/posts/${targetId}/like`).set('Authorization', authHeader(user.id));
+    const response = await request(app).post(`/posts/${targetId}/like`).set('Authorization', authHeader(user.id));
 
-    expect(likeRes.status).toBe(404);
-    expect(likeRes.body).toEqual({ error: 'Post not found or has expired' });
-    expect(unlikeRes.status).toBe(404);
-    expect(unlikeRes.body).toEqual({ error: 'Post not found or has expired' });
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'Post not found or has expired' });
+    expect((await Post.findById(expiredPost.id))?.likes).toHaveLength(0);
   });
 
   // Input: malformed post id
@@ -326,13 +327,10 @@ describe('Unmocked: POST and DELETE /posts/:id/like', () => {
   test('Invalid post id', async () => {
     const user = await createUser();
 
-    const likeRes = await request(app).post('/posts/not-an-id/like').set('Authorization', authHeader(user.id));
-    const unlikeRes = await request(app).delete('/posts/not-an-id/like').set('Authorization', authHeader(user.id));
+    const response = await request(app).post('/posts/not-an-id/like').set('Authorization', authHeader(user.id));
 
-    expect(likeRes.status).toBe(400);
-    expect(likeRes.body).toEqual({ error: 'Invalid post id' });
-    expect(unlikeRes.status).toBe(400);
-    expect(unlikeRes.body).toEqual({ error: 'Invalid post id' });
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid post id' });
   });
 
   // Input: no Authorization header
@@ -340,11 +338,75 @@ describe('Unmocked: POST and DELETE /posts/:id/like', () => {
   // Expected behavior: request is rejected
   // Expected output: { error: "Missing token" }
   test('Missing token', async () => {
-    const likeRes = await request(app).post(`/posts/${UNKNOWN_ID}/like`);
-    const unlikeRes = await request(app).delete(`/posts/${UNKNOWN_ID}/like`);
+    const response = await request(app).post(`/posts/${UNKNOWN_ID}/like`);
 
-    expect(likeRes.status).toBe(401);
-    expect(unlikeRes.status).toBe(401);
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Missing token' });
+  });
+});
+
+// Interface DELETE /posts/:id/like
+describe('Unmocked: DELETE /posts/:id/like', () => {
+  // Input: a friend's post the user liked, unliked twice
+  // Expected status code: 200
+  // Expected behavior: only the user's like is removed; unliking again changes nothing
+  // Expected output: updated PostResponse with likeCount 1 (the other like) and likedByMe false
+  test("Removes only the user's like", async () => {
+    const user = await createUser();
+    const friend = await createUser();
+    const otherFriend = await createUser();
+    await makeFriends(user.id, friend.id);
+    await makeFriends(friend.id, otherFriend.id);
+    const post = await createPost(friend.id, { likes: [user.id, otherFriend.id] });
+
+    const unlike = await request(app).delete(`/posts/${post.id}/like`).set('Authorization', authHeader(user.id));
+    expect(unlike.status).toBe(200);
+    expect(unlike.body).toMatchObject({ id: post.id, likeCount: 1, likedByMe: false });
+
+    const unlikeAgain = await request(app).delete(`/posts/${post.id}/like`).set('Authorization', authHeader(user.id));
+    expect(unlikeAgain.status).toBe(200);
+    expect(unlikeAgain.body).toMatchObject({ id: post.id, likeCount: 1, likedByMe: false });
+    expect((await Post.findById(post.id))?.likes.map(String)).toEqual([otherFriend.id]);
+  });
+
+  // Input: expired post id or unknown post id
+  // Expected status code: 404
+  // Expected behavior: nothing is updated
+  // Expected output: { error: "Post not found or has expired" }
+  test.each(['expired', 'unknown'] as const)('Rejects an %s post', async (kind) => {
+    const user = await createUser();
+    const expiredPost = await createPost(user.id, { likes: [user.id], expiresAt: new Date(Date.now() - 5_000) });
+    const targetId = kind === 'expired' ? expiredPost.id : UNKNOWN_ID;
+
+    const response = await request(app).delete(`/posts/${targetId}/like`).set('Authorization', authHeader(user.id));
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'Post not found or has expired' });
+    expect((await Post.findById(expiredPost.id))?.likes).toHaveLength(1);
+  });
+
+  // Input: malformed post id
+  // Expected status code: 400
+  // Expected behavior: request is rejected
+  // Expected output: { error: "Invalid post id" }
+  test('Invalid post id', async () => {
+    const user = await createUser();
+
+    const response = await request(app).delete('/posts/not-an-id/like').set('Authorization', authHeader(user.id));
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid post id' });
+  });
+
+  // Input: no Authorization header
+  // Expected status code: 401
+  // Expected behavior: request is rejected
+  // Expected output: { error: "Missing token" }
+  test('Missing token', async () => {
+    const response = await request(app).delete(`/posts/${UNKNOWN_ID}/like`);
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Missing token' });
   });
 });
 

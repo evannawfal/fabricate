@@ -103,6 +103,23 @@ describe('Mocked: POST /posts', () => {
     expect(expiresAt.getTime()).toBeGreaterThan(Date.now());
   });
 
+  // Mocked behavior: storage accepts the upload
+  // Input: a JPEG photo with tzOffsetMinutes "abc" (not a number) and "900" (beyond UTC+14)
+  // Expected status code: 201
+  // Expected behavior: the offset is ignored and the post expires at the next UTC midnight
+  // Expected output: PostResponse whose expiresAt is 00:00:00.000 UTC
+  test.each(['abc', '900'])('Invalid timezone offset %s falls back to UTC midnight', async (tzOffsetMinutes) => {
+    mockStorage();
+    const user = await createUser();
+
+    const response = await uploadPost(user.id, { tzOffsetMinutes });
+
+    expect(response.status).toBe(201);
+    const expiresAt = new Date(response.body.expiresAt as string);
+    expect(expiresAt.toISOString()).toMatch(/T00:00:00\.000Z$/);
+    expect(expiresAt.getTime()).toBeGreaterThan(Date.now());
+  });
+
   // Mocked behavior: storage is available
   // Input: caption exceeding 280 characters
   // Expected status code: 400
@@ -236,8 +253,74 @@ describe('Mocked: GET /posts', () => {
   });
 });
 
-// Interface DELETE /posts/:id and POST /posts/:id/like
-describe('Mocked: DELETE /posts/:id and POST /posts/:id/like', () => {
+// Interface POST /posts/:id/like
+describe('Mocked: POST /posts/:id/like', () => {
+  // Mocked behavior: Post.findOneAndUpdate throws a database error
+  // Input: valid post id
+  // Expected status code: 500
+  // Expected behavior: error is handled and logged; the like is not saved
+  // Expected output: { error: "Internal server error" }
+  test('Database error while liking a post', async () => {
+    const user = await createUser();
+    const post = await createPost(user.id);
+    jest.spyOn(Post, 'findOneAndUpdate').mockImplementation(() => {
+      throw new Error('Forced database error');
+    });
+
+    const response = await request(app).post(`/posts/${post.id}/like`).set('Authorization', authHeader(user.id));
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual(INTERNAL_ERROR);
+    expect(console.error).toHaveBeenCalledWith('Unhandled error:', expect.any(Error));
+    expect((await Post.findById(post.id))?.likes).toHaveLength(0);
+  });
+
+  // Mocked behavior: Post.findOneAndUpdate finds no post, as when the post expires between the
+  //   friendship check and the update
+  // Input: a friend's active post id
+  // Expected status code: 404
+  // Expected behavior: nothing is updated
+  // Expected output: { error: "Post not found or has expired" }
+  test('Post expires before the like is saved', async () => {
+    const user = await createUser();
+    const friend = await createUser();
+    await makeFriends(user.id, friend.id);
+    const post = await createPost(friend.id);
+    jest.spyOn(Post, 'findOneAndUpdate').mockResolvedValue(null);
+
+    const response = await request(app).post(`/posts/${post.id}/like`).set('Authorization', authHeader(user.id));
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'Post not found or has expired' });
+    expect((await Post.findById(post.id))?.likes).toHaveLength(0);
+  });
+});
+
+// Interface DELETE /posts/:id/like
+describe('Mocked: DELETE /posts/:id/like', () => {
+  // Mocked behavior: Post.findOneAndUpdate throws a database error
+  // Input: id of a post the user liked
+  // Expected status code: 500
+  // Expected behavior: error is handled and logged; the like is kept
+  // Expected output: { error: "Internal server error" }
+  test('Database error while unliking a post', async () => {
+    const user = await createUser();
+    const post = await createPost(user.id, { likes: [user.id] });
+    jest.spyOn(Post, 'findOneAndUpdate').mockImplementation(() => {
+      throw new Error('Forced database error');
+    });
+
+    const response = await request(app).delete(`/posts/${post.id}/like`).set('Authorization', authHeader(user.id));
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual(INTERNAL_ERROR);
+    expect(console.error).toHaveBeenCalledWith('Unhandled error:', expect.any(Error));
+    expect((await Post.findById(post.id))?.likes).toHaveLength(1);
+  });
+});
+
+// Interface DELETE /posts/:id
+describe('Mocked: DELETE /posts/:id', () => {
   // Mocked behavior: storage deletes the blob when the author deletes their post
   // Input: author's post id
   // Expected status code: 204
@@ -255,22 +338,41 @@ describe('Mocked: DELETE /posts/:id and POST /posts/:id/like', () => {
     expect(storage.deleteFile).toHaveBeenCalledWith('posts/delete-me.jpg');
   });
 
-  // Mocked behavior: Post.findOneAndUpdate throws a database error during like
-  // Input: valid post id
+  // Mocked behavior: storage fails to delete the stored image
+  // Input: author's post id
+  // Expected status code: 204
+  // Expected behavior: the post is still deleted; the storage failure is only logged
+  // Expected output: empty body
+  test('Failing to delete the stored image is logged, not reported', async () => {
+    mockStorage({ deleteError: new Error('Forced delete error') });
+    const user = await createUser();
+    const post = await createPost(user.id, { imageKey: 'posts/delete-me.jpg' });
+
+    const response = await request(app).delete(`/posts/${post.id}`).set('Authorization', authHeader(user.id));
+
+    expect(response.status).toBe(204);
+    expect(await Post.findById(post.id)).toBeNull();
+    expect(console.error).toHaveBeenCalledWith('Could not delete post photo posts/delete-me.jpg:', expect.any(Error));
+  });
+
+  // Mocked behavior: Post.findOneAndDelete throws a database error
+  // Input: author's post id
   // Expected status code: 500
-  // Expected behavior: error is handled and logged
+  // Expected behavior: error is handled and logged; the post and its image are kept
   // Expected output: { error: "Internal server error" }
-  test('Database error while liking a post', async () => {
+  test('Database error while deleting a post', async () => {
+    const storage = mockStorage();
     const user = await createUser();
     const post = await createPost(user.id);
-    jest.spyOn(Post, 'findOneAndUpdate').mockImplementation(() => {
+    jest.spyOn(Post, 'findOneAndDelete').mockImplementation(() => {
       throw new Error('Forced database error');
     });
 
-    const response = await request(app).post(`/posts/${post.id}/like`).set('Authorization', authHeader(user.id));
+    const response = await request(app).delete(`/posts/${post.id}`).set('Authorization', authHeader(user.id));
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual(INTERNAL_ERROR);
-    expect(console.error).toHaveBeenCalledWith('Unhandled error:', expect.any(Error));
+    expect(await Post.findById(post.id)).not.toBeNull();
+    expect(storage.deleteFile).not.toHaveBeenCalled();
   });
 });
