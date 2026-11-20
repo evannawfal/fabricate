@@ -48,7 +48,6 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val avatarStore = remember { AvatarStore(context) }
     val savedMeasurements by avatarStore.measurements.collectAsState(initial = null)
-    val measurements = savedMeasurements ?: AvatarMeasurements()
     var showFriendsModal by rememberSaveable { mutableStateOf(false) }
 
     Column(
@@ -64,7 +63,6 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
 
             ProfileInfoRow(title = "Name", value = profile.name)
             ProfileInfoRow(title = "Email", value = profile.email)
-
             PronounsEditor(profile.pronouns, state.isSaving, viewModel::savePronouns)
 
             HorizontalDivider()
@@ -74,9 +72,8 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
-            ProfileInfoRow(title = "Height", value = "${measurements[BodyMeasurement.Height]} cm")
-            ProfileInfoRow(title = "Shoulder width", value = "${measurements[BodyMeasurement.Shoulders]} cm")
-            ProfileInfoRow(title = "Hip width", value = "${measurements[BodyMeasurement.Hips]} cm")
+            HorizontalDivider()
+            MeasurementsSection(savedMeasurements ?: AvatarMeasurements())
         }
         state.error?.let { error ->
             Text(error, color = MaterialTheme.colorScheme.error)
