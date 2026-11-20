@@ -21,7 +21,6 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.example.cpen321application.BuildConfig
 import com.example.cpen321application.MainActivity
 import com.example.cpen321application.auth.SessionStore
 import com.example.cpen321application.data.ClothingItemChanges
@@ -39,18 +38,15 @@ import com.example.cpen321application.screens.CHAT_MESSAGE_TAG
 import com.example.cpen321application.screens.CLOSET_PICKER_ITEM_TAG
 import com.example.cpen321application.screens.CREATE_ROOM_TAG
 import com.example.cpen321application.screens.FRIEND_CHECKBOX_TAG
-import com.example.cpen321application.screens.FRIEND_EMAIL_FIELD_TAG
 import com.example.cpen321application.screens.RECONNECTING_BANNER_TAG
 import com.example.cpen321application.screens.ROOM_ITEM_TAG
 import com.example.cpen321application.screens.ROOM_NAME_FIELD_TAG
 import com.example.cpen321application.screens.SAVE_ROOM_OUTFIT_TAG
 import com.example.cpen321application.screens.SEND_MESSAGE_TAG
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -102,7 +98,10 @@ class JoinRoomTest {
         val friendEmails = rooms.listFriends().map { it.email.lowercase() }.toSet()
         removedFriends
             .filterNot { it.email.lowercase() in friendEmails }
-            .forEach { rooms.addFriend(it.email) }
+            .forEach {
+                rooms.sendFriendRequest(it.email)
+                Log.w(TAG, "Sent ${it.email} a friend request: accept it before running the room test again.")
+            }
 
         addedItems.forEach { closet.deleteItem(it.id) }
 
@@ -124,22 +123,18 @@ class JoinRoomTest {
         shell("svc data $state")
     }
 
-    // The app has no way to remove a friend yet, so this goes through the back-end, as it would.
-    private suspend fun removeFriend(friend: Friend) = withContext(Dispatchers.IO) {
-        val request = Request.Builder()
-            .url("${BuildConfig.API_BASE_URL.trimEnd('/')}/friends/${friend.id}")
-            .header("Authorization", "Bearer ${token()}")
-            .delete()
-            .build()
-        OkHttpClient().newCall(request).execute().use { response ->
-            check(response.isSuccessful) { "DELETE /friends/${friend.id} returned ${response.code}" }
-        }
+    private suspend fun removeFriend(friend: Friend) {
+        rooms.removeFriend(friend.id)
         removedFriends += friend
     }
 
-    private suspend fun friendB(): Friend {
-        val email = requireNotNull(friendEmail)
-        return rooms.listFriends().firstOrNull { it.email.equals(email, ignoreCase = true) } ?: rooms.addFriend(email)
+    private fun isUserB(friend: Friend) = friend.email.equals(friendEmail, ignoreCase = true)
+
+    private suspend fun friendB(): Friend = rooms.listFriends().firstOrNull(::isUserB)
+        ?: error("User B must be User A's friend: send them a friend request from Profile and have them accept it")
+
+    private suspend fun waitUntilUserBIsAFriend() = withTimeout(USER_B_TIMEOUT_MS) {
+        while (rooms.listFriends().none(::isUserB)) delay(FRIEND_POLL_MS)
     }
 
     private suspend fun addTestItem(name: String, category: ClothingCategory): ClothingItem {
@@ -165,21 +160,22 @@ class JoinRoomTest {
 
     // Failure 1a
     @Test
-    fun noFriends_explainsAndLetsTheUserAddOneByEmail() {
-        runBlocking { rooms.listFriends().forEach { removeFriend(it) } }
+    fun noFriends_explainsHowToAddOne() {
+        val friends = runBlocking { rooms.listFriends() }
+        // Removing other friends would need them to accept a new request too.
+        assumeTrue("Failure 1a runs when User B is User A's only friend", friends.all(::isUserB))
+        runBlocking { friends.forEach { removeFriend(it) } }
 
         openCreateRoom()
-        composeRule.onNodeWithText("Rooms are for styling with friends. Add a friend by email first.").assertIsDisplayed()
+        composeRule.onNodeWithText("Rooms are for styling with friends.", substring = true).assertIsDisplayed()
         composeRule.onNodeWithTag(ROOM_NAME_FIELD_TAG).assertDoesNotExist()
         composeRule.onNodeWithText("Create").assertIsNotEnabled()
-
-        composeRule.onNodeWithTag(FRIEND_EMAIL_FIELD_TAG).performTextInput(requireNotNull(friendEmail))
-        composeRule.onNodeWithText("Add").performClick()
-
-        waitFor(UI_TIMEOUT_MS) { countOf(FRIEND_CHECKBOX_TAG) == 1 }
-        composeRule.onNodeWithTag(ROOM_NAME_FIELD_TAG).assertIsDisplayed()
         composeRule.onNodeWithText("Cancel").performClick()
-        assertEquals(listOf(friendEmail.lowercase()), runBlocking { rooms.listFriends() }.map { it.email.lowercase() })
+
+        runBlocking { rooms.sendFriendRequest(requireNotNull(friendEmail)) }
+        userB("accept User A's friend request on your Profile screen.")
+        runBlocking { waitUntilUserBIsAFriend() }
+        removedFriends.clear()
     }
 
     @Test
@@ -301,6 +297,7 @@ class JoinRoomTest {
         const val MESSAGE_WHILE_AWAY = "Sent while you were away"
         const val MESSAGE_AFTER_LEAVE = "Still here"
         const val UI_TIMEOUT_MS = 10_000L
+        const val FRIEND_POLL_MS = 2_000L
 
         // Socket.IO waits up to 5 s between reconnection attempts.
         const val RECONNECT_TIMEOUT_MS = 30_000L

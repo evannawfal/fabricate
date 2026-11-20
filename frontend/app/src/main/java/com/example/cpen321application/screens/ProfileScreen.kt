@@ -67,12 +67,6 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
 
             HorizontalDivider()
 
-            Text(
-                text = "Measurements",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            HorizontalDivider()
             MeasurementsSection(savedMeasurements ?: AvatarMeasurements())
         }
         state.error?.let { error ->
@@ -163,6 +157,18 @@ private fun friendsCardHint(requestCount: Int): String = when (requestCount) {
     0 -> "Tap to see or add friends"
     1 -> "1 friend request"
     else -> "$requestCount friend requests"
+}
+
+@Composable
+private fun MeasurementsSection(measurements: AvatarMeasurements) {
+    Text(
+        text = "Measurements",
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+    )
+    ProfileInfoRow(title = "Height", value = "${measurements[BodyMeasurement.Height]} cm")
+    ProfileInfoRow(title = "Shoulder width", value = "${measurements[BodyMeasurement.Shoulders]} cm")
+    ProfileInfoRow(title = "Hip width", value = "${measurements[BodyMeasurement.Hips]} cm")
 }
 
 @Composable

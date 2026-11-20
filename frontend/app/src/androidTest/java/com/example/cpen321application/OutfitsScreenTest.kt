@@ -25,6 +25,7 @@ import com.example.cpen321application.model.GeneratedOutfit
 import com.example.cpen321application.model.Outfit
 import com.example.cpen321application.model.OutfitOccasion
 import com.example.cpen321application.model.Weather
+import com.example.cpen321application.screens.CREATE_OUTFIT_BUTTON_TAG
 import com.example.cpen321application.screens.GENERATE_OUTFIT_BUTTON_TAG
 import com.example.cpen321application.screens.GENERATING_OUTFIT_TAG
 import com.example.cpen321application.screens.OUTFIT_NAME_FIELD_TAG
@@ -100,7 +101,7 @@ class OutfitsScreenTest {
         composeRule.onNodeWithText("Grey Hoodie").assertIsSelected()
         composeRule.onNodeWithTag(SAVE_OUTFIT_BUTTON_TAG).assertIsEnabled().performClick()
 
-        composeRule.onNodeWithText("My Outfits").assertIsDisplayed()
+        composeRule.onNodeWithTag(CREATE_OUTFIT_BUTTON_TAG).assertIsDisplayed()
         composeRule.onNodeWithText("Weekend").assertIsDisplayed()
         // Saved in category order, whatever order they were picked in.
         assertEquals(listOf("1", "2"), repository.outfits.single().items.map { it.id })
@@ -193,7 +194,7 @@ class OutfitsScreenTest {
         composeRule.onNodeWithText("Edit outfit").assertIsDisplayed()
 
         gate.complete(Unit)
-        composeRule.onNodeWithText("My Outfits").assertIsDisplayed()
+        composeRule.onNodeWithTag(CREATE_OUTFIT_BUTTON_TAG).assertIsDisplayed()
     }
 
     @Test
@@ -230,7 +231,7 @@ class OutfitsScreenTest {
         }
         gate.complete(Unit)
 
-        composeRule.onNodeWithText("My Outfits").assertIsDisplayed()
+        composeRule.onNodeWithTag(CREATE_OUTFIT_BUTTON_TAG).assertIsDisplayed()
         assertEquals(1, repository.saveCalls)
         assertEquals(0, repository.deleteCalls)
     }
@@ -289,7 +290,7 @@ class OutfitsScreenTest {
         generateForWork()
         composeRule.onNodeWithTag(SAVE_GENERATED_OUTFIT_TAG).performClick()
 
-        composeRule.onNodeWithText("My Outfits").assertIsDisplayed()
+        composeRule.onNodeWithTag(CREATE_OUTFIT_BUTTON_TAG).assertIsDisplayed()
         composeRule.onNodeWithText("Rainy day layers").assertIsDisplayed()
         val saved = repository.outfits.single()
         assertEquals(listOf("1", "2"), saved.items.map { it.id })
@@ -366,11 +367,11 @@ class OutfitsScreenTest {
 
         generateForWork()
         composeRule.onNodeWithContentDescription("Back").performClick()
-        composeRule.onNodeWithText("My Outfits").assertIsDisplayed()
+        composeRule.onNodeWithTag(CREATE_OUTFIT_BUTTON_TAG).assertIsDisplayed()
 
         gate.complete(Unit)
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("My Outfits").assertIsDisplayed()
+        composeRule.onNodeWithTag(CREATE_OUTFIT_BUTTON_TAG).assertIsDisplayed()
         composeRule.onNodeWithText("Rainy day layers").assertDoesNotExist()
     }
 
@@ -402,7 +403,7 @@ class OutfitsScreenTest {
         composeRule.onNodeWithText("Rainy day layers").assertIsDisplayed()
 
         gate.complete(Unit)
-        composeRule.onNodeWithText("My Outfits").assertIsDisplayed()
+        composeRule.onNodeWithTag(CREATE_OUTFIT_BUTTON_TAG).assertIsDisplayed()
     }
 
     @Test
