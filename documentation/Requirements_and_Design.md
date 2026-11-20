@@ -18,7 +18,6 @@
 | 2026-11-19 | 3.5, 4.1 | The closet gap analysis was reworked because it suggested nearly the same item for every closet (usually a black business jacket). `GET /recommendations` now finds up to 3 varied gaps: empty categories, an unbalanced number of tops and bottoms, occasions the closet can't dress for, a colour for an all-neutral closet, and the pieces that would make the most new outfits, which also finds useful additions for a closet with no obvious gaps. It searches for specific colours (e.g. white, navy, beige) instead of black for every neutral, and recognises far more of the colour and style words the classifier writes. Shoes and outerwear are only suggested when the closet has none, or none for an occasion. Use case 4 step 3: the Shop screen lists the store items under the gap each one fills. |
 | 2026-11-19 | 3.4, 3.5, 4.1 | Friends are now added with friend requests. Before, anyone who knew a user's email could add them as a friend without their consent, and friends can see each other's daily posts and add each other to rooms. Use case 16 now sends a request that the other user accepts or declines, and use case 3 (Create Outfits in a Room) points users without friends to the Profile screen. `POST /friends` was replaced by `POST /friends/requests`, `GET /friends/requests`, `POST /friends/requests/{id}/accept` and `DELETE /friends/requests/{id}`. |
 | 2026-11-19 | 3.1, 3.4, 3.5, 4.1, 4.2, 4.3 | Matched the app as built (PR #157 review). Posts are liked instead of rated, and Social & Rooms lists the posts endpoints as built. Sign Up, Sign In and Sign Out moved to a new Account feature. Leave a room now says that a room stays in the list until it expires. The avatar asks for height, shoulder width and hip width in text fields. Removed what we won't build: the wishlist, realistic outfit images (with `POST /outfits/{id}/render` and the Gemini API) and push notifications (Firebase Cloud Messaging). |
-| 2026-11-19 | 2, 3.1, 3.4, 3.5, 4.2, 4.6 | Matched the app as built. Edit items doesn't change tags, which the app has no field for. View items on Avatar can show a top, a bottom and outerwear at once, and Preview outfits on Avatar is marked as not built yet. Use cases 2 and 4 say "a top and a bottom", as the app and the back-end check. MongoDB also stores friend requests. The use case 3 sequence diagram quotes the current message for a user with no friends. |
 
 ---
 
@@ -35,7 +34,7 @@ Fabricate is aimed at fashion enthusiasts who want more out of their wardrobe, p
 ### **3.1. List of Features**
 
 1. **Manage Closet**: Users add clothing items by taking a photo or choosing one from their gallery. The photo is classified by an external AI service and the item is added to the closet, where it can be browsed, edited and removed. Users keep track of which clothes are dirty with a wash bin.
-2. **Customize Avatar**: Users customize the proportions of a personal avatar from their body measurements, and try clothing items on it. Previewing a whole saved outfit on the avatar is planned.
+2. **Customize Avatar**: Users customize the proportions of a personal avatar from their body measurements, and try clothing items on it.
 3. **Create Outfit**: Users have AI generate a daily outfit from their clean clothes based on the occasion and the current weather, save outfits, and browse the outfits they saved.
 4. **Recommend Clothes to Buy**: The app analyzes the gaps in the user's closet and recommends items from online stores that fill them, with the user's clothes that each item pairs with.
 5. **Friends and Social**: Users add and remove friends with friend requests, post a photo of their outfit of the day, like their friends' posts, and create and join rooms with friends to build outfits together from the host's closet, where chat messages and outfit changes appear live for every member.
@@ -66,31 +65,30 @@ Each use case below has the same name as in the use case diagram. **Major** use 
 - Use cases for feature 2: **Customize Avatar**
 7. **Customize Avatar Proportion** (major): The user sets their avatar's body measurements, and the app builds their 3D avatar from them.
 8. **View items on Avatar** (minor): The user tries clothing items from their closet on their 3D avatar, one of each kind at a time (a top, a bottom and outerwear), and adjusts each one's size.
-9. **Preview outfits on Avatar** (minor, planned and not built yet): The user sees a whole saved or generated outfit on their 3D avatar at once, before deciding to wear or save it.
 
 - Use cases for feature 3: **Create Outfit**
-10. **Generate daily outfit** (major): The app generates an outfit from the user's clean clothes for an occasion they choose, taking the current weather into account.
-11. **Save outfits** (minor): The user saves a generated outfit, or one they built from their closet, to their outfits.
-12. **Browse past outfits** (minor): The user browses the outfits they saved, and edits or deletes them. Deleting an outfit unsaves it; its items stay in the closet.
+9. **Generate daily outfit** (major): The app generates an outfit from the user's clean clothes for an occasion they choose, taking the current weather into account.
+10. **Save outfits** (minor): The user saves a generated outfit, or one they built from their closet, to their outfits.
+11. **Browse past outfits** (minor): The user browses the outfits they saved, and edits or deletes them. Deleting an outfit unsaves it; its items stay in the closet.
 
 - Use cases for feature 4: **Recommend Clothes to Buy**
-13. **Browse online outfit / items** (major): The user browses items from online stores, recommended by analyzing the gaps in their closet, and sees which of their clothes each item pairs with.
+12. **Browse online outfit / items** (major): The user browses items from online stores, recommended by analyzing the gaps in their closet, and sees which of their clothes each item pairs with.
 
 - Use cases for feature 5: **Friends and Social**
-14. **Add people in friendlist** (minor): The user sends another user a friend request by email, and accepts or declines the requests sent to them. Two users become friends once one accepts the other's request, so nobody can add someone without their consent.
-15. **Remove people from friendlist** (minor): The user removes someone from their friend list.
-16. **Post daily outfits** (minor): The user posts a photo of the outfit they are wearing today, with an optional caption, so their friends can see it. The post disappears at the user's next midnight.
-17. **Like your friend's outfits** (minor): The user likes a friend's post, or takes the like back. Each post shows how many likes it has.
-18. **Create a room** (minor): The user names a new room and invites friends from their friend list.
-19. **Join a room** (minor): The user opens one of the rooms they belong to and sees its chat and shared outfit board.
-20. **Leave a room** (minor): The user closes a room, and the other members see that they left. The room stays in every member's room list until it expires, 2 days after it was created, when it and its chat are deleted.
-21. **Browse room owner's outfit** (minor): The user browses the outfit on the room's shared board, made from the closet of the room's host (the member who created it).
-22. **Create outfits in a room** (major): The user builds an outfit from the host's closet together with the room's members, where every chat message and outfit change appears live on all members' devices.
+13. **Add people in friendlist** (minor): The user sends another user a friend request by email, and accepts or declines the requests sent to them. Two users become friends once one accepts the other's request, so nobody can add someone without their consent.
+14. **Remove people from friendlist** (minor): The user removes someone from their friend list.
+15. **Post daily outfits** (minor): The user posts a photo of the outfit they are wearing today, with an optional caption, so their friends can see it. The post disappears at the user's next midnight.
+16. **Like your friend's outfits** (minor): The user likes a friend's post, or takes the like back. Each post shows how many likes it has.
+17. **Create a room** (minor): The user names a new room and invites friends from their friend list.
+18. **Join a room** (minor): The user opens one of the rooms they belong to and sees its chat and shared outfit board.
+19. **Leave a room** (minor): The user closes a room, and the other members see that they left. The room stays in every member's room list until it expires, 2 days after it was created, when it and its chat are deleted.
+20. **Browse room owner's outfit** (minor): The user browses the outfit on the room's shared board, made from the closet of the room's host (the member who created it).
+21. **Create outfits in a room** (major): The user builds an outfit from the host's closet together with the room's members, where every chat message and outfit change appears live on all members' devices.
 
 - Use cases for feature 6: **Account**
-23. **Sign Up** (minor): A person who has never used Fabricate signs in with their Google account, and an account is created for them.
-24. **Sign In** (minor): The user signs in with their Google account.
-25. **Sign Out** (minor): The user signs out, after confirming.
+22. **Sign Up** (minor): A person who has never used Fabricate signs in with their Google account, and an account is created for them.
+23. **Sign In** (minor): The user signs in with their Google account.
+24. **Sign Out** (minor): The user signs out, after confirming.
 
 ### **3.5. Formal Use Case Specifications (5 Most Major Use Cases)**
 
