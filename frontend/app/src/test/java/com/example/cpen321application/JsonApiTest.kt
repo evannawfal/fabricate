@@ -46,6 +46,16 @@ class JsonApiTest {
     }
 
     @Test
+    fun emptyBody_isParsedAsAnEmptyObject() = runBlocking {
+        respond(204, "")
+
+        val keys = api.send("/friends/requests/abc", JSONObject(), method = "DELETE") { it.length() }
+
+        assertEquals(0, keys)
+        assertEquals("DELETE", server.takeRequest().method)
+    }
+
+    @Test
     fun get_sendsTheTokenAndParsesTheBody() = runBlocking {
         respond(200, """{"name":"Sam"}""")
 

@@ -88,56 +88,7 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
 private fun HomeDestination(sessionStore: SessionStore, navController: NavHostController) {
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
-  val clothingRepository = remember {
-    BackendClothingRepository(
-      tokenProvider = { sessionStore.token.first() },
-      onUnauthorized = { endRejectedSession(sessionStore, navController) },
-      modelDir = File(context.filesDir, "garment_models"),
-    )
-  }
-  val outfitRepository = remember {
-    BackendOutfitRepository(
-      tokenProvider = { sessionStore.token.first() },
-      onUnauthorized = { endRejectedSession(sessionStore, navController) },
-    )
-  }
-  val recommendationRepository = remember {
-    BackendRecommendationRepository(
-      tokenProvider = { sessionStore.token.first() },
-      onUnauthorized = { endRejectedSession(sessionStore, navController) },
-    )
-  }
-  val roomsRepository = remember {
-    BackendRoomsRepository(
-      tokenProvider = { sessionStore.token.first() },
-      onUnauthorized = { endRejectedSession(sessionStore, navController) },
-    )
-  }
-  val profileRepository = remember {
-    BackendProfileRepository(
-      tokenProvider = { sessionStore.token.first() },
-      onUnauthorized = { endRejectedSession(sessionStore, navController) },
-    )
-  }
-
-  val socialRepository = remember {
-    BackendSocialRepository(
-      tokenProvider = { sessionStore.token.first() },
-      onUnauthorized = { endRejectedSession(sessionStore, navController) },
-    )
-  }
-
-  val repositories = remember {
-    MainScreenRepositories(
-      clothing = clothingRepository,
-      outfits = outfitRepository,
-      recommendations = recommendationRepository,
-      location = DeviceLocationProvider(context),
-      rooms = roomsRepository,
-      profile = profileRepository,
-      social = socialRepository,
-    )
-  }
+  val repositories = rememberMainScreenRepositories(sessionStore, navController)
 
   MainScreen(
     repositories = repositories,
@@ -151,6 +102,31 @@ private fun HomeDestination(sessionStore: SessionStore, navController: NavHostCo
       }
     },
   )
+}
+
+@Composable
+private fun rememberMainScreenRepositories(
+  sessionStore: SessionStore,
+  navController: NavHostController,
+): MainScreenRepositories {
+  val context = LocalContext.current
+  return remember {
+    val tokenProvider: suspend () -> String? = { sessionStore.token.first() }
+    val onUnauthorized: suspend () -> Unit = { endRejectedSession(sessionStore, navController) }
+    MainScreenRepositories(
+      clothing = BackendClothingRepository(
+        tokenProvider = tokenProvider,
+        onUnauthorized = onUnauthorized,
+        modelDir = File(context.filesDir, "garment_models"),
+      ),
+      outfits = BackendOutfitRepository(tokenProvider = tokenProvider, onUnauthorized = onUnauthorized),
+      recommendations = BackendRecommendationRepository(tokenProvider = tokenProvider, onUnauthorized = onUnauthorized),
+      location = DeviceLocationProvider(context),
+      rooms = BackendRoomsRepository(tokenProvider = tokenProvider, onUnauthorized = onUnauthorized),
+      profile = BackendProfileRepository(tokenProvider = tokenProvider, onUnauthorized = onUnauthorized),
+      social = BackendSocialRepository(tokenProvider = tokenProvider, onUnauthorized = onUnauthorized),
+    )
+  }
 }
 
 // The back-end rejected the session token, e.g. it expired while the app was open.

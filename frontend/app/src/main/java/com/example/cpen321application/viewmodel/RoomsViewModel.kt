@@ -57,11 +57,6 @@ class RoomsViewModel(private val repository: RoomsRepository) : ViewModel() {
         _uiState.update { it.copy(rooms = listOf(room) + it.rooms, isCreating = false, openRoomId = room.id) }
     }
 
-    fun addFriend(email: String) = perform {
-        val friend = repository.addFriend(email)
-        _uiState.update { it.copy(friends = (it.friends + friend).sortedBy(Friend::name)) }
-    }
-
     fun openRoom(id: String) = _uiState.update { it.copy(openRoomId = id) }
 
     fun closeRoom() = _uiState.update { it.copy(openRoomId = null) }
