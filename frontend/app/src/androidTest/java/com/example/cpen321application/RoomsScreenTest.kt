@@ -22,7 +22,6 @@ import com.example.cpen321application.model.ClothingItem
 import com.example.cpen321application.screens.ADD_BOARD_ITEM_TAG
 import com.example.cpen321application.screens.CREATE_ROOM_TAG
 import com.example.cpen321application.screens.FRIEND_CHECKBOX_TAG
-import com.example.cpen321application.screens.FRIEND_EMAIL_FIELD_TAG
 import com.example.cpen321application.screens.ROOMS_LIST_TAG
 import com.example.cpen321application.screens.ROOM_NAME_FIELD_TAG
 import com.example.cpen321application.screens.RoomsRoute
@@ -51,17 +50,13 @@ class RoomsScreenTest {
     }
 
     @Test
-    fun withoutFriendsAsksToAddOneFirst() {
+    fun withoutFriendsPointsToTheProfile() {
         showRooms(FakeRoomsRepository())
 
         composeRule.onNodeWithTag(CREATE_ROOM_TAG).performClick()
-        composeRule.onNodeWithText("Add a friend by email first", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Send someone a friend request from your Profile", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("Create").assertIsNotEnabled()
-
-        composeRule.onNodeWithTag(FRIEND_EMAIL_FIELD_TAG).performTextInput("sam@example.com")
-        composeRule.onNodeWithText("Add").performClick()
-
-        composeRule.onNodeWithTag(FRIEND_CHECKBOX_TAG).assertIsDisplayed()
+        composeRule.onNodeWithTag(FRIEND_CHECKBOX_TAG).assertDoesNotExist()
     }
 
     @Test

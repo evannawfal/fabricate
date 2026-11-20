@@ -12,6 +12,7 @@
 | 2026-11-01 | 4.1 | `GET /recommendations`: each `StoreItem` also has the `reason` of the gap it fills and the closet items it `pairsWith`, which the Shop screen shows in use case 4 steps 3 and 5. Documented its 400 and 503 responses. |
 | 2026-11-04 | 3.4, 3.5, 4.1, 4.6 | Each clothing item now has a front and a back photo. Use case 1 asks for both, and backing out of the camera or gallery asks for the photo again before cancelling. `POST /clothing` takes a `backPhoto` file, and the use case 1 sequence diagram stores both photos. |
 | 2026-11-19 | 3.5, 4.1 | The closet gap analysis was reworked because it suggested nearly the same item for every closet (usually a black business jacket). `GET /recommendations` now finds up to 3 varied gaps: empty categories, an unbalanced number of tops and bottoms, occasions the closet can't dress for, a colour for an all-neutral closet, and the pieces that would make the most new outfits, which also finds useful additions for a closet with no obvious gaps. It searches for specific colours (e.g. white, navy, beige) instead of black for every neutral, and recognises far more of the colour and style words the classifier writes. Shoes and outerwear are only suggested when the closet has none, or none for an occasion. Use case 4 step 3: the Shop screen lists the store items under the gap each one fills. |
+| 2026-11-19 | 3.4, 3.5, 4.1 | Friends are now added with friend requests. Before, anyone who knew a user's email could add them as a friend without their consent, and friends can see each other's daily posts and add each other to rooms. Use case 16 now sends a request that the other user accepts or declines, and use case 3 (Create Outfits in a Room) points users without friends to the Profile screen. `POST /friends` was replaced by `POST /friends/requests`, `GET /friends/requests`, `POST /friends/requests/{id}/accept` and `DELETE /friends/requests/{id}`. |
 
 ---
 
@@ -71,7 +72,7 @@ Each use case below has the same name as in the use case diagram. **Major** use 
 
 - Use cases for feature 5: **Friends and Social**
 15. **Sign In / Out** (minor): The user signs in with their Google account, or signs out. If they have never used Fabricate, a new account is created on their first sign-in.
-16. **Add people in friendlist** (minor): The user adds another user to their friend list by email.
+16. **Add people in friendlist** (minor): The user sends another user a friend request by email, and accepts or declines the requests sent to them. Two users become friends once one accepts the other's request, so nobody can add someone without their consent.
 17. **Remove people from friendlist** (minor): The user removes someone from their friend list.
 18. **Post daily outfits** (minor): The user posts the outfit they are wearing today so their friends can see it.
 19. **Rate your friend's outfits** (minor): The user rates an outfit a friend posted, from 1 to 5 stars.
@@ -149,7 +150,7 @@ Each use case below has the same name as in the use case diagram. **Major** use 
 **Failure scenario(s)**:
 
 - 1a. The user has no friends in their friend list to invite.
-  - 1a1. The app explains that friends must be added first and lets the user add a friend by email.
+  - 1a1. The app explains that rooms are for friends, who are added by sending them a friend request from the Profile screen.
 - 3a. The connection to the server is lost.
   - 3a1. The app shows a "Reconnecting" banner and disables sending until the connection is restored.
 - 4a. Another member leaves the room.
@@ -228,13 +229,21 @@ Not included for CP1.
         - **Purpose**: Verifies a Google ID token with Google, finds or creates the user by their Google ID, and returns a session token signed by the back-end.
      2. `GET /users/me`, returns `{ id, name, email, pronouns }`, and `PATCH /users/me`, body `{ pronouns: String }`, returns the same
         - **Purpose**: Returns the signed-in user's profile, or updates their pronouns (at most 30 characters).
-     3. `GET /friends`, returns `{ friends: List<Friend> }`, and `POST /friends`, body `{ email: String }`, returns `201 Friend`
-        - **Purpose**: Returns the user's friend list, or adds the user with that email as a friend of both users. `POST` returns 404 if no user has the email, 400 for the user's own email, and 409 if they are already friends.
-     4. `DELETE /friends/{id}`, returns `204`
+     3. `GET /friends`, returns `{ friends: List<Friend> }`
+        - **Purpose**: Returns the user's friend list. A `Friend` has `id`, `name` and `email`. Friends are only added by accepting a friend request.
+     4. `POST /friends/requests`, body `{ email: String }`, returns `201 { status: "sent", request: FriendRequest }` or `200 { status: "friends", friend: Friend }`
+        - **Purpose**: Sends a friend request to the user with that email. If that user had already sent the user a request, it is accepted instead and they become friends. Returns 404 if no user has the email, 400 for the user's own email, and 409 if they are already friends or the user already sent them a request.
+     5. `GET /friends/requests`, returns `{ incoming: List<FriendRequest>, outgoing: List<FriendRequest> }`
+        - **Purpose**: Returns the requests sent to the user and the ones they sent, newest first. A `FriendRequest` has `id`, `sentAt` and `user`, the other person as a `Friend`.
+     6. `POST /friends/requests/{id}/accept`, returns `Friend`
+        - **Purpose**: Accepts a request sent to the user, adding each user to the other's friend list and removing the request. Returns 403 if the user sent the request, and 404 if it isn't theirs or no longer exists.
+     7. `DELETE /friends/requests/{id}`, returns `204`
+        - **Purpose**: Declines a request sent to the user, or cancels one they sent. Returns 404 if it isn't theirs.
+     8. `DELETE /friends/{id}`, returns `204`
         - **Purpose**: Removes a friend from both users' friend lists. Returns 404 if they are not friends.
-     5. `requireAuth(request, response, next)` and `String? verifyToken(String token)`
+     9. `requireAuth(request, response, next)` and `String? verifyToken(String token)`
         - **Purpose**: `requireAuth` checks the session token sent in the `Authorization` header and attaches the user's ID to the request, or rejects it with 401 if the token is missing or invalid. Every other component's routes use it; room sockets use `verifyToken` to check the token sent when they connect.
-     6. `List<String> getFriendIds(String userId)`
+     10. `List<String> getFriendIds(String userId)`
         - **Purpose**: Returns the IDs of a user's friends, so Social & Rooms can check who can see and rate posts or be invited to rooms.
 
 2. **Closet**
