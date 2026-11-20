@@ -8,7 +8,7 @@
 | Nov 9, 2026 | 3.1 | Record the review we performed of Donut's project for CP3 |
 | Nov 18, 2026 | 3.2, 3.3 | Record TimeTravel's review of our project for CP3, and the actions we took or planned in response |
 | Nov 19, 2026 | 2 | Updated section 2 to Codacy's latest analysis of `main` (`7a3a6f9`): the same 12 Trivy issues, with their new lock file lines, and 4 new detekt LongMethod issues, which a separate pull request fixes. The category and pattern counts are copied from Codacy as tables. |
-| Nov 20, 2026 | 2, 3.3 | Section 2 uses Codacy's latest analysis of `main` (`59a67c0`): the 4 LongMethod issues were fixed in #173, leaving the same 12 Trivy issues on the same lines. Section 3.3 records the review findings we have since acted on, and the planned work we decided against. |
+| Nov 19, 2026 | 2, 3.3 | Section 2 uses Codacy's latest analysis of `main` (`59a67c0`): the 4 LongMethod issues were fixed in #173, leaving the same 12 Trivy issues on the same lines. Section 3.3 records the review findings we have since acted on, and the planned work we decided against. |
 
 ---
 
@@ -16,7 +16,7 @@
 
 ### 2.1. Commit Hash Where Codacy Ran
 
-[`59a67c02d60963763b223cdd0defdeb940c19b97`](https://github.com/evannawfal/fabricate/commit/59a67c02d60963763b223cdd0defdeb940c19b97), the latest commit on `main` that Codacy analysed (Nov 20, 2026).
+[`59a67c02d60963763b223cdd0defdeb940c19b97`](https://github.com/evannawfal/fabricate/commit/59a67c02d60963763b223cdd0defdeb940c19b97), the latest commit on `main` that Codacy analysed (Nov 19, 2026).
 
 ### 2.2. Unfixed Issues per Codacy Category
 
