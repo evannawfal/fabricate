@@ -45,7 +45,7 @@ Install the following before the frontend or backend setup steps:
    - `sdk.dir`: path to your Android SDK (Android Studio usually writes this automatically).
    - `GOOGLE_CLIENT_ID`: the back-end's Google OAuth Web client ID (already filled in; it is not a secret).
    - `API_BASE_URL`: the back-end URL baked into the app. Choose one:
-     - **Deployed back-end (recommended, already running):** `https://api.evannawfal.com`
+     - **Deployed back-end (recommended, already running):** `https://34-172-67-35.nip.io`
      - **Local back-end on the emulator:** `http://10.0.2.2:3000` (`10.0.2.2` is the host machine)
      - **Local back-end on a physical device (same Wi-Fi):** `http://<your-lan-ip>:3000`
 
@@ -151,8 +151,8 @@ docker compose down           # to stop
 For grading, the back-end is already deployed and running — you do **not** need to
 deploy it yourself:
 
-- **URL:** `https://api.evannawfal.com`
-- **Public IP:** `104.154.109.127`
+- **URL:** `https://34-172-67-35.nip.io`
+- **Public IP:** `34.172.67.35`
 - Hosted on a Google Cloud Compute Engine VM (Ubuntu 24.04), with [Caddy](https://caddyserver.com/) as a reverse proxy providing HTTPS (Let's Encrypt).
 - It will remain running from the submission deadline until grades are posted.
 
