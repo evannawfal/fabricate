@@ -93,14 +93,23 @@ class JoinRoomTest {
     }
 
     @After
-    fun cleanUp() = runBlocking {
-        if (friendEmail == null) return@runBlocking
+    fun cleanUp() = runBlocking { restoreState() }
+
+    private suspend fun restoreState() {
+        if (friendEmail == null) return
+
         setNetwork(enabled = true)
         val friendEmails = rooms.listFriends().map { it.email.lowercase() }.toSet()
-        removedFriends.filterNot { it.email.lowercase() in friendEmails }.forEach { rooms.addFriend(it.email) }
+        removedFriends
+            .filterNot { it.email.lowercase() in friendEmails }
+            .forEach { rooms.addFriend(it.email) }
+
         addedItems.forEach { closet.deleteItem(it.id) }
-        val idsBefore = outfitsBefore?.map { it.id }?.toSet() ?: return@runBlocking
-        outfits.listOutfits().filterNot { it.id in idsBefore }.forEach { outfits.deleteOutfit(it.id) }
+
+        val idsBefore = outfitsBefore?.map { it.id }?.toSet() ?: return
+        outfits.listOutfits()
+            .filterNot { it.id in idsBefore }
+            .forEach { outfits.deleteOutfit(it.id) }
     }
 
     private fun userB(step: String) = Log.i(TAG, "User B: $step")
@@ -173,40 +182,51 @@ class JoinRoomTest {
         assertEquals(listOf(friendEmail.lowercase()), runBlocking { rooms.listFriends() }.map { it.email.lowercase() })
     }
 
-    // Main success scenario, with failures 3a, 4a and 4b
     @Test
     fun roomWithAFriend_sharesMessagesAndOutfitChangesLive() {
         val (friend, tee, jeans) = runBlocking {
             Triple(friendB(), addTestItem(TEST_ITEM, ClothingCategory.Top), addTestItem(ITEM_FOR_B, ClothingCategory.Bottom))
         }
+        createRoomAndInvite(friend)
+        assertRoomBoardAndChatShown()
+        exchangeMessages(friend)
+        shareBoardItems()
+        saveSharedOutfit(tee, jeans)
+        removeItemAndCheckOnUserB()
+        loseConnectionAndRecover()
+        userBLeavesAndRoomCarriesOn(friend)
+        assertRoomExpiryShown()
+    }
 
-        // Step 1: create a room and invite User B. User A is its host.
+    private fun createRoomAndInvite(friend: Friend) {
         openCreateRoom()
         composeRule.onNodeWithTag(ROOM_NAME_FIELD_TAG).performTextInput(ROOM_NAME)
         composeRule.onNode(hasTestTag(FRIEND_CHECKBOX_TAG) and hasAnySibling(hasText(friend.name))).performClick()
         composeRule.onNodeWithText("Create").performClick()
+    }
 
-        // Step 2: the room's shared outfit board and chat.
+    private fun assertRoomBoardAndChatShown() {
         waitFor(UI_TIMEOUT_MS) { countOf(RECONNECTING_BANNER_TAG) == 0 && countOf(CHAT_INPUT_TAG) == 1 }
         composeRule.onNodeWithText(ROOM_NAME).assertIsDisplayed()
         composeRule.onNodeWithText("Shared outfit").assertIsDisplayed()
         composeRule.onNodeWithTag(ADD_BOARD_ITEM_TAG).assertIsDisplayed()
         composeRule.onNodeWithTag(SAVE_ROOM_OUTFIT_TAG).assertIsDisplayed()
+    }
 
-        // Steps 3-4: User B's message reaches User A.
+    private fun exchangeMessages(friend: Friend) {
         userB("open the Rooms tab, open \"$ROOM_NAME\" (the first room) and send \"$MESSAGE_FROM_B\".")
         waitForText(MESSAGE_FROM_B, USER_B_TIMEOUT_MS)
         composeRule.onNode(
             hasTestTag(CHAT_MESSAGE_TAG) and hasAnyDescendant(hasText(friend.name)) and hasAnyDescendant(hasText(MESSAGE_FROM_B)),
         ).assertExists()
 
-        // Steps 3-4: User A's message, shown on User A's screen; User B checks theirs.
         composeRule.onNodeWithTag(CHAT_INPUT_TAG).performTextInput(MESSAGE_FROM_A)
         composeRule.onNodeWithTag(SEND_MESSAGE_TAG).performClick()
         waitForText(MESSAGE_FROM_A, UI_TIMEOUT_MS)
         userB("check that \"$MESSAGE_FROM_A\" appears in the chat.")
+    }
 
-        // Steps 3-4: User A adds an item from their closet to the board; User B checks it appears.
+    private fun shareBoardItems() {
         composeRule.onNodeWithTag(ADD_BOARD_ITEM_TAG).performClick()
         composeRule.onNode(hasTestTag(CLOSET_PICKER_ITEM_TAG) and hasText(TEST_ITEM, substring = true)).performClick()
         waitFor(UI_TIMEOUT_MS) { countOf(BOARD_ITEM_TAG) == 1 }
@@ -214,12 +234,11 @@ class JoinRoomTest {
             "check that \"$TEST_ITEM\" appears on the shared outfit and that you have no \"Save outfit\" button, " +
                 "then add \"$ITEM_FOR_B\" from User A's closet.",
         )
-
-        // Steps 3-4: the item User B picked from the host's closet reaches User A's board.
         waitFor(USER_B_TIMEOUT_MS) { countOf(BOARD_ITEM_TAG) == 2 }
         composeRule.onNodeWithContentDescription("Remove $ITEM_FOR_B").assertExists()
+    }
 
-        // Step 5: the host saves the whole shared outfit.
+    private fun saveSharedOutfit(tee: ClothingItem, jeans: ClothingItem) {
         composeRule.onNodeWithTag(SAVE_ROOM_OUTFIT_TAG).performClick()
         waitForText("Outfit saved to your outfits.", UI_TIMEOUT_MS)
         val saved = runBlocking {
@@ -227,14 +246,15 @@ class JoinRoomTest {
             outfits.listOutfits().single { it.id !in idsBefore }
         }
         assertEquals(setOf(tee.id, jeans.id), saved.items.map { it.id }.toSet())
+    }
 
-        // Steps 3-4: User A removes an item; User B checks it's gone.
+    private fun removeItemAndCheckOnUserB() {
         composeRule.onNodeWithContentDescription("Remove $TEST_ITEM").performClick()
         waitFor(UI_TIMEOUT_MS) { countOf(BOARD_ITEM_TAG) == 1 }
         userB("check that \"$TEST_ITEM\" is no longer on the shared outfit.")
+    }
 
-        // Failures 3a and 4b: the connection is lost, User B sends a message User A misses, and
-        // User A reloads the room once the connection is back.
+    private fun loseConnectionAndRecover() {
         setNetwork(enabled = false)
         waitFor(RECONNECT_TIMEOUT_MS) { countOf(RECONNECTING_BANNER_TAG) == 1 }
         composeRule.onNodeWithText("Reconnecting…").assertIsDisplayed()
@@ -250,15 +270,17 @@ class JoinRoomTest {
         composeRule.onNodeWithTag(SEND_MESSAGE_TAG).assertIsEnabled().performClick()
         waitForText(MESSAGE_OFFLINE, UI_TIMEOUT_MS)
         userB("check that \"$MESSAGE_OFFLINE\" appears in the chat, then leave the room with the Back button.")
+    }
 
-        // Failure 4a: User B leaves, and the room carries on for User A.
+    private fun userBLeavesAndRoomCarriesOn(friend: Friend) {
         waitForText("${friend.name} left the room.", USER_B_TIMEOUT_MS)
         composeRule.onNodeWithTag(CHAT_INPUT_TAG).performTextInput(MESSAGE_AFTER_LEAVE)
         composeRule.onNodeWithTag(SEND_MESSAGE_TAG).performClick()
         waitForText(MESSAGE_AFTER_LEAVE, UI_TIMEOUT_MS)
         userB("done.")
+    }
 
-        // Step 1: the Rooms screen shows when the new room expires, 2 days after it was created.
+    private fun assertRoomExpiryShown() {
         composeRule.onNodeWithContentDescription("Back").performClick()
         waitFor(UI_TIMEOUT_MS) { countOf(ROOM_ITEM_TAG) > 0 }
         // Earlier runs' rooms have the same name until they expire, and the newest room is listed first.
