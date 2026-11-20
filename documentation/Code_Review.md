@@ -8,6 +8,7 @@
 | Nov 9, 2026 | 3.1 | Record the review we performed of Donut's project for CP3 |
 | Nov 18, 2026 | 3.2, 3.3 | Record TimeTravel's review of our project for CP3, and the actions we took or planned in response |
 | Nov 19, 2026 | 2 | Updated section 2 to Codacy's latest analysis of `main` (`7a3a6f9`): the same 12 Trivy issues, with their new lock file lines, and 4 new detekt LongMethod issues, which a separate pull request fixes. The category and pattern counts are copied from Codacy as tables. |
+| Nov 20, 2026 | 2, 3.3 | Section 2 uses Codacy's latest analysis of `main` (`59a67c0`): the 4 LongMethod issues were fixed in #173, leaving the same 12 Trivy issues on the same lines. Section 3.3 records the review findings we have since acted on, and the planned work we decided against. |
 
 ---
 
@@ -15,7 +16,7 @@
 
 ### 2.1. Commit Hash Where Codacy Ran
 
-[`7a3a6f94847814d3ca4ed3ff488c1796c6e4e304`](https://github.com/evannawfal/fabricate/commit/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304), the latest commit on `main` that Codacy analysed (Nov 19, 2026).
+[`59a67c02d60963763b223cdd0defdeb940c19b97`](https://github.com/evannawfal/fabricate/commit/59a67c02d60963763b223cdd0defdeb940c19b97), the latest commit on `main` that Codacy analysed (Nov 20, 2026).
 
 ### 2.2. Unfixed Issues per Codacy Category
 
@@ -24,9 +25,8 @@ Copied from the "Issues breakdown" table on Codacy's Overview page:
 | **Category** | **Issues** |
 | ------------ | ---------- |
 | Security | 12 |
-| Code Complexity | 4 |
-| Best Practice, Code Style, Comprehensibility, Compatibility, Documentation, Error Prone, Performance, Unused Code | 0 |
-| **Total** | **16** |
+| Best Practice, Code Complexity, Code Style, Comprehensibility, Compatibility, Documentation, Error Prone, Performance, Unused Code | 0 |
+| **Total** | **12** |
 
 ### 2.3. Unfixed Issues per Codacy Code Pattern
 
@@ -36,13 +36,12 @@ Copied from Codacy's Issues page:
 | ---------------- | -------- | ---------- |
 | Detect Insecure Dependencies (High Severity) | Trivy | 8 |
 | Detect Insecure Dependencies (Medium Severity) | Trivy | 4 |
-| Too long methods (LongMethod) | detekt | 4 |
 
-The 4 LongMethod issues came in with this week's feature pull requests: `HomeDestination` in `AppNavHost.kt` (64 lines, limit 60), `ProfileScreen` (92), `MainScreen` (123) and `AvatarScreen` (66). They are fixed by the pull request "fix: split the four Composables Codacy flags as too long" (branch `fix/codacy-long-methods-cp3`), which splits each into smaller Composables; detekt with our `detekt.yml` reports 0 issues on that branch. The 12 Trivy issues are justified below.
+The 4 detekt LongMethod issues from the previous analysis (`HomeDestination` in `AppNavHost.kt`, `ProfileScreen`, `MainScreen` and `AvatarScreen`) were fixed in [#173](https://github.com/evannawfal/fabricate/pull/173), which splits each into smaller Composables. The 12 Trivy issues are justified below.
 
 ### 2.4. Justifications for Unfixed Issues
 
-All 12 unfixed issues are Trivy reports of known vulnerabilities in three packages that [`@imgly/background-removal-node`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/backend/package.json#L25) 1.4.5 depends on: sharp 0.32.6, lodash 4.17.23 and zod 3.21.4. We use it to remove the background from a clothing item's front photo before building the item's 3D model ([`processGarment.ts`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/backend/src/garment/imgToGlb/processGarment.ts#L3)). Version 1.4.5 is its latest release, and it pins these versions (`sharp ~0.32.4`, `lodash ~4.17.21`, `zod ~3.21.4`), so they can only be upgraded by forcing newer versions underneath it. We kept the pinned versions because newer sharp releases don't support one team member's older development machine, and every team member needs to run the back-end locally.
+All 12 unfixed issues are Trivy reports of known vulnerabilities in three packages that [`@imgly/background-removal-node`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/backend/package.json#L25) 1.4.5 depends on: sharp 0.32.6, lodash 4.17.23 and zod 3.21.4. We use it to remove the background from a clothing item's front photo before building the item's 3D model ([`processGarment.ts`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/backend/src/garment/imgToGlb/processGarment.ts#L3)). Version 1.4.5 is its latest release, and it pins these versions (`sharp ~0.32.4`, `lodash ~4.17.21`, `zod ~3.21.4`), so they can only be upgraded by forcing newer versions underneath it. We kept the pinned versions because newer sharp releases don't support one team member's older development machine, and every team member needs to run the back-end locally.
 
 Each advisory is reported twice: once in `backend/package-lock.json`, and once in the `package-lock.json` at the repository root, which lists the same package. The server only installs from `backend/` (CI, the Dockerfile and the deploy script all run `npm ci` there), so the root copies never run on the server.
 
@@ -50,64 +49,64 @@ Each advisory is reported twice: once in `backend/package-lock.json`, and once i
 
   1. **sharp 0.32.6: libvips vulnerabilities (GHSA-f88m-g3jw-g9cj)**
 
-     - **Location in Git:** [`backend/package-lock.json#L9746`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/backend/package-lock.json#L9746)
-     - **Justification:** sharp only decodes photos that were already accepted at upload: JPEG, PNG or WebP files of at most 5 MB ([`routes/clothing.ts`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/backend/src/routes/clothing.ts#L19), [`classifier.ts`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/backend/src/services/classifier.ts#L98)), which Claude must also be able to read as that type, or the upload is rejected with 400 and nothing is stored ([`classifier.ts`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/backend/src/services/classifier.ts#L182)). The advisory's workaround is to block sharp's GIF, TIFF and VIPS decoders, and those formats never reach sharp.
+     - **Location in Git:** [`backend/package-lock.json#L9746`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/backend/package-lock.json#L9746)
+     - **Justification:** sharp only decodes photos that were already accepted at upload: JPEG, PNG or WebP files of at most 5 MB ([`routes/clothing.ts`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/backend/src/routes/clothing.ts#L19), [`classifier.ts`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/backend/src/services/classifier.ts#L98)), which Claude must also be able to read as that type, or the upload is rejected with 400 and nothing is stored ([`classifier.ts`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/backend/src/services/classifier.ts#L182)). The advisory's workaround is to block sharp's GIF, TIFF and VIPS decoders, and those formats never reach sharp.
 
   2. **sharp 0.32.6: libvips vulnerabilities (GHSA-f88m-g3jw-g9cj)**
 
-     - **Location in Git:** [`package-lock.json#L999`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/package-lock.json#L999)
+     - **Location in Git:** [`package-lock.json#L999`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/package-lock.json#L999)
      - **Justification:** Same advisory as issue 1, in the root lock file, which the server never installs.
 
   3. **sharp 0.32.6: librsvg vulnerability (GHSA-wq5f-xc86-pv6w)**
 
-     - **Location in Git:** [`backend/package-lock.json#L9746`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/backend/package-lock.json#L9746)
+     - **Location in Git:** [`backend/package-lock.json#L9746`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/backend/package-lock.json#L9746)
      - **Justification:** The vulnerability is in sharp's SVG decoder. SVG files can't be uploaded or stored (see issue 1), so they never reach sharp.
 
   4. **sharp 0.32.6: librsvg vulnerability (GHSA-wq5f-xc86-pv6w)**
 
-     - **Location in Git:** [`package-lock.json#L999`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/package-lock.json#L999)
+     - **Location in Git:** [`package-lock.json#L999`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/package-lock.json#L999)
      - **Justification:** Same advisory as issue 3, in the root lock file, which the server never installs.
 
   5. **sharp 0.32.6: libheif vulnerabilities (GHSA-rgj7-g3m4-5g8c)**
 
-     - **Location in Git:** [`backend/package-lock.json#L9746`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/backend/package-lock.json#L9746)
+     - **Location in Git:** [`backend/package-lock.json#L9746`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/backend/package-lock.json#L9746)
      - **Justification:** The vulnerabilities are in sharp's HEIF and AVIF decoder. Those formats can't be uploaded or stored (see issue 1), so they never reach sharp.
 
   6. **sharp 0.32.6: libheif vulnerabilities (GHSA-rgj7-g3m4-5g8c)**
 
-     - **Location in Git:** [`package-lock.json#L999`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/package-lock.json#L999)
+     - **Location in Git:** [`package-lock.json#L999`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/package-lock.json#L999)
      - **Justification:** Same advisory as issue 5, in the root lock file, which the server never installs.
 
   7. **lodash 4.17.23: code injection through `_.template` (CVE-2026-4800)**
 
-     - **Location in Git:** [`backend/package-lock.json#L7980`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/backend/package-lock.json#L7980)
+     - **Location in Git:** [`backend/package-lock.json#L7980`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/backend/package-lock.json#L7980)
      - **Justification:** Only `_.template` called with untrusted `imports` key names is affected. `@imgly/background-removal-node` only uses lodash's `memoize`, and our own code doesn't use lodash.
 
   8. **lodash 4.17.23: code injection through `_.template` (CVE-2026-4800)**
 
-     - **Location in Git:** [`package-lock.json#L1493`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/package-lock.json#L1493)
+     - **Location in Git:** [`package-lock.json#L1493`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/package-lock.json#L1493)
      - **Justification:** Same advisory as issue 7, in the root lock file, which the server never installs.
 
 - **Code Pattern: [Detect Insecure Dependencies (Medium Severity)](https://app.codacy.com/gh/evannawfal/fabricate/issues)**
 
   1. **lodash 4.17.23: prototype pollution through `_.unset` and `_.omit` (CVE-2026-2950)**
 
-     - **Location in Git:** [`backend/package-lock.json#L7980`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/backend/package-lock.json#L7980)
+     - **Location in Git:** [`backend/package-lock.json#L7980`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/backend/package-lock.json#L7980)
      - **Justification:** Only `_.unset`, `_.omit` and `_.pullAt` called with untrusted paths are affected. `@imgly/background-removal-node` only uses lodash's `memoize`, and our own code doesn't use lodash.
 
   2. **lodash 4.17.23: prototype pollution through `_.unset` and `_.omit` (CVE-2026-2950)**
 
-     - **Location in Git:** [`package-lock.json#L1493`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/package-lock.json#L1493)
+     - **Location in Git:** [`package-lock.json#L1493`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/package-lock.json#L1493)
      - **Justification:** Same advisory as issue 1 of this pattern, in the root lock file, which the server never installs.
 
   3. **zod 3.21.4: slow regular expression in email validation (CVE-2023-4316)**
 
-     - **Location in Git:** [`backend/package-lock.json#L2075`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/backend/package-lock.json#L2075)
-     - **Justification:** Only `z.string().email()` is affected. `@imgly/background-removal-node` uses zod only to check its own options, which our code sets ([`processGarment.ts`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/backend/src/garment/imgToGlb/processGarment.ts#L35)), and it never validates an email. Our own code doesn't use zod.
+     - **Location in Git:** [`backend/package-lock.json#L2075`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/backend/package-lock.json#L2075)
+     - **Justification:** Only `z.string().email()` is affected. `@imgly/background-removal-node` uses zod only to check its own options, which our code sets ([`processGarment.ts`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/backend/src/garment/imgToGlb/processGarment.ts#L35)), and it never validates an email. Our own code doesn't use zod.
 
   4. **zod 3.21.4: slow regular expression in email validation (CVE-2023-4316)**
 
-     - **Location in Git:** [`package-lock.json#L2015`](https://github.com/evannawfal/fabricate/blob/7a3a6f94847814d3ca4ed3ff488c1796c6e4e304/package-lock.json#L2015)
+     - **Location in Git:** [`package-lock.json#L2015`](https://github.com/evannawfal/fabricate/blob/59a67c02d60963763b223cdd0defdeb940c19b97/package-lock.json#L2015)
      - **Justification:** Same advisory as issue 3 of this pattern, in the root lock file, which the server never installs.
 
 ---
@@ -190,10 +189,16 @@ Each advisory is reported twice: once in `backend/package-lock.json`, and once i
 | ----------- | ---------------- | ---------------------------- |
 | 2.4: The 10-second upload requirement has no test. | Added a test that runs in the app against the deployed back-end and its real classifier, timing 5 uploads each of photos of about 0.5, 2 and 5 MB. The slowest took 4.5 seconds. | [`ClothingUploadTimeTest.kt`](https://github.com/evannawfal/fabricate/pull/152) |
 | 5.2.3: The try-on slider overlaps the Height slider. | Split the avatar screen's controls into Clothes and Measurements tabs, so the try-on controls and the measurement sliders are no longer on the same screen. | [`e155f10`](https://github.com/evannawfal/fabricate/commit/e155f10) |
+| Major fault: friends need no consent: `POST /friends` adds anyone by email. | Friends are now added with friend requests. The other user accepts or declines a request, the sender can cancel it, and `POST /friends` was removed. | [#171](https://github.com/evannawfal/fabricate/pull/171) (back-end), [#170](https://github.com/evannawfal/fabricate/pull/170) (app) |
+| 2.3: The design lists interfaces that don't exist yet, leaves out the garment model routes, and gives avatar units in cm. | Requirements_and_Design.md 4.1 documents posts and likes as built, the garment model routes, `POST /avatar` in metres, and the `ClothingItem` model instead of `getItemsForUser`. Ratings, outfit renders and Firebase Cloud Messaging were removed from the design, since we decided not to build them. | [#157](https://github.com/evannawfal/fabricate/pull/157) |
+| 5.1: Use case 2 has no failure for location access being denied, and the wash bin has no UI. | Use case 2 documents failure 4c with the message the app shows. The wash bin is built: clothes can be moved into and out of it, and generated outfits leave them out. | [#157](https://github.com/evannawfal/fabricate/pull/157), [#166](https://github.com/evannawfal/fabricate/pull/166) |
+| 5.1 and 5.3: The Rooms list doesn't refresh, and a member who misses a live update has no way to catch up. | Pull down on the Rooms list, or on a room, to reload it. A room reloads its outfit, the host's closet and the chat, and reconnects (use case 3, failure 4b). | [`ec7fc46`](https://github.com/evannawfal/fabricate/commit/ec7fc46) |
+| 5.2: Seven bottom-bar items, including Sign out. | The bottom bar has 4 tabs (Closet, Outfits, Social and Avatar). Shop, Rooms and Profile are in the top bar, and Sign out is in the Profile menu. | [`6baea91`](https://github.com/evannawfal/fabricate/commit/6baea91) |
+| 3.1: Section 2 cited an old commit. | Section 2 cites Codacy's latest analysis of `main`. | Section 2 above |
 
 - **Findings not acted on.** We prioritized finishing and testing the remaining use cases for CP3. These findings are planned for M3 unless the justification says otherwise:
-  1. **Finding:** Major fault: friends and rooms need no consent, and removing a friend keeps room access.
-     - **Justification:** We agree it's high severity. The fix changes both the back-end and the app: a friend request the other user accepts, a way to leave a room, and a friendship check on every room request and socket connection. We're doing it for M3 together with room invite notifications ([#135](https://github.com/evannawfal/fabricate/issues/135)), which change the same flow.
+  1. **Finding:** Major fault, second part: removing a friend keeps their access to the rooms they share, and a member can't leave a room.
+     - **Justification:** Rooms are now deleted 2 days after they are created ([#162](https://github.com/evannawfal/fabricate/pull/162)), which limits how long that access lasts. Planned for M3: a friendship check on every room request and socket connection.
   2. **Finding:** 1.2: Building garment and avatar models blocks the server.
      - **Justification:** Planned for M3: move model building to a `worker_threads` worker, with a room latency test that runs while a model is being built.
   3. **Finding:** 1.3: The classifier's 30-second timeout with 2 retries lets an upload take about 90 seconds.
@@ -210,19 +215,17 @@ Each advisory is reported twice: once in `backend/package-lock.json`, and once i
      - **Justification:** Planned for M3, together with the remaining coverage work ([#89](https://github.com/evannawfal/fabricate/issues/89)).
   9. **Finding:** 2.2: Some `describe` groups mix interfaces.
      - **Justification:** Planned for M3, with the test changes in finding 8.
-  10. **Finding:** 2.3: The design lists interfaces that don't exist yet (posts, ratings, outfit render, FCM, `getItemsForUser`), `POST /clothing/:id/generate` and `GET /clothing/:id/model` aren't documented, and avatar units are cm in the design but metres in the code.
-      - **Justification:** Posts ([#128](https://github.com/evannawfal/fabricate/issues/128), [#129](https://github.com/evannawfal/fabricate/issues/129)), ratings ([#84](https://github.com/evannawfal/fabricate/issues/84)), outfit render ([#85](https://github.com/evannawfal/fabricate/issues/85)) and FCM ([#135](https://github.com/evannawfal/fabricate/issues/135)) are features still being built, so the design keeps them. The garment model routes will be added to the design, and `POST /avatar` will be documented in metres, the unit the app sends.
-  11. **Finding:** 2.4: The room latency test runs on localhost with no load, and the closet analysis test times its own query instead of the controller's.
+  10. **Finding:** 2.4: The room latency test runs on localhost with no load, and the closet analysis test times its own query instead of the controller's.
       - **Justification:** Planned for M3, with the worker change in finding 2.
-  12. **Finding:** 2.5: `exportAvatar.ts` is excluded from coverage although it's used, and the classifier and storage constructors could be covered with a dummy key.
+  11. **Finding:** 2.5: `exportAvatar.ts` is excluded from coverage although it's used, and the classifier and storage constructors could be covered with a dummy key.
       - **Justification:** Planned for M3, as part of [#89](https://github.com/evannawfal/fabricate/issues/89).
-  13. **Finding:** 2.6: The first local test run can fail when MongoMemoryServer times out on start.
+  12. **Finding:** 2.6: The first local test run can fail when MongoMemoryServer times out on start.
       - **Justification:** The reviewers' rerun passed. Planned for M3: raise the start timeout.
-  14. **Finding:** 3.1 and 3.2: Section 2 cited an old commit, the sharp justification has no source, and six issues come from the root `package.json` and lock file.
-      - **Justification:** Section 2 will cite the latest Codacy analysis. Removing the unused root `package.json` and lock file, and raising the nested versions with npm `overrides`, are planned for M3.
-  15. **Finding:** 5.1: The avatar carries over between accounts, use case 2 failure 4b is missing when location is denied, documented features have no UI, and the Outfits and Rooms lists don't refresh.
-      - **Justification:** Planned for M3. The features without a UI are the ones in finding 10, plus the wash bin ([#83](https://github.com/evannawfal/fabricate/issues/83)).
-  16. **Finding:** 5.2: Seven bottom-bar items including Sign out, the template app name, icon and theme, and the keyboard pushing the room screen's top bar off screen.
+  13. **Finding:** 3.1 and 3.2: The sharp justification has no source, and six issues come from the root `package.json` and lock file.
+      - **Justification:** Planned for M3: removing the unused root `package.json` and lock file, and raising the nested versions with npm `overrides`.
+  14. **Finding:** 5.1: The avatar carries over between accounts, and the Outfits list doesn't refresh.
+      - **Justification:** Planned for M3.
+  15. **Finding:** 5.2: The template app name, icon and theme, and the keyboard pushing the room screen's top bar off screen.
       - **Justification:** Planned for M3, when we polish the app's look.
-  17. **Finding:** 5.3: Show the avatar wearing the generated outfit, add chat timestamps and missed-message sync, and warn when the closet lacks weather-suitable items.
+  16. **Finding:** 5.3: Show the avatar wearing the generated outfit, add chat timestamps, and warn when the closet lacks weather-suitable items.
       - **Justification:** Showing outfits on the avatar is planned ([#58](https://github.com/evannawfal/fabricate/issues/58)). The other two are good ideas but outside our use cases, so we'll consider them after M3's required work.
