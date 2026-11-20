@@ -5,6 +5,9 @@ import com.example.cpen321application.auth.SessionToken
 import com.example.cpen321application.data.ApiException
 import com.example.cpen321application.data.ChatMessage
 import com.example.cpen321application.data.Friend
+import com.example.cpen321application.data.FriendRequest
+import com.example.cpen321application.data.FriendRequestResult
+import com.example.cpen321application.data.FriendRequests
 import com.example.cpen321application.data.Room
 import com.example.cpen321application.data.RoomConnection
 import com.example.cpen321application.data.RoomDetail
@@ -54,8 +57,32 @@ class BackendRoomsRepository(
     override suspend fun listFriends(): List<Friend> =
         api.send("/friends") { it.getJSONArray("friends").map(::parseFriend) }
 
-    override suspend fun addFriend(email: String): Friend =
-        api.send("/friends", JSONObject().put("email", email), parse = ::parseFriend)
+    override suspend fun removeFriend(id: String) {
+        api.send("/friends/$id", JSONObject(), method = "DELETE") {}
+    }
+
+    override suspend fun listFriendRequests(): FriendRequests = api.send("/friends/requests") { json ->
+        FriendRequests(
+            incoming = json.getJSONArray("incoming").map(::parseFriendRequest),
+            outgoing = json.getJSONArray("outgoing").map(::parseFriendRequest),
+        )
+    }
+
+    override suspend fun sendFriendRequest(email: String): FriendRequestResult =
+        api.send("/friends/requests", JSONObject().put("email", email)) { json ->
+            if (json.getString("status") == "friends") {
+                FriendRequestResult.BecameFriends(parseFriend(json.getJSONObject("friend")))
+            } else {
+                FriendRequestResult.Sent(parseFriendRequest(json.getJSONObject("request")))
+            }
+        }
+
+    override suspend fun acceptFriendRequest(id: String): Friend =
+        api.send("/friends/requests/$id/accept", JSONObject(), parse = ::parseFriend)
+
+    override suspend fun deleteFriendRequest(id: String) {
+        api.send("/friends/requests/$id", JSONObject(), method = "DELETE") {}
+    }
 
     override suspend fun connect(roomId: String, listener: RoomListener): RoomConnection {
         val token = tokenProvider() ?: throw ApiException(NOT_SIGNED_IN)
@@ -130,3 +157,6 @@ private fun parseMessage(json: JSONObject) = ChatMessage(
 )
 
 private fun parseFriend(json: JSONObject) = Friend(json.getString("id"), json.getString("name"), json.getString("email"))
+
+private fun parseFriendRequest(json: JSONObject) =
+    FriendRequest(json.getString("id"), parseFriend(json.getJSONObject("user")))

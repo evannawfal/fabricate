@@ -52,7 +52,6 @@ const val ROOM_ITEM_TAG = "room_item"
 const val CREATE_ROOM_TAG = "create_room"
 const val ROOM_NAME_FIELD_TAG = "room_name_field"
 const val FRIEND_CHECKBOX_TAG = "friend_checkbox"
-const val FRIEND_EMAIL_FIELD_TAG = "friend_email_field"
 const val ROOMS_LIST_TAG = "rooms_list"
 
 /** The Rooms tab: the user's rooms, or the open room. */
@@ -114,7 +113,6 @@ private fun RoomsScreen(state: RoomsUiState, viewModel: RoomsViewModel, modifier
             isBusy = state.isBusy,
             error = state.error,
             onCreate = viewModel::createRoom,
-            onAddFriend = viewModel::addFriend,
             onDismiss = viewModel::cancelCreating,
         )
     } else if (state.error != null) {
@@ -158,12 +156,10 @@ private fun CreateRoomDialog(
     isBusy: Boolean,
     error: String?,
     onCreate: (String, List<String>) -> Unit,
-    onAddFriend: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var name by rememberSaveable { mutableStateOf("") }
     var selected by rememberSaveable { mutableStateOf(setOf<String>()) }
-    var email by rememberSaveable { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -171,7 +167,10 @@ private fun CreateRoomDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (friends.isEmpty()) {
-                    Text("Rooms are for styling with friends. Add a friend by email first.")
+                    Text(
+                        "Rooms are for styling with friends. Send someone a friend request from your " +
+                            "Profile, and you can invite them once they accept.",
+                    )
                 } else {
                     OutlinedTextField(
                         value = name,
@@ -192,18 +191,6 @@ private fun CreateRoomDialog(
                                 Text(friend.name)
                             }
                         }
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        label = { Text("Friend's email") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f).testTag(FRIEND_EMAIL_FIELD_TAG),
-                    )
-                    TextButton(onClick = { onAddFriend(email); email = "" }, enabled = email.isNotBlank() && !isBusy) {
-                        Text("Add")
                     }
                 }
                 if (error != null) Text(error, color = MaterialTheme.colorScheme.error)

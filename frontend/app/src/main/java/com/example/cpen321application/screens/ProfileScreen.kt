@@ -6,11 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -18,7 +14,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -36,13 +31,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.example.cpen321application.data.AvatarStore
-import com.example.cpen321application.data.Friend
 import com.example.cpen321application.model.AvatarMeasurements
 import com.example.cpen321application.model.BodyMeasurement
 import com.example.cpen321application.viewmodel.ProfileViewModel
 
 const val PRONOUNS_FIELD_TAG = "pronouns_field"
 const val SAVE_PROFILE_TAG = "save_profile"
+const val FRIENDS_CARD_TAG = "friends_card"
 
 private const val MAX_PRONOUNS_LENGTH = 30
 
@@ -64,13 +59,18 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
         if (profile == null) {
             if (state.error == null) CircularProgressIndicator()
         } else {
-            FriendCountCard(count = state.friends.size, onClick = { showFriendsModal = true })
+            FriendsCard(state.friends.size, state.incomingRequests.size, onClick = { showFriendsModal = true })
+
             ProfileInfoRow(title = "Name", value = profile.name)
             ProfileInfoRow(title = "Email", value = profile.email)
-            PronounsEditor(
-                savedPronouns = profile.pronouns,
-                isSaving = state.isSaving,
-                onSave = viewModel::savePronouns,
+            PronounsEditor(profile.pronouns, state.isSaving, viewModel::savePronouns)
+
+            HorizontalDivider()
+
+            Text(
+                text = "Measurements",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
             )
             HorizontalDivider()
             MeasurementsSection(savedMeasurements ?: AvatarMeasurements())
@@ -82,19 +82,24 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
     }
 
     if (showFriendsModal) {
-        FriendsListModal(
-            friends = state.friends,
-            onDismiss = { showFriendsModal = false },
+        FriendsDialog(
+            state = state,
+            viewModel = viewModel,
+            onDismiss = {
+                showFriendsModal = false
+                viewModel.clearFriendMessages()
+            },
         )
     }
 }
 
 @Composable
-private fun FriendCountCard(count: Int, onClick: () -> Unit) {
+private fun FriendsCard(friendCount: Int, requestCount: Int, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .testTag(FRIENDS_CARD_TAG),
     ) {
         Column(
             modifier = Modifier
@@ -103,14 +108,19 @@ private fun FriendCountCard(count: Int, onClick: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = count.toString(),
+                text = friendCount.toString(),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                text = if (count == 1) "Friend" else "Friends",
+                text = if (friendCount == 1) "Friend" else "Friends",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = friendsCardHint(requestCount),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
             )
         }
     }
@@ -119,7 +129,6 @@ private fun FriendCountCard(count: Int, onClick: () -> Unit) {
 @Composable
 private fun PronounsEditor(savedPronouns: String, isSaving: Boolean, onSave: (String) -> Unit) {
     var pronouns by rememberSaveable(savedPronouns) { mutableStateOf(savedPronouns) }
-
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -150,63 +159,10 @@ private fun PronounsEditor(savedPronouns: String, isSaving: Boolean, onSave: (St
     }
 }
 
-@Composable
-private fun MeasurementsSection(measurements: AvatarMeasurements) {
-    Text(
-        text = "Measurements",
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.SemiBold,
-    )
-    ProfileInfoRow(title = "Height", value = "${measurements[BodyMeasurement.Height]} cm")
-    ProfileInfoRow(title = "Shoulder width", value = "${measurements[BodyMeasurement.Shoulders]} cm")
-    ProfileInfoRow(title = "Hip width", value = "${measurements[BodyMeasurement.Hips]} cm")
-}
-
-@Composable
-private fun FriendsListModal(
-    friends: List<Friend>,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Friends (${friends.size})") },
-        text = {
-            if (friends.isEmpty()) {
-                Text(
-                    text = "You haven't added any friends yet.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 360.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(friends, key = { it.id }) { friend ->
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                text = friend.name,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                text = friend.email,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close")
-            }
-        },
-    )
+private fun friendsCardHint(requestCount: Int): String = when (requestCount) {
+    0 -> "Tap to see or add friends"
+    1 -> "1 friend request"
+    else -> "$requestCount friend requests"
 }
 
 @Composable

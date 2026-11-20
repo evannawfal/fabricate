@@ -34,7 +34,8 @@ internal class JsonApi(
                     if (!response.isSuccessful) {
                         throw ApiException(serverError(text) ?: "Something went wrong (error ${response.code}). Try again.")
                     }
-                    parse(JSONObject(text))
+                    // A 204 (e.g. after a DELETE) has no body.
+                    parse(if (text.isBlank()) JSONObject() else JSONObject(text))
                 }
             } catch (e: IOException) {
                 throw ApiException(NETWORK_ERROR, e)
