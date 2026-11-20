@@ -55,8 +55,8 @@ class ProfileScreenTest {
     fun showsTheProfileAndSavesPronouns() {
         showProfile()
 
-        composeRule.onNodeWithText("Sam Lee", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("sam@example.com", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Name: Sam Lee").assertIsDisplayed()
+        composeRule.onNodeWithText("Email: sam@example.com").assertIsDisplayed()
         composeRule.onNodeWithTag(SAVE_PROFILE_TAG).assertIsNotEnabled()
 
         composeRule.onNodeWithTag(PRONOUNS_FIELD_TAG).performTextInput("they/them")
