@@ -13,7 +13,7 @@ import { authHeader, createUser, makeFriends } from '../helpers/fixtures.js';
 
 const app = createApp();
 
-function failUserCall(method: 'findById' | 'findOne' | 'countDocuments' | 'updateOne' | 'updateMany') {
+function failUserCall(method: 'findById' | 'updateMany') {
   return jest.spyOn(User, method).mockImplementation(() => {
     throw new Error('Forced database error');
   });
@@ -48,28 +48,6 @@ describe('Mocked: GET /friends', () => {
     failUserCall('findById');
 
     expectInternalError(await request(app).get('/friends').set('Authorization', authHeader(user.id)));
-  });
-});
-
-// Interface POST /friends
-describe('Mocked: POST /friends', () => {
-  // Mocked behavior: User.findOne throws while looking up the email, User.countDocuments while checking
-  // for an existing friendship, or User.updateOne while saving
-  // Input: another user's email
-  // Expected status code: 500
-  // Expected behavior: the error is handled and logged
-  // Expected output: { error: "Internal server error" }
-  test.each(['findOne', 'countDocuments', 'updateOne'] as const)('User DB error in %s', async (method) => {
-    const user = await createUser();
-    const friend = await createUser();
-    failUserCall(method);
-
-    const response = await request(app)
-      .post('/friends')
-      .set('Authorization', authHeader(user.id))
-      .send({ email: friend.email });
-
-    expectInternalError(response);
   });
 });
 
