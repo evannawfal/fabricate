@@ -18,6 +18,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,6 +43,9 @@ import com.example.cpen321application.viewmodel.SocialViewModel
 
 const val CREATE_POST_BUTTON_TAG = "create_post_button"
 
+/** How often the open feed reloads, so friends' likes show up without pulling to refresh. */
+const val FEED_POLL_INTERVAL_MS = 5_000L
+
 @Composable
 fun SocialScreen(viewModel: SocialViewModel, modifier: Modifier = Modifier) {
     val state by viewModel.uiState.collectAsState()
@@ -53,6 +60,15 @@ fun SocialScreen(viewModel: SocialViewModel, modifier: Modifier = Modifier) {
         },
         onCancelled = { choosingPhotoSource = false },
     )
+
+    // Runs while the feed is on screen, and only polls while the app is in the foreground.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(viewModel, lifecycle) {
+        while (true) {
+            delay(FEED_POLL_INTERVAL_MS)
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) viewModel.pollPosts()
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         SocialFeedContent(

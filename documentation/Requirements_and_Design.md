@@ -18,6 +18,7 @@
 | 2026-11-19 | 3.5, 4.1 | The closet gap analysis was reworked because it suggested nearly the same item for every closet (usually a black business jacket). `GET /recommendations` now finds up to 3 varied gaps: empty categories, an unbalanced number of tops and bottoms, occasions the closet can't dress for, a colour for an all-neutral closet, and the pieces that would make the most new outfits, which also finds useful additions for a closet with no obvious gaps. It searches for specific colours (e.g. white, navy, beige) instead of black for every neutral, and recognises far more of the colour and style words the classifier writes. Shoes and outerwear are only suggested when the closet has none, or none for an occasion. Use case 4 step 3: the Shop screen lists the store items under the gap each one fills. |
 | 2026-11-19 | 3.4, 3.5, 4.1 | Friends are now added with friend requests. Before, anyone who knew a user's email could add them as a friend without their consent, and friends can see each other's daily posts and add each other to rooms. Use case 16 now sends a request that the other user accepts or declines, and use case 3 (Create Outfits in a Room) points users without friends to the Profile screen. `POST /friends` was replaced by `POST /friends/requests`, `GET /friends/requests`, `POST /friends/requests/{id}/accept` and `DELETE /friends/requests/{id}`. |
 | 2026-11-19 | 3.1, 3.4, 3.5, 4.1, 4.2, 4.3 | Matched the app as built (PR #157 review). Posts are liked instead of rated, and Social & Rooms lists the posts endpoints as built. Sign Up, Sign In and Sign Out moved to a new Account feature. Leave a room now says that a room stays in the list until it expires. The avatar asks for height, shoulder width and hip width in text fields. Removed what we won't build: the wishlist, realistic outfit images (with `POST /outfits/{id}/render` and the Gemini API) and push notifications (Firebase Cloud Messaging). |
+| 2026-11-26 | 3.4, 4.1 | Like counts on the feed update live: the app reloads the feed with `GET /posts` every 5 seconds while it is open and in the foreground. Before, they only changed after a manual refresh (issue #187). We chose polling over a Socket.IO event because the sockets are only opened for rooms. |
 
 ---
 
@@ -78,7 +79,7 @@ Each use case below has the same name as in the use case diagram. **Major** use 
 13. **Add people in friendlist** (minor): The user sends another user a friend request by email, and accepts or declines the requests sent to them. Two users become friends once one accepts the other's request, so nobody can add someone without their consent.
 14. **Remove people from friendlist** (minor): The user removes someone from their friend list.
 15. **Post daily outfits** (minor): The user posts a photo of the outfit they are wearing today, with an optional caption, so their friends can see it. The post disappears at the user's next midnight.
-16. **Like your friend's outfits** (minor): The user likes a friend's post, or takes the like back. Each post shows how many likes it has.
+16. **Like your friend's outfits** (minor): The user likes a friend's post, or takes the like back. Each post shows how many likes it has, and the count updates within a few seconds when others like it, without refreshing.
 17. **Create a room** (minor): The user names a new room and invites friends from their friend list.
 18. **Join a room** (minor): The user opens one of the rooms they belong to and sees its chat and shared outfit board.
 19. **Leave a room** (minor): The user closes a room, and the other members see that they left. The room stays in every member's room list until it expires, 2 days after it was created, when it and its chat are deleted.
@@ -316,7 +317,7 @@ Not included for CP1.
      1. `POST /posts`, multipart form with a `photo` file (JPEG, PNG or WebP) and optional `caption` and `tzOffsetMinutes`, returns `201 Post`
         - **Purpose**: Posts a photo of the user's outfit of the day for their friends. A `Post` has `id`, `authorId`, `authorName`, `imageUrl`, `caption`, `likeCount`, `likedByMe`, `createdAt` and `expiresAt`. It expires at the user's next local midnight (from `tzOffsetMinutes`, or UTC), when MongoDB deletes it. Returns 400 if the photo is missing or not a supported image.
      2. `GET /posts`, returns `{ posts: List<Post> }`
-        - **Purpose**: Returns the unexpired posts of the user and their friends, newest first.
+        - **Purpose**: Returns the unexpired posts of the user and their friends, newest first. The app calls it again every 5 seconds while the feed is open, so like counts stay current.
      3. `POST /posts/{id}/like` and `DELETE /posts/{id}/like`, return `Post`
         - **Purpose**: Likes a post, or takes the like back. Liking twice counts once. Returns 403 if the post's author is not the user or one of their friends, and 404 if the post doesn't exist or has expired.
      4. `DELETE /posts/{id}`, returns `204`
