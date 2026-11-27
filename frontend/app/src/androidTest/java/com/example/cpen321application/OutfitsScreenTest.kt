@@ -6,7 +6,10 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -28,11 +31,13 @@ import com.example.cpen321application.model.Weather
 import com.example.cpen321application.screens.CREATE_OUTFIT_BUTTON_TAG
 import com.example.cpen321application.screens.GENERATE_OUTFIT_BUTTON_TAG
 import com.example.cpen321application.screens.GENERATING_OUTFIT_TAG
+import com.example.cpen321application.screens.OUTFIT_ITEM_CHOICE_TAG
 import com.example.cpen321application.screens.OUTFIT_NAME_FIELD_TAG
 import com.example.cpen321application.screens.OutfitsScreen
 import com.example.cpen321application.screens.REGENERATE_OUTFIT_TAG
 import com.example.cpen321application.screens.SAVE_GENERATED_OUTFIT_TAG
 import com.example.cpen321application.screens.SAVE_OUTFIT_BUTTON_TAG
+import com.example.cpen321application.screens.categoryLimitTag
 import com.example.cpen321application.screens.occasionOptionTag
 import com.example.cpen321application.viewmodel.OutfitsViewModel
 import kotlinx.coroutines.CompletableDeferred
@@ -67,11 +72,15 @@ class OutfitsScreenTest {
         )
     }
 
-    private fun showOutfits(outfits: List<Outfit> = emptyList(), listError: String? = null): FakeOutfitRepository {
-        val repository = FakeOutfitRepository(outfits, closet)
+    private fun showOutfits(
+        outfits: List<Outfit> = emptyList(),
+        listError: String? = null,
+        closetItems: List<ClothingItem> = closet,
+    ): FakeOutfitRepository {
+        val repository = FakeOutfitRepository(outfits, closetItems)
         repository.listError = listError
         viewModel = OutfitsViewModel(repository, location)
-        composeRule.setContent { OutfitsScreen(viewModel, closet) }
+        composeRule.setContent { OutfitsScreen(viewModel, closetItems) }
         return repository
     }
 
@@ -254,6 +263,81 @@ class OutfitsScreenTest {
         composeRule.onNodeWithText("No outfits yet").assertIsDisplayed()
         assertEquals(1, repository.deleteCalls)
         assertEquals(0, repository.saveCalls)
+    }
+
+    @Test
+    fun picksStopAtEachCategorysLimit() {
+        val tee = ClothingItem("4", "White Tee", ClothingCategory.Top, "white", "casual")
+        val polo = ClothingItem("5", "Navy Polo", ClothingCategory.Top, "navy", "casual")
+        val shorts = ClothingItem("6", "Khaki Shorts", ClothingCategory.Bottom, "beige", "casual")
+        showOutfits(closetItems = listOf(hoodie, tee, polo, jeans, shorts))
+
+        composeRule.onNodeWithText("Create outfit").performClick()
+        composeRule.onNodeWithText("Grey Hoodie").performClick()
+        composeRule.onNodeWithTag(categoryLimitTag(ClothingCategory.Top)).assertDoesNotExist()
+        composeRule.onNodeWithText("White Tee").performClick()
+        composeRule.onNodeWithText("Black Jeans").performClick()
+
+        composeRule.onNodeWithTag(categoryLimitTag(ClothingCategory.Top))
+            .assertTextEquals("An outfit can have at most 2 tops. Deselect one to pick another.")
+        composeRule.onNodeWithText("Navy Polo").assertIsNotEnabled()
+        composeRule.onNodeWithTag(categoryLimitTag(ClothingCategory.Bottom)).assertIsDisplayed()
+        composeRule.onNodeWithText("Khaki Shorts").assertIsNotEnabled()
+
+        // Swapping one top for another frees the slot again.
+        composeRule.onNodeWithText("White Tee").assertIsEnabled().performClick()
+        composeRule.onNodeWithText("Navy Polo").assertIsEnabled().performClick().assertIsSelected()
+        composeRule.onNodeWithTag(categoryLimitTag(ClothingCategory.Top)).assertIsDisplayed()
+    }
+
+    @Test
+    fun editingListsTheOutfitsItemsFirst() {
+        val tops = (1..6).map { ClothingItem("t$it", "Top $it", ClothingCategory.Top, "blue", "casual") }
+        val lastTop = tops.last()
+        showOutfits(listOf(Outfit("o1", "Weekend", listOf(lastTop, jeans))), closetItems = tops + jeans)
+
+        composeRule.onNodeWithText("Weekend").performClick()
+
+        composeRule.onAllNodesWithTag(OUTFIT_ITEM_CHOICE_TAG)[0]
+            .assertTextContains("Top 6")
+            .assertIsSelected()
+        // Picking another doesn't move it, so items don't jump around while editing.
+        composeRule.onNodeWithText("Top 3").performClick()
+        composeRule.onAllNodesWithTag(OUTFIT_ITEM_CHOICE_TAG)[0].assertTextContains("Top 6")
+        composeRule.onAllNodesWithTag(OUTFIT_ITEM_CHOICE_TAG)[1].assertTextContains("Top 1")
+    }
+
+    @Test
+    fun outfitWithTheSameItemsAsAnotherCantBeSaved() {
+        val repository = showOutfits(listOf(weekend))
+
+        composeRule.onNodeWithText("Create outfit").performClick()
+        composeRule.onNodeWithTag(OUTFIT_NAME_FIELD_TAG).performTextReplacement("Copy")
+        composeRule.onNodeWithText("Black Jeans").performClick()
+        composeRule.onNodeWithText("Grey Hoodie").performClick()
+
+        composeRule.onNodeWithTag(SAVE_OUTFIT_BUTTON_TAG).assertIsNotEnabled()
+        composeRule.onNodeWithText("You already have an outfit with these items: “Weekend”.")
+            .assertIsDisplayed()
+
+        composeRule.onNodeWithText("White Sneakers").performClick()
+        composeRule.onNodeWithTag(SAVE_OUTFIT_BUTTON_TAG).assertIsEnabled().performClick()
+        composeRule.onNodeWithTag(CREATE_OUTFIT_BUTTON_TAG).assertIsDisplayed()
+        assertEquals(2, repository.outfits.size)
+    }
+
+    @Test
+    fun outfitOverALimitMustDropAnItemToSave() {
+        val shorts = ClothingItem("6", "Khaki Shorts", ClothingCategory.Bottom, "beige", "casual")
+        // Outfits saved from a room aren't held to the editor's limits.
+        showOutfits(listOf(Outfit("o1", "From a room", listOf(hoodie, jeans, shorts))), closetItems = closet + shorts)
+
+        composeRule.onNodeWithText("From a room").performClick()
+
+        composeRule.onNodeWithTag(SAVE_OUTFIT_BUTTON_TAG).assertIsNotEnabled()
+        composeRule.onNodeWithText("An outfit can have at most 1 bottom. Deselect one to save.").assertIsDisplayed()
+        composeRule.onNodeWithText("Khaki Shorts").performClick()
+        composeRule.onNodeWithTag(SAVE_OUTFIT_BUTTON_TAG).assertIsEnabled()
     }
 
     private fun generateForWork() {
