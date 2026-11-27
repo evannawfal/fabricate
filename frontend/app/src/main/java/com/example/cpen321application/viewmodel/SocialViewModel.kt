@@ -28,7 +28,10 @@ data class SocialUiState(
     val likingPostIds: Set<String> = emptySet(),
     val deletingPostId: String? = null,
     val actionError: String? = null,
-)
+) {
+    /** The feed has loaded and isn't reloading, so a background reload won't clash with one. */
+    val canReloadQuietly: Boolean get() = !isLoading && !isRefreshing && loadError == null
+}
 
 class SocialViewModel(private val repository: SocialRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(SocialUiState())
@@ -49,7 +52,7 @@ class SocialViewModel(private val repository: SocialRepository) : ViewModel() {
      */
     fun pollPosts() {
         val state = _uiState.value
-        if (isPolling || state.isLoading || state.isRefreshing || state.loadError != null) return
+        if (isPolling || !state.canReloadQuietly) return
         isPolling = true
         val changesAtStart = finishedChanges
         viewModelScope.launch {
