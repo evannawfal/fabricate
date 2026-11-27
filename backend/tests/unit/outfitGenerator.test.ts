@@ -19,6 +19,9 @@ type CreateParams = Anthropic.Beta.MessageCreateParamsNonStreaming;
 const SHIRT = { id: 'aaaaaaaaaaaaaaaaaaaaaaaa', name: 'White oxford shirt', category: 'top', color: 'white', style: 'business', tags: [] };
 const CHINOS = { id: 'bbbbbbbbbbbbbbbbbbbbbbbb', name: 'Navy chinos', category: 'bottom', color: 'navy', style: 'business', tags: ['slim'] };
 const RAINCOAT = { id: 'cccccccccccccccccccccccc', name: 'Olive raincoat', category: 'outerwear', color: 'olive', style: 'outdoor', tags: [] };
+const TEE = { id: 'eeeeeeeeeeeeeeeeeeeeeeee', name: 'Grey tee', category: 'top', color: 'grey', style: 'casual', tags: [] };
+const SHORTS = { id: 'ffffffffffffffffffffffff', name: 'Denim shorts', category: 'bottom', color: 'blue', style: 'casual', tags: [] };
+const DRESS = { id: '111111111111111111111111', name: 'Black dress', category: 'dress', color: 'black', style: 'formal', tags: [] };
 
 const REQUEST: OutfitRequest = {
   occasion: 'work',
@@ -126,6 +129,23 @@ describe('Outfit generator', () => {
     expect(outfit.itemIds).toEqual([SHIRT.id, CHINOS.id]);
   });
 
+  // Mocked behavior: Claude picks two tops, two bottoms and a dress, which the avatar can't wear together
+  // Input: a closet with two tops, two bottoms, a dress and a raincoat
+  // Expected behavior: only the first top and bottom Claude picked are kept, and the dress is dropped
+  // Expected output: one top, one bottom and the raincoat, in Claude's order
+  test('Keeps one top and one bottom so the avatar can wear it', async () => {
+    const { client } = fakeClient(
+      claudeResponse({ name: 'Layers', itemIds: [TEE.id, SHIRT.id, DRESS.id, CHINOS.id, SHORTS.id, RAINCOAT.id] })
+    );
+
+    const outfit = await createOutfitGenerator(client).generate({
+      ...REQUEST,
+      items: [SHIRT, TEE, CHINOS, SHORTS, DRESS, RAINCOAT],
+    });
+
+    expect(outfit.itemIds).toEqual([TEE.id, CHINOS.id, RAINCOAT.id]);
+  });
+
   // Mocked behavior: Claude returns a blank or overly long name
   // Input: three clean items
   // Expected behavior: the name is tidied to fit the outfit's name limit
@@ -152,6 +172,8 @@ describe('Outfit generator', () => {
     ['Out of tokens', claudeResponse('{"name": "Lo', 'max_tokens')],
     ['Invalid JSON', claudeResponse('not json')],
     ['No closet items picked', claudeResponse({ name: 'Look', itemIds: ['dddddddddddddddddddddddd'] })],
+    ['No bottom picked', claudeResponse({ name: 'Look', itemIds: [SHIRT.id, RAINCOAT.id] })],
+    ['No top picked', claudeResponse({ name: 'Look', itemIds: [CHINOS.id] })],
   ])('%s', async (_name, result) => {
     const { client } = fakeClient(result);
 
