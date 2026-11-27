@@ -2,11 +2,13 @@ package com.example.cpen321application.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -48,7 +50,20 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val avatarStore = remember { AvatarStore(context) }
     val savedMeasurements by avatarStore.measurements.collectAsState(initial = null)
-    var showFriendsModal by rememberSaveable { mutableStateOf(false) }
+    var showingFriends by rememberSaveable { mutableStateOf(false) }
+
+    if (showingFriends) {
+        FriendsScreen(
+            state = state,
+            viewModel = viewModel,
+            onBack = {
+                showingFriends = false
+                viewModel.clearFriendMessages()
+            },
+            modifier = modifier,
+        )
+        return
+    }
 
     Column(
         modifier = modifier
@@ -59,7 +74,7 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
         if (profile == null) {
             if (state.error == null) CircularProgressIndicator()
         } else {
-            FriendsCard(state.friends.size, state.incomingRequests.size, onClick = { showFriendsModal = true })
+            FriendsCard(state.friends.size, state.incomingRequests.size, onClick = { showingFriends = true })
 
             ProfileInfoRow(title = "Name", value = profile.name)
             ProfileInfoRow(title = "Email", value = profile.email)
@@ -74,17 +89,6 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
             if (profile == null) Button(onClick = viewModel::load) { Text("Try again") }
         }
     }
-
-    if (showFriendsModal) {
-        FriendsDialog(
-            state = state,
-            viewModel = viewModel,
-            onDismiss = {
-                showFriendsModal = false
-                viewModel.clearFriendMessages()
-            },
-        )
-    }
 }
 
 @Composable
@@ -95,27 +99,32 @@ private fun FriendsCard(friendCount: Int, requestCount: Int, onClick: () -> Unit
             .clickable(onClick = onClick)
             .testTag(FRIENDS_CARD_TAG),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = friendCount.toString(),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                text = if (friendCount == 1) "Friend" else "Friends",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = friendsCardHint(requestCount),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
+        Box(modifier = Modifier.fillMaxWidth()) {
+            if (requestCount > 0) {
+                Badge(modifier = Modifier.align(Alignment.TopEnd).padding(12.dp)) { Text(requestCount.toString()) }
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = friendCount.toString(),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = if (friendCount == 1) "Friend" else "Friends",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = friendsCardHint(requestCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
     }
 }
