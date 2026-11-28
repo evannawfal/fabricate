@@ -50,7 +50,7 @@ afterAll(stopTestDatabase);
 
 // Interface POST /outfits
 describe('Mocked: POST /outfits', () => {
-  // Mocked behavior: ClothingItem.countDocuments throws while checking the items are in the user's closet
+  // Mocked behavior: ClothingItem.find throws while checking the items are in the user's closet
   // Input: name and one of the user's items
   // Expected status code: 500
   // Expected behavior: the error is handled and logged; no outfit is saved
@@ -58,7 +58,7 @@ describe('Mocked: POST /outfits', () => {
   test('Clothing DB error while checking the items', async () => {
     const user = await createUser();
     const shirt = await createClothingItem(user.id);
-    const countDocuments = jest.spyOn(ClothingItem, 'countDocuments').mockImplementation(() => {
+    const find = jest.spyOn(ClothingItem, 'find').mockImplementation(() => {
       throw new Error('Forced database error');
     });
 
@@ -69,7 +69,7 @@ describe('Mocked: POST /outfits', () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual(INTERNAL_ERROR);
-    expect(countDocuments).toHaveBeenCalledTimes(1);
+    expect(find).toHaveBeenCalledTimes(1);
     expectInternalErrorLogged();
     expect(await Outfit.countDocuments()).toBe(0);
   });
