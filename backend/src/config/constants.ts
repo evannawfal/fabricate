@@ -27,6 +27,15 @@ export const OUTFIT_MAX_RETRIES = 2;
 // Far more than an outfit's name and item ids need, so the reply is never cut off.
 export const OUTFIT_MAX_OUTPUT_TOKENS = 4096;
 export const DEFAULT_OUTFIT_NAME = 'Daily outfit';
+// A generated outfit has to fit on the avatar, which wears one top, one bottom and one outerwear
+// piece. Dresses have no avatar model, so they aren't picked. Categories left out get none.
+export const GENERATED_OUTFIT_CATEGORY_LIMITS: Readonly<Record<string, number>> = {
+  top: 1,
+  bottom: 1,
+  outerwear: 1,
+  shoes: 1,
+  accessory: 3,
+};
 
 // Room update latency NFR (Requirements_and_Design.md section 3.7), checked by tests/nfr/.
 export const ROOM_UPDATE_LATENCY_LIMIT_MS = 1_000;
