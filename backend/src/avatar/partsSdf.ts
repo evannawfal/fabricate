@@ -595,43 +595,4 @@ export function getPartBounds(
   }
 }
 
-
-export interface SideJoints {
-  shoulder: Vec3;
-  elbow: Vec3;
-  wrist: Vec3;
-  handEnd: Vec3;
-  hip: Vec3;
-  knee: Vec3;
-  ankle: Vec3;
-  footCenter: Vec3;
-  footHalf: Vec3;
-}
-
-/** "left" = the -x side, "right" = the +x side (same convention as the part names). */
-export interface BodyJoints {
-  left: SideJoints;
-  right: SideJoints;
-}
-
-export function getBodyJoints(options: Partial<AvatarParameters> = {}): BodyJoints {
-  const p = { ...DEFAULTS, ...options } as AvatarParameters;
-  const side = (s: Side): SideJoints => {
-    const a = armJoints(p, s);
-    const l = legJoints(p, s);
-    return {
-      shoulder: a.shoulder,
-      elbow: a.elbow,
-      wrist: a.wrist,
-      handEnd: a.handEnd,
-      hip: l.hip,
-      knee: l.knee,
-      ankle: l.ankle,
-      footCenter: l.footCenter,
-      footHalf: l.footHalf,
-    };
-  };
-  return { left: side(-1), right: side(1) };
-}
-
 export { DEFAULTS as DEFAULT_AVATAR_PARAMS };
