@@ -5,10 +5,10 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.cpen321application.data.Friend
@@ -47,8 +47,13 @@ class ProfileScreenTest {
     private fun openFriends() = composeRule.onNodeWithTag(FRIENDS_CARD_TAG).performClick()
 
     private fun sendRequestTo(email: String) {
-        composeRule.onNodeWithTag(ADD_FRIEND_EMAIL_TAG).performScrollTo().performTextInput(email)
+        composeRule.onNodeWithTag(ADD_FRIEND_EMAIL_TAG).performTextInput(email)
         composeRule.onNodeWithText("Send").performClick()
+    }
+
+    private fun startRemovingAlex() {
+        composeRule.onNodeWithContentDescription("More options for Alex Kim").performClick()
+        composeRule.onNodeWithText("Remove friend").performClick()
     }
 
     @Test
@@ -75,6 +80,19 @@ class ProfileScreenTest {
         composeRule.onNodeWithText("Friends (1)").assertIsDisplayed()
         composeRule.onNodeWithText("Alex Kim").assertIsDisplayed()
         composeRule.onNodeWithText("alex@example.com").assertIsDisplayed()
+        composeRule.onNodeWithText("AK").assertIsDisplayed()
+    }
+
+    @Test
+    fun emptyTabsSayWhatToDoNext() {
+        showProfile(FakeRoomsRepository())
+
+        openFriends()
+        composeRule.onNodeWithText("No friends yet").assertIsDisplayed()
+        composeRule.onNodeWithText("Requests").performClick()
+        composeRule.onNodeWithText("No requests").assertIsDisplayed()
+        composeRule.onNodeWithText("Sent (0)").performClick()
+        composeRule.onNodeWithText("No sent requests").assertIsDisplayed()
     }
 
     @Test
@@ -82,12 +100,13 @@ class ProfileScreenTest {
         val rooms = showProfile()
 
         openFriends()
-        composeRule.onNodeWithText("Remove").performClick()
+        startRemovingAlex()
         composeRule.onNodeWithText("Remove Alex Kim?").assertIsDisplayed()
         composeRule.onNodeWithTag(CONFIRM_REMOVE_FRIEND_TAG).performClick()
 
         composeRule.onNodeWithText("Removed Alex Kim from your friends.").assertIsDisplayed()
         composeRule.onNodeWithText("Friends (0)").assertIsDisplayed()
+        composeRule.onNodeWithText("No friends yet").assertIsDisplayed()
         assertTrue(rooms.friends.isEmpty())
     }
 
@@ -96,7 +115,7 @@ class ProfileScreenTest {
         val rooms = showProfile()
 
         openFriends()
-        composeRule.onNodeWithText("Remove").performClick()
+        startRemovingAlex()
         composeRule.onNodeWithText("Keep").performClick()
 
         composeRule.onNodeWithText("Remove Alex Kim?").assertDoesNotExist()
@@ -111,7 +130,7 @@ class ProfileScreenTest {
         showProfile(rooms)
 
         openFriends()
-        composeRule.onNodeWithText("Remove").performClick()
+        startRemovingAlex()
         composeRule.onNodeWithTag(CONFIRM_REMOVE_FRIEND_TAG).performClick()
 
         composeRule.onNodeWithText("Couldn't reach the server.").assertIsDisplayed()
@@ -126,8 +145,9 @@ class ProfileScreenTest {
         sendRequestTo(" jo@example.com ")
 
         composeRule.onNodeWithText("Friend request sent to jo@example.com.").assertIsDisplayed()
-        composeRule.onNodeWithTag(OUTGOING_REQUEST_TAG).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithTag(ADD_FRIEND_EMAIL_TAG).assertTextContains("Their email")
+        composeRule.onNodeWithTag(ADD_FRIEND_EMAIL_TAG).assertTextContains("Add a friend by email")
+        composeRule.onNodeWithText("Sent (1)").performClick()
+        composeRule.onNodeWithTag(OUTGOING_REQUEST_TAG).assertIsDisplayed()
         assertEquals(listOf("jo@example.com"), rooms.outgoing.map { it.user.email })
         composeRule.onNodeWithText("Friends (1)").assertIsDisplayed()
     }
@@ -150,15 +170,15 @@ class ProfileScreenTest {
 
         composeRule.onNodeWithText("1 friend request").assertIsDisplayed()
         openFriends()
-        composeRule.onNodeWithText("Requests for you").assertIsDisplayed()
+        composeRule.onNodeWithTag(INCOMING_REQUEST_TAG).assertIsDisplayed()
         composeRule.onNodeWithText("Accept").performClick()
 
         composeRule.onNodeWithText("You and Jo Park are now friends.").assertIsDisplayed()
         composeRule.onNodeWithText("Friends (2)").assertIsDisplayed()
-        composeRule.onNodeWithText("Requests for you").assertDoesNotExist()
+        composeRule.onNodeWithText("No requests").assertIsDisplayed()
         assertTrue(jo in rooms.friends)
 
-        composeRule.onNodeWithText("Close").performClick()
+        composeRule.onNodeWithContentDescription("Back to profile").performClick()
         composeRule.onNodeWithText("Tap to see or add friends").assertIsDisplayed()
     }
 
@@ -169,7 +189,7 @@ class ProfileScreenTest {
         openFriends()
         composeRule.onNodeWithText("Decline").performClick()
 
-        composeRule.onNodeWithText("Requests for you").assertDoesNotExist()
+        composeRule.onNodeWithTag(INCOMING_REQUEST_TAG).assertDoesNotExist()
         composeRule.onNodeWithText("Friends (1)").assertIsDisplayed()
         assertTrue(rooms.incoming.isEmpty())
     }
@@ -179,8 +199,9 @@ class ProfileScreenTest {
         val rooms = showProfile(FakeRoomsRepository(friends = listOf(alex), outgoing = listOf(FriendRequest("r2", jo))))
 
         openFriends()
-        composeRule.onNodeWithText("Jo Park").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Cancel").performScrollTo().performClick()
+        composeRule.onNodeWithText("Sent (1)").performClick()
+        composeRule.onNodeWithText("Jo Park").assertIsDisplayed()
+        composeRule.onNodeWithText("Cancel").performClick()
 
         composeRule.onNodeWithTag(OUTGOING_REQUEST_TAG).assertDoesNotExist()
         assertTrue(rooms.outgoing.isEmpty())
