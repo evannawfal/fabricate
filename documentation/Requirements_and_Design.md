@@ -52,46 +52,61 @@ Fabricate is aimed at fashion enthusiasts who want more out of their wardrobe, p
 1. **User**: A person who signs in with their Google account to digitize, organize and style their wardrobe, and to share and build outfits with friends.
 2. **Weather API (OpenWeather)**: An external API that provides the current weather at the user's location, used when generating the daily outfit.
 3. **Online Stores / Catalogs**: External product catalogs that provide the clothing items the user can browse and that the app recommends.
+4. **LLM**: External LLM service for AI-based use cases. 
 
 ### **3.4. Use Case Description**
 
-Each use case below has the same name as in the use case diagram. **Major** use cases are the five with formal specifications in 3.5; the other use cases are **minor**.
+Each use case below has the same name as in the use case diagram. **Major** use cases are the five with formal specifications in 3.5; the other use cases are **minor**. Use cases that appear in the diagram only as an `<<include>>` or `<<extend>>` step are described inside their parent use case.
 
 - Use cases for feature 1: **Manage Closet**
-1. **Add clothing items** (major): The user takes or chooses a photo of the front and of the back of a clothing item, which is classified and added to their closet.
-2. **Browse items** (minor): The user browses their closet, optionally filtered by category.
-3. **Edit items** (minor): The user changes an item's name, category, color or style.
-4. **Remove items** (minor): The user removes an item from their closet. Saved outfits that used it still show it.
-5. **Add items in wash bin** (minor): The user moves worn clothes to the wash bin, which leaves them out of generated outfits.
-6. **Remove items from wash bin** (minor): The user moves clean clothes from the wash bin back to the closet.
+1. **Add clothing items** (major): The user takes or uploads a photo of the front and of the back of a clothing item. The app classifies the item with the LLM and adds it to their closet.
+2. **Browse items in closet** (minor): The user browses their closet, optionally filtering by item category.
+3. **View details of items in closet** (minor): The user opens an item to see its details. From there they can edit its details, delete it, or create or recreate its 3D model.
+4. **Edit item detail** (minor): The user changes an item's name, category, color or style.
+5. **Delete item from closet** (minor): The user removes an item from their closet. Saved outfits that used it still show it.
+6. **Create 3D model of item** (minor): The user asks the app to build a 3D model of a closet item from its photos, so it can be shown on their avatar.
+7. **Recreate 3D model of item** (minor): The user asks the app to rebuild an item's 3D model when the first result is unsatisfactory.
+8. **View washbin** (minor): The user views the clothes currently in the wash bin.
+9. **Add items in washbin** (minor): The user moves worn clothes to the wash bin, which leaves them out of generated outfits.
+10. **Remove items from washbin / Mark clean** (minor): The user marks clothes as clean, which moves them from the wash bin back to the closet.
 
 - Use cases for feature 2: **Customize Avatar**
-7. **Customize Avatar Proportion** (major): The user sets their avatar's body measurements, and the app builds their 3D avatar from them.
-8. **View items on Avatar** (minor): The user tries clothing items from their closet on their 3D avatar, one of each kind at a time (a top, a bottom and outerwear), and adjusts each one's size.
+11. **Customize avatar proportion** (major): The user enters their height, shoulder width and hip width in centimeters, and the app builds their 3D avatar from these measurements.
+12. **View items on avatar** (minor): The user tries clothing items from their closet on their 3D avatar, one of each kind at a time (a top, a bottom and outerwear).
+13. **Resize item on avatar** (minor): While viewing an item on their avatar, the user adjusts its size to fit the avatar.
+14. **Manipulate views of avatar** (minor): The user rotates, zooms and moves the camera around their avatar to see it from different angles.
 
 - Use cases for feature 3: **Create Outfit**
-9. **Generate daily outfit** (major): The app generates an outfit from the user's clean clothes for an occasion they choose, taking the current weather into account.
-10. **Save outfits** (minor): The user saves a generated outfit, or one they built from their closet, to their outfits.
-11. **Browse past outfits** (minor): The user browses the outfits they saved, and edits or deletes them. Deleting an outfit unsaves it; its items stay in the closet.
+15. **Generate outfits from closet** (major): The user chooses an occasion, and the app generates an outfit from their clean clothes, taking the current weather (from the Weather API) into account. If the user does not like the result, they can regenerate the outfit.
+16. **Create outfits** (minor): The user builds an outfit by hand. They give it a name and choose the items from their closet to include.
+17. **Browse my outfits** (minor): The user browses the outfits they have created or saved.
 
 - Use cases for feature 4: **Recommend Clothes to Buy**
-12. **Browse online outfit / items** (major): The user browses items from online stores, recommended by analyzing the gaps in their closet, and sees which of their clothes each item pairs with.
+18. **Browse online recommended items** (major): The user browses items from online stores (Online Stores/Catalogs), recommended by analyzing the gaps in their closet. They can filter the items by gender and open any item on the store's website.
 
 - Use cases for feature 5: **Friends and Social**
-13. **Add people in friendlist** (minor): The user sends another user a friend request by email, and accepts or declines the requests sent to them. Two users become friends once one accepts the other's request, so nobody can add someone without their consent.
-14. **Remove people from friendlist** (minor): The user removes someone from their friend list.
-15. **Post daily outfits** (minor): The user posts a photo of the outfit they are wearing today, with an optional caption, so their friends can see it. The post disappears at the user's next midnight.
-16. **Like your friend's outfits** (minor): The user likes a friend's post, or takes the like back. Each post shows how many likes it has, and the count updates within a few seconds when others like it, without refreshing.
-17. **Create a room** (minor): The user names a new room and invites friends from their friend list.
-18. **Join a room** (minor): The user opens one of the rooms they belong to and sees its chat and shared outfit board.
-19. **Leave a room** (minor): The user closes a room, and the other members see that they left. The room stays in every member's room list until it expires, 2 days after it was created, when it and its chat are deleted.
-20. **Browse room owner's outfit** (minor): The user browses the outfit on the room's shared board, made from the closet of the room's host (the member who created it).
-21. **Create outfits in a room** (major): The user builds an outfit from the host's closet together with the room's members, where every chat message and outfit change appears live on all members' devices.
+19. **View friend list** (minor): The user views the list of their current friends.
+20. **View incoming friend requests** (minor): The user views the friend requests other users have sent them, and can accept or decline each one.
+21. **View outgoing friend requests** (minor): The user views the friend requests they have sent that are still pending.
+22. **Send request/Add friend by email** (minor): The user sends another user a friend request by email. Two users become friends once one accepts the other's request, so nobody can add someone without their consent.
+23. **Remove a friend from list** (minor): The user removes someone from their friend list.
+24. **Post outfit of the day** (minor): The user posts a photo of the outfit they are wearing today so their friends can see it, and can optionally add a caption. The post disappears at the user's next midnight.
+25. **Browse your and your friends' posts** (minor): The user browses their own and their friends' outfit-of-the-day posts, and can like a post or take the like back. Each post shows how many likes it has.
+26. **Delete your post** (minor): The user deletes one of their own outfit-of-the-day posts before it expires.
+27. **Create a room** (minor): The user names a new room and adds friends from their friend list to it. The user who creates the room is its host. The host can save an outfit that a guest created in the room.
+28. **Join a room as guest** (minor): The user opens a room they were added to and sees its chat and shared outfit board. From inside the room, they can send and receive messages, browse the room owner's closet, create an outfit in the room, or leave the room.
+29. **Send messages** (minor): A room member sends a chat message that appears live for all members of the room.
+30. **Receive messages** (minor): A room member sees chat messages from other members as they arrive.
+31. **Browse room owner closet** (minor): A room member browses the closet of the room's host (the member who created it) to pick items for outfits.
+32. **Create outfits in room** (major): The user builds an outfit from the host's closet together with the room's members, where every chat message and outfit change appears live on all members' devices.
+33. **Leave a room** (minor): The user closes a room, and the other members see that they left. The room stays in every member's room list until it expires, 2 days after it was created, when it and its chat are deleted.
 
 - Use cases for feature 6: **Account**
-22. **Sign Up** (minor): A person who has never used Fabricate signs in with their Google account, and an account is created for them.
-23. **Sign In** (minor): The user signs in with their Google account.
-24. **Sign Out** (minor): The user signs out, after confirming.
+34. **Sign Up** (minor): A person who has never used Fabricate signs up with their Google account, and an account is created for them.
+35. **Sign In** (minor): The user signs in with their Google account.
+36. **Sign Out** (minor): The user signs out, after confirming.
+37. **View Profile info** (minor): The user views their profile information, such as their name and pronouns.
+38. **Update pronouns** (minor): The user changes the pronouns shown on their profile.
 
 ### **3.5. Formal Use Case Specifications (5 Most Major Use Cases)**
 
@@ -172,7 +187,7 @@ Each use case below has the same name as in the use case diagram. **Major** use 
 - 4b. The user missed a live update, for example while their connection was down.
   - 4b1. The user pulls down on the room to reload its outfit, closet and chat and reconnect.
 
-#### Use Case 4: Browse Online Outfit / Items
+#### Use Case 4: Browse Online Recommended Items
 
 **Description**: The app analyzes the user's closet for gaps and shows items from online stores that would fill them, along with the user's clothes that each item pairs with.
 
@@ -528,7 +543,7 @@ sequenceDiagram
     end
 ```
 
-4. [**Browse Online Outfit / Items**](#use-case-4-browse-online-outfit--items)
+4. [**Browse Online Recommended Items**](#use-case-4-browse-online-outfit--items)
 
 ```mermaid
 sequenceDiagram
