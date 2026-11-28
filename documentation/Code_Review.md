@@ -9,6 +9,7 @@
 | Nov 18, 2026 | 3.2, 3.3 | Record TimeTravel's review of our project for CP3, and the actions we took or planned in response |
 | Nov 19, 2026 | 2 | Updated section 2 to Codacy's latest analysis of `main` (`7a3a6f9`): the same 12 Trivy issues, with their new lock file lines, and 4 new detekt LongMethod issues, which a separate pull request fixes. The category and pattern counts are copied from Codacy as tables. |
 | Nov 19, 2026 | 2, 3.3 | Section 2 uses Codacy's latest analysis of `main` (`59a67c0`): the 4 LongMethod issues were fixed in #173, leaving the same 12 Trivy issues on the same lines. Section 3.3 records the review findings we have since acted on, and the planned work we decided against. |
+| Nov 27, 2026 | 3.3 | Finding 15 (app name, icon, theme and the room screen's keyboard) was acted on in #189, so it moved to the actions table |
 
 ---
 
@@ -195,6 +196,7 @@ Each advisory is reported twice: once in `backend/package-lock.json`, and once i
 | 5.1 and 5.3: The Rooms list doesn't refresh, and a member who misses a live update has no way to catch up. | Pull down on the Rooms list, or on a room, to reload it. A room reloads its outfit, the host's closet and the chat, and reconnects (use case 3, failure 4b). | [`ec7fc46`](https://github.com/evannawfal/fabricate/commit/ec7fc46) |
 | 5.2: Seven bottom-bar items, including Sign out. | The bottom bar has 4 tabs (Closet, Outfits, Social and Avatar). Shop, Rooms and Profile are in the top bar, and Sign out is in the Profile menu. | [`6baea91`](https://github.com/evannawfal/fabricate/commit/6baea91) |
 | 3.1: Section 2 cited an old commit. | Section 2 cites Codacy's latest analysis of `main`. | Section 2 above |
+| 5.2: The template app name, icon and theme, and the keyboard pushing the room screen's top bar off screen. | The app is called Fabricate, has a coat hanger launcher icon, and uses its own rust, clay and olive colours in light and dark mode instead of the default purple or the wallpaper's colours. The room screen shrinks above the keyboard instead of the window panning up, so its top bar stays on screen while typing. | [#189](https://github.com/evannawfal/fabricate/issues/189) |
 
 - **Findings not acted on.** We prioritized finishing and testing the remaining use cases for CP3. These findings are planned for M3 unless the justification says otherwise:
   1. **Finding:** Major fault, second part: removing a friend keeps their access to the rooms they share, and a member can't leave a room.
@@ -225,7 +227,5 @@ Each advisory is reported twice: once in `backend/package-lock.json`, and once i
       - **Justification:** Planned for M3: removing the unused root `package.json` and lock file, and raising the nested versions with npm `overrides`.
   14. **Finding:** 5.1: The avatar carries over between accounts, and the Outfits list doesn't refresh.
       - **Justification:** Planned for M3.
-  15. **Finding:** 5.2: The template app name, icon and theme, and the keyboard pushing the room screen's top bar off screen.
-      - **Justification:** Planned for M3, when we polish the app's look.
-  16. **Finding:** 5.3: Show the avatar wearing the generated outfit, add chat timestamps, and warn when the closet lacks weather-suitable items.
+  15. **Finding:** 5.3: Show the avatar wearing the generated outfit, add chat timestamps, and warn when the closet lacks weather-suitable items.
       - **Justification:** Showing outfits on the avatar is planned ([#58](https://github.com/evannawfal/fabricate/issues/58)). The other two are good ideas but outside our use cases, so we'll consider them after M3's required work.

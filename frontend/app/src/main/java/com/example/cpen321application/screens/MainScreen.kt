@@ -3,6 +3,7 @@ package com.example.cpen321application.screens
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -103,7 +104,9 @@ fun MainScreen(
     },
     bottomBar = { MainBottomBar(destination, onNavigate = { destination = it }) },
   ) { innerPadding ->
-    val contentModifier = Modifier.padding(innerPadding)
+    // The bars' padding counts as used, so a screen that pads for the keyboard (the room chat)
+    // only adds the part of the keyboard that covers more than the bottom bar.
+    val contentModifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)
     val closet by closetViewModel.uiState.collectAsState()
     when (destination) {
       Destination.Closet -> ClosetScreen(closetViewModel, contentModifier)

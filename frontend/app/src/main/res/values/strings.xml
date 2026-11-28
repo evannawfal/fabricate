@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">CPEN321 Application</string>
+    <string name="app_name">Fabricate</string>
     <string name="login_title">Fabricate</string>
     <string name="login_subtitle">Sign in to get started</string>
     <string name="login_google_button">Sign in with Google</string>

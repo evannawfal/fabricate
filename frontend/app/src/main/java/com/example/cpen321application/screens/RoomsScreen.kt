@@ -79,14 +79,13 @@ fun RoomsRoute(
 private fun RoomsScreen(state: RoomsUiState, viewModel: RoomsViewModel, modifier: Modifier) {
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().padding(16.dp)) {
-            Text("Rooms", style = MaterialTheme.typography.headlineMedium)
             if (state.isLoading) {
                 CircularProgressIndicator(Modifier.padding(top = 24.dp).align(Alignment.CenterHorizontally))
             } else {
                 PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = viewModel::refresh) {
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxSize().padding(top = 16.dp).testTag(ROOMS_LIST_TAG),
+                        modifier = Modifier.fillMaxSize().testTag(ROOMS_LIST_TAG),
                     ) {
                         if (state.rooms.isEmpty()) {
                             item { Text("No rooms yet. Create one to style outfits with your friends.") }

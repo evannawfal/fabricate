@@ -19,7 +19,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.cpen321application.R
-import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
+import com.example.cpen321application.ui.theme.FabricateTheme
 import com.example.cpen321application.viewmodel.LoginUiState
 
 private val ScreenPadding = 24.dp
@@ -78,7 +78,7 @@ fun LoginScreen(
 @Preview(showBackground = true, name = "Idle")
 @Composable
 private fun LoginScreenIdlePreview() {
-  CPEN321ApplicationTheme {
+  FabricateTheme {
     LoginScreen(uiState = LoginUiState.Idle, onSignInClick = {})
   }
 }
@@ -86,7 +86,7 @@ private fun LoginScreenIdlePreview() {
 @Preview(showBackground = true, name = "Loading")
 @Composable
 private fun LoginScreenLoadingPreview() {
-  CPEN321ApplicationTheme {
+  FabricateTheme {
     LoginScreen(uiState = LoginUiState.Loading, onSignInClick = {})
   }
 }
@@ -94,7 +94,7 @@ private fun LoginScreenLoadingPreview() {
 @Preview(showBackground = true, name = "Error")
 @Composable
 private fun LoginScreenErrorPreview() {
-  CPEN321ApplicationTheme {
+  FabricateTheme {
     LoginScreen(
       uiState = LoginUiState.Error(R.string.login_error_generic),
       onSignInClick = {},
