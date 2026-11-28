@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import {
   DEFAULT_OUTFIT_NAME,
+  GENERATED_OUTFIT_CATEGORY_LIMITS,
   OUTFIT_MAX_OUTPUT_TOKENS,
   OUTFIT_MAX_RETRIES,
   OUTFIT_MODEL,
@@ -50,10 +51,9 @@ export class OutfitGeneratorUnavailableError extends Error {
 
 const SYSTEM_PROMPT = `You are the stylist in a digital wardrobe app. Each request lists the clean clothes in a user's closet, the occasion they are dressing for and, when it is known, the current weather where they are.
 
-Put together one complete outfit using only the listed items, referring to each item by its id:
-- Include a top and a bottom, or a dress instead of both.
-- Add shoes, outerwear and accessories when the closet has suitable ones. Add outerwear when it is cold, wet or windy.
-- When it is cold, layer tops: a lighter top can go under a warmer one, e.g. a t-shirt under a sweater, with outerwear over both.
+Put together one complete outfit using only the listed items, referring to each item by its id. The outfit is shown on the user's avatar, so it must have:
+- Exactly one top and exactly one bottom. Never pick a dress.
+- At most one outerwear piece, at most one pair of shoes and at most three accessories. Add them when the closet has suitable ones, and add outerwear when it is cold, wet or windy.
 - Choose items whose style suits the occasion and whose colours go well together.
 - Use each item at most once.
 
@@ -75,6 +75,27 @@ function describeRequest({ occasion, weather, items }: OutfitRequest): string {
   return `Occasion: ${occasion}\n${weatherLine}\nClean clothes:\n${JSON.stringify(items)}`;
 }
 
+// Claude can repeat an item, invent an id or pick more of a category than the avatar can wear, so
+// only the first picks of each category up to its limit are kept.
+function keepWearableItems(pickedIds: string[], candidates: OutfitCandidate[]): string[] {
+  const candidatesById = new Map(candidates.map((item) => [item.id, item]));
+  const counts = new Map<string, number>();
+  return [...new Set(pickedIds)].filter((id) => {
+    const category = candidatesById.get(id)?.category;
+    if (category === undefined) return false;
+    const count = counts.get(category) ?? 0;
+    if (count >= (GENERATED_OUTFIT_CATEGORY_LIMITS[category] ?? 0)) return false;
+    counts.set(category, count + 1);
+    return true;
+  });
+}
+
+// The avatar needs both, and the closet is checked for clean ones before generating.
+function hasTopAndBottom(itemIds: string[], candidates: OutfitCandidate[]): boolean {
+  const categories = new Set(candidates.filter((item) => itemIds.includes(item.id)).map((item) => item.category));
+  return categories.has('top') && categories.has('bottom');
+}
+
 function parseOutfit(response: Anthropic.Beta.BetaMessage, request: OutfitRequest): GeneratedOutfit {
   const text = response.content
     .filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === 'text')
@@ -91,11 +112,12 @@ function parseOutfit(response: Anthropic.Beta.BetaMessage, request: OutfitReques
   } catch (err) {
     throw new OutfitGeneratorUnavailableError('Outfit generator returned invalid JSON', { cause: err });
   }
-  // Claude can repeat an item or invent an id.
-  const candidateIds = new Set(request.items.map((item) => item.id));
-  const itemIds = [...new Set(output.itemIds)].filter((id) => candidateIds.has(id)).slice(0, OUTFIT_LIMITS.maxItems);
+  const itemIds = keepWearableItems(output.itemIds, request.items);
   if (itemIds.length === 0) {
     throw new OutfitGeneratorUnavailableError('Outfit generator picked none of the closet items');
+  }
+  if (!hasTopAndBottom(itemIds, request.items)) {
+    throw new OutfitGeneratorUnavailableError('Outfit generator left out the top or the bottom');
   }
   const name = output.name.trim().replace(/\s+/g, ' ').slice(0, OUTFIT_LIMITS.nameLength).trim();
   return { name: name.length > 0 ? name : DEFAULT_OUTFIT_NAME, itemIds };

@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -38,6 +39,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
+import com.example.cpen321application.model.Outfit
+import com.example.cpen321application.model.outfitLimit
+import com.example.cpen321application.model.outfitLimitPhrase
 import com.example.cpen321application.viewmodel.OutfitDraft
 import com.example.cpen321application.viewmodel.OutfitsUiState
 import com.example.cpen321application.viewmodel.OutfitsViewModel
@@ -46,6 +50,11 @@ import com.example.cpen321application.viewmodel.OutfitsViewModel
 const val OUTFIT_NAME_FIELD_TAG = "outfit_name"
 const val OUTFIT_ITEM_CHOICE_TAG = "outfit_item_choice"
 const val SAVE_OUTFIT_BUTTON_TAG = "save_outfit_button"
+
+/** Tag of the message shown when [category] has as many items as an outfit can have. */
+fun categoryLimitTag(category: ClothingCategory) = "outfit_limit_${category.apiValue}"
+
+private const val DISABLED_CHOICE_ALPHA = 0.38f
 
 /**
  * Names [draft] and picks its items, grouped by category, from [closetItems]. Items the
@@ -60,7 +69,8 @@ internal fun OutfitEditor(
     modifier: Modifier = Modifier,
 ) {
     val isNew = draft.outfitId == null
-    val choices = choicesByCategory(closetItems, draft.items)
+    val choices = choicesByCategory(closetItems, draft)
+    val duplicate = state.draftDuplicate
 
     Column(
         modifier = modifier
@@ -89,12 +99,13 @@ internal fun OutfitEditor(
             Text("Your closet is empty. Add clothing in the Closet tab first.")
         }
         choices.forEach { (category, items) ->
-            ItemChoiceRow(category.label, items, draft, enabled = !state.isBusy, onToggle = viewModel::toggleItem)
+            ItemChoiceRow(category, items, draft, enabled = !state.isBusy, onToggle = viewModel::toggleItem)
         }
         state.saveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         SaveOutfitButton(
             isNew = isNew,
-            canSave = draft.canSave,
+            canSave = draft.canSave && duplicate == null,
+            blockedReason = saveBlockedReason(draft, duplicate),
             isSaving = state.isSaving,
             enabled = !state.isBusy,
             onSave = viewModel::saveDraft,
@@ -112,29 +123,67 @@ internal fun OutfitEditor(
     }
 }
 
+// The items the outfit had when editing started come first in each category, so they can be
+// removed without scrolling through the closet. Items picked since stay where they are.
 private fun choicesByCategory(
     closetItems: List<ClothingItem>,
-    outfitItems: List<ClothingItem>,
+    draft: OutfitDraft,
 ): Map<ClothingCategory, List<ClothingItem>> {
     val closetIds = closetItems.map { it.id }.toSet()
-    return (closetItems + outfitItems.filterNot { it.id in closetIds })
+    return (closetItems + draft.items.filterNot { it.id in closetIds })
+        .sortedBy { it.id !in draft.originalItemIds }
         .groupBy { it.category }
         .toSortedMap()
 }
 
+private fun saveBlockedReason(draft: OutfitDraft, duplicate: Outfit?): String? {
+    val overLimit = draft.overLimitCategory
+    return when {
+        draft.name.isBlank() || draft.items.isEmpty() -> "Give the outfit a name and pick at least one item."
+        overLimit != null -> "An outfit can have at most ${overLimit.outfitLimitPhrase}. Deselect one to save."
+        duplicate != null -> "You already have an outfit with these items: “${duplicate.name}”."
+        else -> null
+    }
+}
+
 @Composable
 private fun ItemChoiceRow(
-    label: String,
+    category: ClothingCategory,
     items: List<ClothingItem>,
     draft: OutfitDraft,
     enabled: Boolean,
     onToggle: (ClothingItem) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(label, style = MaterialTheme.typography.titleSmall)
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(category.label, style = MaterialTheme.typography.titleSmall)
+            Text(
+                "${draft.count(category)} of ${category.outfitLimit}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        // Only worth explaining when some item in the row can't be picked, or there are too many.
+        if (draft.isFull(category) && (items.size > draft.count(category) || draft.overLimitCategory == category)) {
+            Text(
+                "An outfit can have at most ${category.outfitLimitPhrase}. Deselect one to pick another.",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (draft.count(category) > category.outfitLimit) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.testTag(categoryLimitTag(category)),
+            )
+        }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(items, key = { it.id }) { item ->
-                ItemChoice(item, selected = draft.contains(item), enabled = enabled, onClick = { onToggle(item) })
+                ItemChoice(
+                    item,
+                    selected = draft.contains(item),
+                    enabled = enabled && draft.canToggle(item),
+                    onClick = { onToggle(item) },
+                )
             }
         }
     }
@@ -148,6 +197,8 @@ private fun ItemChoice(item: ClothingItem, selected: Boolean, enabled: Boolean, 
             .width(96.dp)
             .clip(shape)
             .selectable(selected = selected, enabled = enabled, role = Role.Checkbox, onClick = onClick)
+            // Dimmed when its category is full, so it's clear why it can't be picked.
+            .alpha(if (enabled || selected) 1f else DISABLED_CHOICE_ALPHA)
             .testTag(OUTFIT_ITEM_CHOICE_TAG),
     ) {
         Box {
@@ -181,6 +232,7 @@ private fun ItemChoice(item: ClothingItem, selected: Boolean, enabled: Boolean, 
 private fun SaveOutfitButton(
     isNew: Boolean,
     canSave: Boolean,
+    blockedReason: String?,
     isSaving: Boolean,
     enabled: Boolean,
     onSave: () -> Unit,
@@ -199,9 +251,9 @@ private fun SaveOutfitButton(
                 Text(if (isNew) "Save outfit" else "Save changes")
             }
         }
-        if (!canSave) {
+        if (!canSave && blockedReason != null) {
             Text(
-                "Give the outfit a name and pick at least one item.",
+                blockedReason,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -28,14 +28,45 @@ data class SocialUiState(
     val likingPostIds: Set<String> = emptySet(),
     val deletingPostId: String? = null,
     val actionError: String? = null,
-)
+) {
+    /** The feed has loaded and isn't reloading, so a background reload won't clash with one. */
+    val canReloadQuietly: Boolean get() = !isLoading && !isRefreshing && loadError == null
+}
 
 class SocialViewModel(private val repository: SocialRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(SocialUiState())
     val uiState: StateFlow<SocialUiState> = _uiState.asStateFlow()
 
+    // Counts likes, unlikes, posts and deletes that have finished, so a background refresh that
+    // started before one of them doesn't put the older posts back.
+    private var finishedChanges = 0
+    private var isPolling = false
+
     init {
         loadPosts()
+    }
+
+    /**
+     * Quietly reloads the feed so like counts from friends show up without a manual refresh.
+     * Skipped while another load is running, and a failure leaves the feed as it is.
+     */
+    fun pollPosts() {
+        val state = _uiState.value
+        if (isPolling || !state.canReloadQuietly) return
+        isPolling = true
+        val changesAtStart = finishedChanges
+        viewModelScope.launch {
+            try {
+                val posts = repository.listPosts()
+                if (finishedChanges == changesAtStart) {
+                    _uiState.update { it.copy(posts = posts) }
+                }
+            } catch (e: ClothingRepositoryException) {
+                // The next poll or a manual refresh tries again.
+            } finally {
+                isPolling = false
+            }
+        }
     }
 
     fun loadPosts() {
@@ -113,6 +144,7 @@ class SocialViewModel(private val repository: SocialRepository) : ViewModel() {
         viewModelScope.launch {
             try {
                 val created = repository.createPost(photo, state.captionDraft.trim(), tzOffsetMinutes)
+                finishedChanges++
                 _uiState.update {
                     it.copy(
                         posts = listOf(created) + it.posts,
@@ -137,6 +169,7 @@ class SocialViewModel(private val repository: SocialRepository) : ViewModel() {
                 } else {
                     repository.likePost(post.id)
                 }
+                finishedChanges++
                 _uiState.update { state ->
                     state.copy(
                         posts = state.posts.map { if (it.id == post.id) updated else it },
@@ -160,6 +193,7 @@ class SocialViewModel(private val repository: SocialRepository) : ViewModel() {
         viewModelScope.launch {
             try {
                 repository.deletePost(id)
+                finishedChanges++
                 _uiState.update { state ->
                     state.copy(
                         posts = state.posts.filterNot { it.id == id },
