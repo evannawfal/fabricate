@@ -1,9 +1,9 @@
 import type { Response } from 'express';
 import { REQUIRED_CLOSET_CATEGORIES } from '../config/constants.js';
 import { getUserId, type AuthedRequest } from '../middleware/middleware.js';
-import { ClothingItem, type ClothingItemDocument, type ClothingItemResponse } from '../models/clothingItem.js';
+import { CLOTHING_CATEGORIES, ClothingItem, type ClothingItemDocument, type ClothingItemResponse } from '../models/clothingItem.js';
 import { toClothingItemResponsesWithImages } from '../services/clothingImages.js';
-import { Outfit, toOutfitResponse, type OutfitDocument, type OutfitResponse } from '../models/outfit.js';
+import { Outfit, OUTFIT_CATEGORY_LIMITS, toOutfitResponse, type OutfitDocument, type OutfitResponse } from '../models/outfit.js';
 import { getOutfitGenerator, type OutfitCandidate } from '../services/outfitGenerator.js';
 import { getWeatherService } from '../services/weather.js';
 import { isObjectId } from '../validation/common.js';
@@ -13,15 +13,46 @@ const INVALID_ID = { error: 'Invalid outfit id' };
 const NOT_FOUND = { error: 'Outfit not found' };
 const ITEMS_NOT_OWNED = { error: 'All items must be clothing items in your closet' };
 
-// Items must be in the user's closet. Archived items are only 
-// allowed if the outfit already had them.
-async function ownsAllItems(userId: string, itemIds: string[], existingItemIds: string[] = []): Promise<boolean> {
-  const count = await ClothingItem.countDocuments({
+interface ItemsProblem {
+  status: number;
+  error: string;
+}
+
+// Checks the items picked for a new or edited outfit. They must be in the user's closet (archived
+// items only if the outfit already had them), stay within each category's limit, and not be the
+// same set of items as another of the user's outfits, whatever its name.
+async function checkOutfitItems(
+  userId: string,
+  itemIds: string[],
+  existing?: OutfitDocument
+): Promise<ItemsProblem | null> {
+  const existingItemIds = existing?.items.map((itemId) => itemId.toString()) ?? [];
+  const items = await ClothingItem.find({
     _id: { $in: itemIds },
     owner: userId,
     $or: [{ isArchived: false }, { _id: { $in: existingItemIds } }],
-  });
-  return count === itemIds.length;
+  }).select('category');
+  if (items.length !== itemIds.length) {
+    return { status: 400, ...ITEMS_NOT_OWNED };
+  }
+
+  const overLimit = CLOTHING_CATEGORIES.find(
+    (category) => items.filter((item) => item.category === category).length > OUTFIT_CATEGORY_LIMITS[category].max
+  );
+  if (overLimit !== undefined) {
+    return { status: 400, error: `An outfit can have at most ${OUTFIT_CATEGORY_LIMITS[overLimit].phrase}` };
+  }
+
+  // Item ids are unique within an outfit, so the same size and containing them all means the same set.
+  const sameItems = await Outfit.findOne({
+    owner: userId,
+    items: { $size: itemIds.length, $all: itemIds },
+    ...(existing ? { _id: { $ne: existing._id } } : {}),
+  }).select('name');
+  if (sameItems) {
+    return { status: 409, error: `You already have an outfit with these items: "${sameItems.name}"` };
+  }
+  return null;
 }
 
 // One query for all the outfits' items rather than one per outfit. Archived items are loaded
@@ -58,8 +89,9 @@ export async function createOutfit(req: AuthedRequest, res: Response) {
     return res.status(400).json({ error: input.error });
   }
   const userId = getUserId(req);
-  if (!(await ownsAllItems(userId, input.value.items))) {
-    return res.status(400).json(ITEMS_NOT_OWNED);
+  const problem = await checkOutfitItems(userId, input.value.items);
+  if (problem) {
+    return res.status(problem.status).json({ error: problem.error });
   }
   const outfit = await Outfit.create({ owner: userId, ...input.value, source: 'manual' });
   res.status(201).json(await toSingleOutfitResponse(userId, outfit));
@@ -149,9 +181,11 @@ export async function updateOutfit(req: AuthedRequest, res: Response) {
   if (!existing) {
     return res.status(404).json(NOT_FOUND);
   }
-  const existingItemIds = existing.items.map((itemId) => itemId.toString());
-  if (update.value.items !== undefined && !(await ownsAllItems(userId, update.value.items, existingItemIds))) {
-    return res.status(400).json(ITEMS_NOT_OWNED);
+  if (update.value.items !== undefined) {
+    const problem = await checkOutfitItems(userId, update.value.items, existing);
+    if (problem) {
+      return res.status(problem.status).json({ error: problem.error });
+    }
   }
   const outfit = await Outfit.findOneAndUpdate(
     { _id: id, owner: userId },

@@ -6,10 +6,12 @@ import com.example.cpen321application.data.ClothingRepositoryException
 import com.example.cpen321application.data.LocationProvider
 import com.example.cpen321application.data.OutfitChanges
 import com.example.cpen321application.data.OutfitRepository
+import com.example.cpen321application.model.ClothingCategory
 import com.example.cpen321application.model.ClothingItem
 import com.example.cpen321application.model.GeneratedOutfit
 import com.example.cpen321application.model.Outfit
 import com.example.cpen321application.model.OutfitOccasion
+import com.example.cpen321application.model.outfitLimit
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,15 +19,36 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** An outfit being created (no [outfitId]) or edited. */
+/**
+ * An outfit being created (no [outfitId]) or edited. [originalItemIds] are the items the outfit
+ * had when editing started, which the editor lists first.
+ */
 data class OutfitDraft(
     val outfitId: String? = null,
     val name: String = "",
     val items: List<ClothingItem> = emptyList(),
+    val originalItemIds: Set<String> = emptySet(),
 ) {
-    val canSave: Boolean get() = name.isNotBlank() && items.isNotEmpty()
+    val canSave: Boolean get() = name.isNotBlank() && items.isNotEmpty() && overLimitCategory == null
+
+    /** A category with more items than an outfit can have, e.g. from an outfit saved in a room. */
+    val overLimitCategory: ClothingCategory?
+        get() = ClothingCategory.entries.firstOrNull { count(it) > it.outfitLimit }
 
     fun contains(item: ClothingItem): Boolean = items.any { it.id == item.id }
+
+    fun count(category: ClothingCategory): Int = items.count { it.category == category }
+
+    fun isFull(category: ClothingCategory): Boolean = count(category) >= category.outfitLimit
+
+    /** Whether tapping [item] would change the draft: it can always be removed, but only added below its limit. */
+    fun canToggle(item: ClothingItem): Boolean = contains(item) || !isFull(item.category)
+
+    /** Another of [outfits] with exactly this draft's items, which the back-end won't save twice. */
+    fun sameItemsAs(outfits: List<Outfit>): Outfit? {
+        val itemIds = items.map { it.id }.toSet()
+        return outfits.firstOrNull { outfit -> outfit.id != outfitId && outfit.items.map { it.id }.toSet() == itemIds }
+    }
 }
 
 data class OutfitGeneration(
@@ -48,6 +71,9 @@ data class OutfitsUiState(
     val deleteError: String? = null,
 ) {
     val isBusy: Boolean get() = isSaving || isDeleting
+
+    /** A saved outfit with the same items as the draft, so the draft can't be saved. */
+    val draftDuplicate: Outfit? get() = draft?.sameItemsAs(outfits)
 }
 
 class OutfitsViewModel(
@@ -78,7 +104,10 @@ class OutfitsViewModel(
     fun startCreating() = _uiState.update { it.copy(draft = OutfitDraft(), saveError = null) }
 
     fun startEditing(outfit: Outfit) =
-        _uiState.update { it.copy(draft = OutfitDraft(outfit.id, outfit.name, outfit.items), saveError = null) }
+        _uiState.update { state ->
+            val draft = OutfitDraft(outfit.id, outfit.name, outfit.items, outfit.items.map { it.id }.toSet())
+            state.copy(draft = draft, saveError = null)
+        }
 
     fun closeDraft() = _uiState.update { if (it.isBusy) it else it.copy(draft = null, saveError = null) }
 
@@ -87,7 +116,7 @@ class OutfitsViewModel(
     fun toggleItem(item: ClothingItem) = updateDraft { draft ->
         when {
             draft.contains(item) -> draft.copy(items = draft.items.filterNot { it.id == item.id })
-            draft.items.size < MAX_ITEMS -> draft.copy(items = draft.items + item)
+            draft.canToggle(item) -> draft.copy(items = draft.items + item)
             else -> draft
         }
     }
@@ -98,7 +127,7 @@ class OutfitsViewModel(
     fun saveDraft() {
         val state = _uiState.value
         val draft = state.draft ?: return
-        if (state.isBusy || !draft.canSave) return
+        if (state.isBusy || !draft.canSave || state.draftDuplicate != null) return
         // All outfits list clothing items in same order (E.g. tops, bottoms, shoes)
         val changes = OutfitChanges(draft.name.trim(), draft.items.sortedBy { it.category }.map { it.id })
         save { draft.outfitId?.let { repository.updateOutfit(it, changes) } ?: repository.createOutfit(changes) }
@@ -179,9 +208,9 @@ class OutfitsViewModel(
     fun dismissDeleteError() = _uiState.update { it.copy(deleteError = null) }
 
     private companion object {
-        // Limits from the back-end's outfit model.
+        // Limit from the back-end's outfit model. Its 20-item limit is never reached, since the
+        // per-category limits (ClothingCategory.outfitLimit) add up to fewer.
         const val NAME_MAX_LENGTH = 100
-        const val MAX_ITEMS = 20
 
         const val LOCATION_NEEDED =
             "Fabricate needs your approximate location to dress you for the weather. " +

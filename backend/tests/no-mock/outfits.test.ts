@@ -156,6 +156,88 @@ describe('Unmocked: POST /outfits', () => {
     expect(response.body).toEqual({ error: 'All items must be clothing items in your closet' });
   });
 
+  // Input: more items of one category than an outfit allows (3 tops, 2 bottoms, 2 pairs of shoes)
+  // Expected status code: 400
+  // Expected behavior: no outfit is saved
+  // Expected output: error naming the category's limit
+  test.each([
+    ['top', 3, 'An outfit can have at most 2 tops'],
+    ['bottom', 2, 'An outfit can have at most 1 bottom'],
+    ['shoes', 2, 'An outfit can have at most 1 pair of shoes'],
+  ] as const)('Too many items of category %s', async (category, count, expectedError) => {
+    const user = await createUser();
+    const items = await Promise.all(
+      Array.from({ length: count }, (_, i) => createClothingItem(user.id, { name: `Item ${i}`, category }))
+    );
+
+    const response = await request(app)
+      .post('/outfits')
+      .set('Authorization', authHeader(user.id))
+      .send({ name: 'Too much', items: items.map((item) => item.id) });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: expectedError });
+    expect(await Outfit.countDocuments()).toBe(0);
+  });
+
+  // Input: 2 tops (layering), 1 bottom, 1 pair of shoes and 1 outerwear piece
+  // Expected status code: 201
+  // Expected behavior: an outfit at every limit is saved
+  // Expected output: the outfit with all five items
+  test('Items at the category limits', async () => {
+    const { user, shirt, jeans, shoes } = await userWithCloset();
+    const tee = await createClothingItem(user.id, { name: 'Tee', category: 'top' });
+    const jacket = await createClothingItem(user.id, { name: 'Jacket', category: 'outerwear' });
+
+    const response = await request(app)
+      .post('/outfits')
+      .set('Authorization', authHeader(user.id))
+      .send({ name: 'Layers', items: [tee.id, shirt.id, jeans.id, shoes.id, jacket.id] });
+
+    expect(response.status).toBe(201);
+    expect(response.body.items).toHaveLength(5);
+  });
+
+  // Input: a new name with the same items as one of the user's outfits, in a different order
+  // Expected status code: 409
+  // Expected behavior: no second outfit is saved
+  // Expected output: error naming the outfit that already has these items
+  test('Same items as an existing outfit', async () => {
+    const { user, shirt, jeans } = await userWithCloset();
+    await createOutfit(user.id, [shirt.id, jeans.id], 'Weekend');
+
+    const response = await request(app)
+      .post('/outfits')
+      .set('Authorization', authHeader(user.id))
+      .send({ name: 'Another name', items: [jeans.id, shirt.id] });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: 'You already have an outfit with these items: "Weekend"' });
+    expect(await Outfit.countDocuments()).toBe(1);
+  });
+
+  // Input: some but not all of an existing outfit's items, and a superset of them
+  // Expected status code: 201
+  // Expected behavior: both outfits are saved, since their items differ from the existing one
+  // Expected output: the new outfits
+  test('Overlapping but different items', async () => {
+    const { user, shirt, jeans, shoes } = await userWithCloset();
+    await createOutfit(user.id, [shirt.id, jeans.id]);
+
+    const subset = await request(app)
+      .post('/outfits')
+      .set('Authorization', authHeader(user.id))
+      .send({ name: 'Just the shirt', items: [shirt.id] });
+    const superset = await request(app)
+      .post('/outfits')
+      .set('Authorization', authHeader(user.id))
+      .send({ name: 'With shoes', items: [shirt.id, jeans.id, shoes.id] });
+
+    expect(subset.status).toBe(201);
+    expect(superset.status).toBe(201);
+    expect(await Outfit.countDocuments({ owner: user.id })).toBe(3);
+  });
+
   // Input: no Authorization header
   // Expected status code: 401
   // Expected behavior: request is rejected
@@ -394,6 +476,66 @@ describe('Unmocked: PATCH /outfits/:id', () => {
     const saved = await Outfit.findById(outfit.id);
     expect(saved?.name).toBe('Weekend look');
     expect(saved?.items.map((id) => id.toString())).toEqual([shirt.id]);
+  });
+
+  // Input: item list with two bottoms
+  // Expected status code: 400
+  // Expected behavior: outfit is unchanged
+  // Expected output: { error: "An outfit can have at most 1 bottom" }
+  test('Too many items of one category', async () => {
+    const { user, shirt, jeans } = await userWithCloset();
+    const shorts = await createClothingItem(user.id, { name: 'Shorts', category: 'bottom' });
+    const outfit = await createOutfit(user.id, [shirt.id, jeans.id]);
+
+    const response = await request(app)
+      .patch(`/outfits/${outfit.id}`)
+      .set('Authorization', authHeader(user.id))
+      .send({ items: [shirt.id, jeans.id, shorts.id] });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'An outfit can have at most 1 bottom' });
+    const saved = await Outfit.findById(outfit.id);
+    expect(saved?.items.map((id) => id.toString())).toEqual([shirt.id, jeans.id]);
+  });
+
+  // Input: item list matching another of the user's outfits
+  // Expected status code: 409
+  // Expected behavior: outfit is unchanged
+  // Expected output: error naming the outfit that already has these items
+  test("Same items as the user's other outfit", async () => {
+    const { user, shirt, jeans, shoes } = await userWithCloset();
+    await createOutfit(user.id, [shirt.id, jeans.id], 'Weekend');
+    const outfit = await createOutfit(user.id, [shirt.id, shoes.id], 'Gym');
+
+    const response = await request(app)
+      .patch(`/outfits/${outfit.id}`)
+      .set('Authorization', authHeader(user.id))
+      .send({ items: [jeans.id, shirt.id] });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: 'You already have an outfit with these items: "Weekend"' });
+    const saved = await Outfit.findById(outfit.id);
+    expect(saved?.items.map((id) => id.toString())).toEqual([shirt.id, shoes.id]);
+  });
+
+  // Input: the outfit's own items in a new order, with a new name
+  // Expected status code: 200
+  // Expected behavior: an outfit doesn't count as a duplicate of itself, and another user's
+  // outfit with the same items doesn't count either
+  // Expected output: the updated outfit
+  test('Keeps its own items', async () => {
+    const { user, shirt, jeans } = await userWithCloset();
+    const outfit = await createOutfit(user.id, [shirt.id, jeans.id]);
+    const otherUser = await createUser();
+    await createOutfit(otherUser.id, [shirt.id, jeans.id], 'Copycat');
+
+    const response = await request(app)
+      .patch(`/outfits/${outfit.id}`)
+      .set('Authorization', authHeader(user.id))
+      .send({ name: 'Renamed', items: [jeans.id, shirt.id] });
+
+    expect(response.status).toBe(200);
+    expect(response.body.name).toBe('Renamed');
   });
 
   // Input: id of another user's outfit
