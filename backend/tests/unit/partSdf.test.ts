@@ -3,6 +3,8 @@ import { describe, expect, it } from "@jest/globals";
 import {
   getPartSDF,
   getPartBounds,
+  sdCapsule,
+  smoothMin,
 } from "../../src/avatar/partsSdf.js";
 import { BODY_PARTS } from "../../src/avatar/types.js";
 import type { AvatarParameters } from "../../src/avatar/types.js";
@@ -107,5 +109,21 @@ describe("getPartBounds", () => {
     expect(updated.maxX - updated.minX).toBeGreaterThan(
       original.maxX - original.minX
     );
+  });
+});
+
+describe("SDF helpers' edge cases", () => {
+  // Input: a capsule whose two ends are the same point
+  // Expected behavior: it acts as a sphere around that point instead of dividing by zero
+  // Expected output: the distance to the point minus the radius
+  it("treats a zero-length capsule as a sphere", () => {
+    expect(sdCapsule(3, 4, 0, [0, 0, 0], [0, 0, 0], 1)).toBeCloseTo(4);
+  });
+
+  // Input: a blend width of 0
+  // Expected behavior: no blending, so no division by zero
+  // Expected output: the smaller of the two distances
+  it("smoothMin with no blend is the plain minimum", () => {
+    expect(smoothMin(2, 5, 0)).toBe(2);
   });
 });
