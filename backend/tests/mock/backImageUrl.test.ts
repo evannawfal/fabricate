@@ -157,10 +157,13 @@ describe('Mocked: backImageUrl on outfit items', () => {
 
     const list = await request(app).get('/outfits').set('Authorization', authHeader(user.id));
     const single = await request(app).get(`/outfits/${outfit.id}`).set('Authorization', authHeader(user.id));
+    // Created by another user, since the same items can't be saved twice as one user's outfits.
+    const otherUser = await createUser();
+    const otherItems = await itemsFor(otherUser.id);
     const created = await request(app)
       .post('/outfits')
-      .set('Authorization', authHeader(user.id))
-      .send({ name: 'Look', items: [oldShirt.id, coat.id] });
+      .set('Authorization', authHeader(otherUser.id))
+      .send({ name: 'Look', items: [otherItems.oldShirt.id, otherItems.coat.id] });
     const updated = await request(app)
       .patch(`/outfits/${outfit.id}`)
       .set('Authorization', authHeader(user.id))
